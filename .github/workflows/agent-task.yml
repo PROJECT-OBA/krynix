@@ -1,0 +1,292 @@
+name: Agent Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "GitHub issue number to implement"
+        required: true
+        type: number
+      task_id:
+        description: "Task ID (e.g., TASK-001). If set, must match issue title prefix."
+        required: false
+        type: string
+        default: ""
+      dry_run:
+        description: "If true, build prompt and run checks but do not create a PR."
+        required: false
+        type: boolean
+        default: false
+
+# Least-privilege permissions
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
+
+concurrency:
+  group: agent-task-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  agent-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+      TASK_ID: ${{ github.event.inputs.task_id }}
+      DRY_RUN: ${{ github.event.inputs.dry_run }}
+      WORK_DIR: /tmp/agent-work
+      ISSUE_DIR: /tmp/agent-work/issue
+      LOGS_DIR: /tmp/agent-work/logs
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Checkout
+      # ------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ------------------------------------------------------------------
+      # 2. Setup tools
+      # ------------------------------------------------------------------
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Create work directories
+        run: mkdir -p "$ISSUE_DIR" "$LOGS_DIR"
+
+      # ------------------------------------------------------------------
+      # 3. Extract issue
+      # ------------------------------------------------------------------
+      - name: Make scripts executable
+        run: chmod +x scripts/agent/*.sh
+
+      - name: Extract issue content
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/agent/extract-issue.sh "$ISSUE_NUMBER" "$ISSUE_DIR"
+
+      # ------------------------------------------------------------------
+      # 4. Validate task_id matches issue title
+      # ------------------------------------------------------------------
+      - name: Validate task_id against issue title
+        run: |
+          ISSUE_TITLE=$(cat "$ISSUE_DIR/issue-title.txt")
+          echo "Issue title: $ISSUE_TITLE"
+
+          if [ -n "$TASK_ID" ]; then
+            # Check that the issue title starts with the task_id
+            TITLE_PREFIX=$(echo "$ISSUE_TITLE" | grep -oE '^TASK-[0-9]+[a-z]*' || true)
+            EXPECTED=$(echo "$TASK_ID" | tr '[:lower:]' '[:upper:]')
+
+            if [ -z "$TITLE_PREFIX" ]; then
+              echo "::error::Issue #$ISSUE_NUMBER title does not start with a TASK-XXX prefix."
+              echo "  Title: $ISSUE_TITLE"
+              echo "  Expected prefix: $EXPECTED"
+              exit 1
+            fi
+
+            TITLE_PREFIX_UPPER=$(echo "$TITLE_PREFIX" | tr '[:lower:]' '[:upper:]')
+            if [ "$TITLE_PREFIX_UPPER" != "$EXPECTED" ]; then
+              echo "::error::task_id mismatch: input='$TASK_ID' but issue title starts with '$TITLE_PREFIX'"
+              exit 1
+            fi
+            echo "task_id validated: $TASK_ID matches issue title prefix."
+          else
+            # Auto-detect task_id from title
+            TASK_ID=$(echo "$ISSUE_TITLE" | grep -oE '^TASK-[0-9]+[a-z]*' || echo "TASK-UNKNOWN")
+            echo "Auto-detected task_id: $TASK_ID"
+            echo "TASK_ID=$TASK_ID" >> "$GITHUB_ENV"
+          fi
+
+      # ------------------------------------------------------------------
+      # 5. Build agent prompt
+      # ------------------------------------------------------------------
+      - name: Build agent prompt
+        run: scripts/agent/build-prompt.sh "$ISSUE_DIR" "$WORK_DIR/prompt.txt"
+
+      # ------------------------------------------------------------------
+      # 6. Agent stub (placeholder)
+      # ------------------------------------------------------------------
+      - name: "Agent stub: echo prompt to artifact"
+        run: |
+          echo "::group::Agent stub"
+          echo "Agent execution is a stub in this version."
+          echo "The constructed prompt has been written to: $WORK_DIR/prompt.txt"
+          echo "Prompt size: $(wc -l < "$WORK_DIR/prompt.txt") lines, $(wc -c < "$WORK_DIR/prompt.txt") bytes"
+          echo ""
+          echo "--- Prompt preview (first 40 lines) ---"
+          head -40 "$WORK_DIR/prompt.txt"
+          echo "..."
+          echo "--- End preview ---"
+          echo ""
+          echo "In production, the agent would be invoked here and produce file changes."
+          echo "::endgroup::"
+
+      # ------------------------------------------------------------------
+      # 7. Install dependencies
+      # ------------------------------------------------------------------
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ------------------------------------------------------------------
+      # 8. Run checks
+      # ------------------------------------------------------------------
+      - name: Run verification checks
+        id: checks
+        run: |
+          RESULTS_FILE="$LOGS_DIR/check-results.txt"
+          ALL_PASSED=true
+
+          run_check() {
+            local name="$1"
+            local cmd="$2"
+            echo "::group::$name"
+            echo "Running: $cmd"
+            if eval "$cmd" > "$LOGS_DIR/${name}.log" 2>&1; then
+              echo "PASS: $name" | tee -a "$RESULTS_FILE"
+              RESULT="pass"
+            else
+              echo "FAIL: $name" | tee -a "$RESULTS_FILE"
+              echo "--- $name output ---" >> "$RESULTS_FILE"
+              tail -30 "$LOGS_DIR/${name}.log" >> "$RESULTS_FILE"
+              echo "---" >> "$RESULTS_FILE"
+              ALL_PASSED=false
+              RESULT="fail"
+            fi
+            echo "::endgroup::"
+          }
+
+          > "$RESULTS_FILE"
+          run_check "typecheck" "pnpm typecheck"
+          run_check "lint" "pnpm lint"
+          run_check "test" "pnpm test"
+          run_check "build" "pnpm build"
+
+          echo ""
+          echo "=== Check Summary ==="
+          cat "$RESULTS_FILE"
+          echo "===================="
+
+          if [ "$ALL_PASSED" = true ]; then
+            echo "checks_passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "checks_passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------------
+      # 9. Enforce allowed files (only if agent produced changes)
+      # ------------------------------------------------------------------
+      - name: Enforce allowed files
+        id: enforce
+        run: |
+          # Check if there are any changes to enforce
+          CHANGES=$(git status --porcelain | grep -v '^\?\?' | head -1 || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard | head -1 || true)
+          if [ -z "$CHANGES" ] && [ -z "$UNTRACKED" ]; then
+            echo "No file changes detected (agent stub produced no modifications)."
+            echo "enforce_passed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if scripts/agent/enforce-allowed-files.sh "$ISSUE_DIR/allowed-files.txt"; then
+            echo "enforce_passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enforce_passed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Allowed files enforcement failed. Agent modified files outside the allowed list."
+          fi
+
+      # ------------------------------------------------------------------
+      # 10. Create PR (if not dry_run and all checks pass)
+      # ------------------------------------------------------------------
+      - name: Create PR
+        if: >-
+          github.event.inputs.dry_run == 'false'
+          && steps.checks.outputs.checks_passed == 'true'
+          && steps.enforce.outputs.enforce_passed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if there are changes to commit
+          CHANGES=$(git status --porcelain | head -1 || true)
+          UNTRACKED=$(git ls-files --others --exclude-standard | head -1 || true)
+          if [ -z "$CHANGES" ] && [ -z "$UNTRACKED" ]; then
+            echo "No changes to commit. Agent stub did not modify files."
+            echo "Skipping PR creation."
+            exit 0
+          fi
+
+          scripts/agent/create-pr.sh "$ISSUE_NUMBER" "$TASK_ID" "$ISSUE_DIR" "$LOGS_DIR"
+
+      # ------------------------------------------------------------------
+      # 11. Upload artifacts (always — prompt, logs, check results)
+      # ------------------------------------------------------------------
+      - name: Upload prompt artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-prompt-${{ github.event.inputs.issue_number }}
+          path: /tmp/agent-work/prompt.txt
+          retention-days: 30
+
+      - name: Upload logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-logs-${{ github.event.inputs.issue_number }}
+          path: /tmp/agent-work/logs/
+          retention-days: 30
+
+      - name: Upload issue extraction artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-issue-${{ github.event.inputs.issue_number }}
+          path: /tmp/agent-work/issue/
+          retention-days: 30
+
+      # ------------------------------------------------------------------
+      # 12. Summary
+      # ------------------------------------------------------------------
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Agent Task Results"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Issue | #$ISSUE_NUMBER |"
+            echo "| Task ID | $TASK_ID |"
+            echo "| Dry Run | $DRY_RUN |"
+            echo "| Checks Passed | ${{ steps.checks.outputs.checks_passed }} |"
+            echo "| Allowed Files OK | ${{ steps.enforce.outputs.enforce_passed }} |"
+            echo ""
+            if [ -f "$LOGS_DIR/check-results.txt" ]; then
+              echo "### Check Results"
+              echo ""
+              echo '```'
+              cat "$LOGS_DIR/check-results.txt"
+              echo '```'
+            fi
+            echo ""
+            echo "### Prompt Stats"
+            if [ -f "$WORK_DIR/prompt.txt" ]; then
+              echo "- Lines: $(wc -l < "$WORK_DIR/prompt.txt" | tr -d ' ')"
+              echo "- Bytes: $(wc -c < "$WORK_DIR/prompt.txt" | tr -d ' ')"
+            else
+              echo "- Prompt file not found"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
