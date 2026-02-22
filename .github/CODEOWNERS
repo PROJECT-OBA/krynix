@@ -1,0 +1,39 @@
+# CODEOWNERS — Recommended reviewers for Krynix
+#
+# NOTE: These are recommendations only. Branch protection rules with
+# required CODEOWNERS reviews are NOT yet enabled. Enable them when
+# the team is ready for mandatory review gates.
+#
+# GitHub docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: require review from maintainers for everything
+*                                   @krynix/maintainers
+
+# Core package: trace types, hash chain, canonical JSON, redaction
+packages/core/                      @krynix/maintainers
+
+# Policy package: parser, matcher, evaluator
+packages/policy/                    @krynix/maintainers
+
+# Replay package: golden validator, replay verifier
+packages/replay/                    @krynix/maintainers
+
+# CLI package
+packages/cli/                       @krynix/maintainers
+
+# Specifications and schemas (security-sensitive)
+docs/10_architecture/trace_spec.md  @krynix/maintainers
+docs/10_architecture/policy_spec.md @krynix/maintainers
+docs/10_architecture/threat_model.md @krynix/maintainers
+spec/                               @krynix/maintainers
+
+# CI and agent infrastructure
+.github/                            @krynix/maintainers
+scripts/agent/                      @krynix/maintainers
+
+# Policy files (if/when policies are committed to repo)
+policies/                           @krynix/maintainers
+
+# Agent configuration
+.agents/                            @krynix/maintainers
+CLAUDE.md                           @krynix/maintainers
