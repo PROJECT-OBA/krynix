@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://krynix.dev/schemas/trace.schema.json",
+  "title": "TraceEvent",
+  "description": "A single TraceEvent in the Krynix ARTL trace format. Discriminated union on event_type.",
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "tool_call" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "tool_name": { "type": "string" },
+            "arguments": { "type": "object" },
+            "approval_status": {
+              "type": "string",
+              "enum": ["auto", "manual", "denied"]
+            }
+          },
+          "required": ["tool_name", "arguments"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "tool_result" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "tool_name": { "type": "string" },
+            "output": {},
+            "exit_code": { "type": "integer" },
+            "duration_ms": { "type": "number" }
+          },
+          "required": ["tool_name", "output", "duration_ms"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "llm_request" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "messages": { "type": "array" },
+            "parameters": { "type": "object" }
+          },
+          "required": ["model", "messages", "parameters"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "llm_response" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "content": { "type": "string" },
+            "usage": {
+              "type": "object",
+              "properties": {
+                "prompt_tokens": { "type": "integer" },
+                "completion_tokens": { "type": "integer" }
+              },
+              "required": ["prompt_tokens", "completion_tokens"],
+              "additionalProperties": false
+            },
+            "finish_reason": {
+              "type": "string",
+              "enum": ["stop", "max_tokens", "tool_use"]
+            }
+          },
+          "required": ["model", "content", "usage", "finish_reason"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "decision" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string" },
+            "reasoning": { "type": "string" },
+            "confidence": { "type": "number" }
+          },
+          "required": ["action", "reasoning"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "observation" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string" },
+            "content": {}
+          },
+          "required": ["source", "content"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "error" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "recoverable": { "type": "boolean" }
+          },
+          "required": ["code", "message", "recoverable"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "event_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "sequence_num": { "type": "integer", "minimum": 0 },
+        "timestamp": { "type": "string" },
+        "event_type": { "const": "lifecycle" },
+        "parent_id": { "type": ["string", "null"] },
+        "agent_id": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["session_start", "session_end", "checkpoint"]
+            },
+            "context": { "type": "object" }
+          },
+          "required": ["action"],
+          "additionalProperties": false
+        },
+        "redacted": { "type": "boolean" },
+        "prev_hash": { "type": "string" },
+        "event_hash": { "type": "string" },
+        "metadata": { "type": ["object", "null"] },
+        "schema_version": { "type": "string" }
+      },
+      "required": [
+        "event_id", "session_id", "sequence_num", "timestamp",
+        "event_type", "parent_id", "agent_id", "payload",
+        "redacted", "prev_hash", "event_hash", "metadata", "schema_version"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
