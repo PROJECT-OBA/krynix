@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@krynix/core": "workspace:*",
     "@krynix/policy": "workspace:*",
     "@krynix/replay": "workspace:*"
   }
