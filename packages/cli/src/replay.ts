@@ -7,14 +7,17 @@
  * @module
  */
 
-import { verifyTrace, verifyGoldenDir, regenerateTrace } from "@krynix/replay";
+import { verifyTrace, verifyGoldenDir, regenerateTrace, regenerateGoldenDir } from "@krynix/replay";
 import type { ReplayResult } from "@krynix/replay";
+import { getArg, hasFlag } from "./arg-parser.js";
+import { formatReplayResults } from "./format-replay.js";
 
 /** Result from the replay command. */
 export interface ReplayCommandResult {
   exitCode: number;
   results: ReplayResult[];
   error: string | null;
+  verboseLines?: string[];
 }
 
 /**
@@ -28,9 +31,9 @@ export interface ReplayCommandResult {
 export async function runReplay(args: string[]): Promise<ReplayCommandResult> {
   const tracePath = getArg(args, "--trace");
   const goldenDir = getArg(args, "--golden-dir");
-  const hasVerify = args.includes("--verify");
-  const hasRegenerate = args.includes("--regenerate");
-  const hasVerbose = args.includes("--verbose");
+  const hasVerify = hasFlag(args, "--verify");
+  const hasRegenerate = hasFlag(args, "--regenerate");
+  const verbose = hasFlag(args, "--verbose");
 
   // Validate: need at least one target
   if (tracePath === undefined && goldenDir === undefined) {
@@ -57,7 +60,7 @@ export async function runReplay(args: string[]): Promise<ReplayCommandResult> {
     if (mode === "regenerate") {
       return await handleRegenerate(tracePath, goldenDir);
     }
-    return await handleVerify(tracePath, goldenDir, hasVerbose);
+    return await handleVerify(tracePath, goldenDir, verbose);
   } catch (err) {
     return {
       exitCode: 1,
@@ -74,7 +77,7 @@ export async function runReplay(args: string[]): Promise<ReplayCommandResult> {
 async function handleVerify(
   tracePath: string | undefined,
   goldenDir: string | undefined,
-  _verbose: boolean,
+  verbose: boolean,
 ): Promise<ReplayCommandResult> {
   const results: ReplayResult[] = [];
 
@@ -89,11 +92,17 @@ async function handleVerify(
 
   const hasFailure = results.some((r) => r.status !== "pass");
 
-  return {
+  const output: ReplayCommandResult = {
     exitCode: hasFailure ? 1 : 0,
     results,
     error: null,
   };
+
+  if (verbose) {
+    output.verboseLines = formatReplayResults(results);
+  }
+
+  return output;
 }
 
 async function handleRegenerate(
@@ -116,14 +125,8 @@ async function handleRegenerate(
   }
 
   if (goldenDir !== undefined) {
-    // For regeneration of a directory, we'd need to list files — but for now
-    // this is handled by the --trace flag for individual files.
-    return {
-      exitCode: 1,
-      results,
-      error:
-        "--regenerate with --golden-dir is not yet supported; use --trace for individual files",
-    };
+    const dirResults = await regenerateGoldenDir(goldenDir);
+    results.push(...dirResults);
   }
 
   const hasFailure = results.some((r) => r.status !== "pass");
@@ -133,14 +136,4 @@ async function handleRegenerate(
     results,
     error: null,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getArg(args: string[], flag: string): string | undefined {
-  const idx = args.indexOf(flag);
-  if (idx === -1 || idx + 1 >= args.length) return undefined;
-  return args[idx + 1];
 }

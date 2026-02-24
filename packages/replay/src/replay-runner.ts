@@ -221,6 +221,50 @@ export async function verifyGoldenDir(
 }
 
 /**
+ * Regenerate all golden trace files in a directory.
+ *
+ * Scans for `*.trace.jsonl` files and runs `regenerateTrace` on each.
+ * Non-trace files are ignored. Errors on individual files are captured
+ * in the result array without aborting processing of remaining files.
+ *
+ * @param dir - Directory containing golden trace files
+ * @returns Array of results, one per trace file
+ */
+export async function regenerateGoldenDir(dir: string): Promise<ReplayResult[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch (err) {
+    return [
+      {
+        file: dir,
+        status: "error",
+        validationErrors: [`Failed to read directory: ${String(err)}`],
+      },
+    ];
+  }
+
+  const traceFiles = entries.filter((f) => f.endsWith(".trace.jsonl")).sort();
+
+  const results: ReplayResult[] = [];
+  for (const file of traceFiles) {
+    const filePath = join(dir, file);
+    try {
+      await regenerateTrace(filePath);
+      results.push({ file: filePath, status: "pass" });
+    } catch (err) {
+      results.push({
+        file: filePath,
+        status: "error",
+        validationErrors: [String(err)],
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
  * Regenerate a trace file by stripping hashes and recomputing them.
  *
  * This is useful when the hash algorithm or canonical JSON format changes.

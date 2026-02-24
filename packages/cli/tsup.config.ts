@@ -1,9 +1,25 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "tsup";
 
-export default defineConfig({
-  entry: ["src/index.ts"],
-  format: ["esm", "cjs"],
-  dts: { compilerOptions: { composite: false } },
-  clean: true,
-  sourcemap: true,
-});
+const pkg = JSON.parse(readFileSync("./package.json", "utf-8")) as { version: string };
+
+export default defineConfig([
+  // Library entry (dual ESM + CJS)
+  {
+    entry: ["src/index.ts"],
+    format: ["esm", "cjs"],
+    dts: { compilerOptions: { composite: false } },
+    clean: true,
+    sourcemap: true,
+  },
+  // Binary entry (ESM only, with shebang)
+  {
+    entry: ["src/main.ts"],
+    format: ["esm"],
+    banner: { js: "#!/usr/bin/env node" },
+    sourcemap: true,
+    define: {
+      __CLI_VERSION__: JSON.stringify(pkg.version),
+    },
+  },
+]);
