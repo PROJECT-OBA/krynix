@@ -230,3 +230,37 @@ export async function endSession(
   internal.closed = true;
   sessions.delete(session.sessionId);
 }
+
+/**
+ * Forcibly remove a session from the registry without writing lifecycle events.
+ *
+ * Used for error recovery and cleanup of abandoned sessions.
+ * Closes the `TraceWriter` file handle to avoid fd leaks.
+ * Idempotent — no-op if the session is not found or already closed.
+ *
+ * @param session - Session handle from `startSession`
+ */
+export async function destroySession(session: Session): Promise<void> {
+  const internal = sessions.get(session.sessionId);
+  if (!internal || internal.closed) {
+    return;
+  }
+
+  internal.closed = true;
+  sessions.delete(session.sessionId);
+
+  try {
+    await internal.writer.close();
+  } catch {
+    // Best-effort close — swallow errors from already-closed handles.
+  }
+}
+
+/**
+ * Return the number of active (non-closed) sessions.
+ *
+ * Diagnostic utility for detecting session leaks.
+ */
+export function getActiveSessions(): number {
+  return sessions.size;
+}

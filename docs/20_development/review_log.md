@@ -219,3 +219,198 @@ As noted above, `--verbose` has no effect during `--regenerate`. Could emit "Reg
 
 **Total new tests this sprint (including review):** 86 (263 → 347 + 2 existing modified)
 **Total test suite:** 347 tests across 31 test files
+
+---
+
+## Sprint 4 Review (2026-02-24)
+
+**Scope:** All 7 Sprint 4 tasks (TASK-041 through TASK-047) covering trace analytics (`computeTraceStats`), session cleanup (`destroySession`/`getActiveSessions`), custom redaction patterns (`redactWithPatterns`), CLI `stats` command, CLI `policy test` command, integration tests, and CI updates.
+
+**Pre-review state:** 409 tests passing across 36 test files, all checks clean.
+**Post-review state:** 432 tests passing across 37 test files, all checks clean. 1 bug fixed.
+
+### Files Reviewed
+
+| File | Type | Task |
+|---|---|---|
+| `packages/core/src/trace-stats.ts` | New | TASK-041 |
+| `packages/core/src/trace-stats.test.ts` | New | TASK-041 |
+| `packages/core/src/session.ts` | Modified | TASK-042 |
+| `packages/core/src/session.test.ts` | Modified | TASK-042 |
+| `packages/core/src/redaction.ts` | Modified | TASK-043 |
+| `packages/core/src/redaction.test.ts` | Modified | TASK-043 |
+| `packages/core/src/index.ts` | Modified | TASK-041, 042, 043 |
+| `packages/cli/src/stats.ts` | New | TASK-044 |
+| `packages/cli/src/stats.test.ts` | New | TASK-044 |
+| `packages/cli/src/policy-test.ts` | New | TASK-045 |
+| `packages/cli/src/policy-test.test.ts` | New | TASK-045 |
+| `packages/cli/src/router.ts` | Modified | TASK-044, 045 |
+| `packages/cli/src/router.test.ts` | Modified | TASK-044, 045 |
+| `packages/cli/src/help.ts` | Modified | TASK-047 |
+| `packages/cli/src/help.test.ts` | Modified | TASK-047 |
+| `packages/cli/src/index.ts` | Modified | TASK-044, 045 |
+| `test/integration/stats-pipeline.test.ts` | New | TASK-046 |
+| `test/integration/redaction-custom.test.ts` | New | TASK-046 |
+| `test/integration/cli-commands.test.ts` | Modified | TASK-046 |
+| `.github/workflows/ci.yml` | Modified | TASK-047 |
+
+### Fixed
+
+#### BUG-12: Router policy namespace misidentified flag values as subcommand
+
+- **Severity:** Medium
+- **Files:** `packages/cli/src/router.ts:102-133`
+- **Problem:** The policy namespace routing used `rest.find((t) => !t.startsWith("--"))` to identify the subcommand (e.g., `"test"`). This treated any non-flag token as a subcommand candidate, including flag **values** — file paths, verdict strings, etc. For example, `krynix policy --trace /tmp/trace.jsonl test --policy policy.yaml` would identify `/tmp/trace.jsonl` as the subcommand (not `"test"`), because it's the first token not starting with `--`. This caused the command to fail with "Unknown policy subcommand: /tmp/trace.jsonl".
+- **Root cause:** `rest.find()` has no concept of flag-value pairs. It cannot distinguish between `--trace <value>` (where the value is a flag argument) and a bare positional token (the subcommand name).
+- **Fix:** Introduced `findSubcommandToken()` helper that iterates through the argument list, skipping both `--`-prefixed flags and their immediately following values. The first token that is neither a flag nor a flag value is the subcommand. Also replaced `rest.indexOf("test")` (which could match a flag value containing "test") with the index returned by `findSubcommandToken()` for safe removal.
+- **Tests added:** `test/integration/sprint4-edge-cases.test.ts` — "flags before 'test' subcommand are passed through correctly" verifies `routeCommand(["policy", "--trace", tracePath, "test", "--policy", policyPath])` routes correctly.
+
+### Edge Cases Verified (No Fix Needed)
+
+#### EC-8: `computeTraceStats` — negative duration from clock skew
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Observation:** If `session_end` has an earlier timestamp than `session_start` (clock skew or corrupted data), `duration_ms` will be negative. The function does not clamp to zero. This is correct: negative duration is a signal of data quality issues, and clamping would hide the problem. Consumers can check for negative values if needed.
+- **Tests added:** Verified `duration_ms` is computed as a number regardless of sign.
+
+#### EC-9: `computeTraceStats` — checkpoint lifecycle events
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Observation:** Lifecycle events with `action: "checkpoint"` (or any action other than `session_start`/`session_end`) do not affect `duration_ms` computation. Only `session_start` and `session_end` are used. This is correct by design: the `computeTraceStats` function checks `payload.action === "session_start"` and `payload.action === "session_end"` explicitly.
+- **Tests added:** Trace with start, checkpoint (t=30s), and end (t=10s) yields `duration_ms = 10000`, not `30000`.
+
+#### EC-10: `computeTraceStats` — multiple `session_end` events
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Observation:** When a trace has multiple `session_end` lifecycle events, the function uses the **last** one for duration computation. This is because `endTimestamp` is overwritten on each `session_end` encounter. This is correct behavior: the last `session_end` represents the true end of the session (earlier ones could be from aborted shutdown attempts).
+- **Tests added:** Trace with start (t=0) and two `session_end` events (t=5s, t=10s) yields `duration_ms = 10000`.
+
+#### EC-11: `computeTraceStats` — unknown event types
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Observation:** Unknown event types (not in the standard 8 types) are dynamically counted in `event_type_counts` via `(eventTypeCounts[event.event_type] ?? 0) + 1`. The record is initialized with all 8 standard types at 0, and additional types appear as keys when encountered. This handles future extensibility cleanly.
+- **Tests added:** Event with `event_type: "custom_type"` is counted correctly; standard types remain at 0.
+
+#### EC-12: `computeTraceStats` — zero-token LLM response
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Observation:** An `llm_response` event with `{prompt_tokens: 0, completion_tokens: 0}` sets `total_token_usage` to `0` (not `null`). This is correct: `null` means "no LLM responses in trace", while `0` means "LLM responses existed but used zero tokens". The `hasLlmResponse` flag correctly distinguishes these cases.
+- **Tests added:** Verified `total_token_usage === 0` (not null) for zero-token response.
+
+#### EC-13: `destroySession` then reuse same seed
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/session.ts`
+- **Observation:** After `destroySession(session1)`, starting a new session with the same `replaySeed` works correctly. The first session is removed from the `sessions` Map by `destroySession`, so the new session gets a clean entry. Both sessions have the same deterministic `sessionId` (derived from seed), which is expected.
+- **Tests added:** Verified destroy-then-reuse-seed round-trip works.
+
+#### EC-14: `destroySession` and `endSession` race condition
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/session.ts`
+- **Observation:** If `destroySession` runs first, it sets `internal.closed = true` and removes the session from the Map. A subsequent `endSession` call correctly throws `SESSION_CLOSED` because it checks `internal.closed` before proceeding. No silent corruption or state leaks.
+- **Tests added:** Verified destroy-then-end throws; `getActiveSessions()` returns 0.
+
+#### EC-15: `redactWithPatterns` — overlapping custom and built-in patterns
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/redaction.ts`
+- **Observation:** When a custom pattern matches the same field name as a built-in pattern (e.g., both match `api_key`), the value is only redacted once. The built-in pattern fires first via `SENSITIVE_PATTERN.test(fieldName)` and returns `redactValue(value)` immediately. The custom pattern never fires for that field because of the early return. No double-redaction (e.g., `[REDACTED:[REDACTED:...]]`) can occur.
+- **Tests added:** Verified single redaction with overlapping patterns.
+
+#### EC-16: `redactWithPatterns` — already-redacted flag preserved
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/redaction.ts`
+- **Observation:** If an event already has `redacted: true` and `redactWithPatterns` finds no new matches, the `redacted` flag remains `true`. The function uses `wasRedacted || event.redacted` to compute the final flag, preserving prior redaction state.
+- **Tests added:** Verified flag preserved when no new matches.
+
+#### EC-17: `redactWithPatterns` — empty string pattern
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/redaction.ts`
+- **Observation:** A custom pattern with `pattern: ""` (empty string) compiles to regex `/(?:)/i`, which matches all strings. This means every field name matches, and all string values in the payload are redacted. While this is likely unintentional from a user perspective, it's valid regex behavior and the function correctly handles it without crashing.
+- **Tests added:** Verified empty pattern redacts all string values.
+
+#### EC-18: `redactWithPatterns` — deeply nested objects (3+ levels)
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/redaction.ts`
+- **Observation:** The `scanObject` and `scanArray` functions recurse through nested objects without depth limits. A 3+ level nested structure (`arguments.level1.level2.level3.ssn`) is correctly redacted when the field name matches. No stack overflow was observed for reasonable depths.
+- **Tests added:** Verified 3-level nested redaction works.
+
+#### EC-19: Router `--help` priority in policy namespace
+
+- **Severity:** Informational
+- **Files:** `packages/cli/src/router.ts`
+- **Observation:** `routeCommand(["policy", "--help", "test"])` shows policy help, not the test subcommand — `--help` takes priority. Similarly, `routeCommand(["policy", "test", "--help"])` shows policy test help. Both behaviors are correct: the namespace-level `--help` check runs before subcommand extraction, and the subcommand-level `--help` check runs after removal of the "test" token.
+- **Tests added:** Both `--help` positions verified.
+
+#### EC-20: CLI `stats` on empty trace file
+
+- **Severity:** Informational
+- **Files:** `packages/cli/src/stats.ts`, `packages/core/src/trace-reader.ts`
+- **Observation:** An empty trace file (`""`) is parsed by `readTrace` as zero events (newline split → filter empty → zero entries). `computeTraceStats([])` returns zeroed stats. `runStats` exits 0 with `event_count: 0`. No crash.
+- **Tests added:** Verified empty trace returns exit 0 with zero counts.
+
+#### EC-21: CLI `policy test` with empty trace
+
+- **Severity:** Informational
+- **Files:** `packages/cli/src/policy-test.ts`
+- **Observation:** An empty trace (zero events) against an allow-all policy returns `verdict: "pass"` with zero violations. This is correct: no events means no violations. The policy evaluator handles empty traces gracefully.
+- **Tests added:** Verified empty trace yields pass verdict.
+
+#### EC-22: CLI `policy test` — case-sensitive verdict comparison
+
+- **Severity:** Informational
+- **Files:** `packages/cli/src/policy-test.ts`
+- **Observation:** `--expect-verdict PASS` (uppercase) is rejected with "Invalid --expect-verdict". Valid values are lowercase: `"pass"`, `"fail"`, `"require-approval"`. This is correct: the YAML spec and policy evaluator use lowercase, so the CLI should enforce the same.
+- **Tests added:** Verified uppercase "PASS" is rejected.
+
+### Known Limitations
+
+#### `computeTraceStats` — no defensive check for malformed `llm_response.usage`
+
+- **Severity:** Low
+- **Files:** `packages/core/src/trace-stats.ts`
+- **Problem:** The function accesses `payload.usage.prompt_tokens + payload.usage.completion_tokens` without checking if `usage` exists. If an `llm_response` event has a malformed payload (missing `usage` field), the function will throw `TypeError: Cannot read properties of undefined`. This cannot happen with events produced by the session manager (which validates payloads via the type system), but could occur if `computeTraceStats` is called on manually constructed or third-party trace data.
+- **Rationale for deferral:** The function operates on `TraceEvent[]` which guarantees the payload shape via TypeScript types. Runtime validation of trace file contents happens in `readTrace` (parse errors are caught). Adding defensive checks for malformed payloads would add complexity for a scenario that's already prevented by the type system.
+
+#### `redactWithPatterns` — no ReDoS protection
+
+- **Severity:** Low
+- **Files:** `packages/core/src/redaction.ts`
+- **Problem:** Custom redaction patterns are compiled as user-supplied regex strings. Pathological patterns (e.g., `(a+)+$`) could cause ReDoS on certain field names. No timeout or complexity limit is applied.
+- **Rationale for deferral:** Custom patterns are configured by the operator, not end-users or untrusted input. The risk is self-inflicted performance degradation, not a security vulnerability. A future improvement could add regex complexity bounds or a compilation timeout.
+
+#### BUG-1 (Sprint 2): Session Manager memory leak — RESOLVED
+
+The `destroySession()` function (TASK-042) now provides the cleanup mechanism identified as missing in Sprint 2. Callers can forcibly remove abandoned sessions from the registry. Combined with `getActiveSessions()` for leak detection, this resolves BUG-1 for both CLI and server contexts.
+
+#### BUG-2 (Sprint 2): Dual session_start events — still deferred
+
+No change from Sprint 3 review. By design for adapter separation.
+
+### Test Coverage Summary
+
+| Test File | Tests Added |
+|---|---|
+| `packages/core/src/trace-stats.test.ts` | 10 |
+| `packages/core/src/session.test.ts` | +8 (destroySession, getActiveSessions) |
+| `packages/core/src/redaction.test.ts` | +10 (redactWithPatterns) |
+| `packages/cli/src/stats.test.ts` | 6 |
+| `packages/cli/src/policy-test.test.ts` | 10 |
+| `packages/cli/src/router.test.ts` | +5 (stats, policy namespace) |
+| `packages/cli/src/help.test.ts` | +3 (stats, policy test help) |
+| `test/integration/stats-pipeline.test.ts` | 5 |
+| `test/integration/redaction-custom.test.ts` | 2 |
+| `test/integration/cli-commands.test.ts` | +3 (stats, policy test) |
+| `test/integration/sprint4-edge-cases.test.ts` | 23 |
+
+**Total new tests this sprint (including review):** 85 (347 → 432)
+**Total test suite:** 432 tests across 37 test files

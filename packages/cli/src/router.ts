@@ -13,6 +13,26 @@ import { getVersion, getMainHelp, getCommandHelp } from "./help.js";
 import { runEvaluate } from "./evaluate.js";
 import { runReplay } from "./replay.js";
 import { runValidate } from "./validate.js";
+import { runStats } from "./stats.js";
+import { runPolicyTest } from "./policy-test.js";
+
+/**
+ * Find the first positional token in an argument list, skipping
+ * flag-value pairs (tokens immediately following a `--`-prefixed flag).
+ *
+ * Returns the token and its index, or `undefined` if no positional exists.
+ */
+function findSubcommandToken(args: string[]): { token: string; index: number } | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const token = args[i];
+    if (token === undefined) continue;
+    if (token.startsWith("--")) continue;
+    // Skip tokens that are values of a preceding flag
+    if (i > 0 && args[i - 1]?.startsWith("--")) continue;
+    return { token, index: i };
+  }
+  return undefined;
+}
 
 /** Structured output from the command router. */
 export interface CommandOutput {
@@ -88,6 +108,44 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
           : JSON.stringify(result.results, null, 2);
       const stderr = result.error ?? "";
       return { exitCode: result.exitCode, stdout, stderr };
+    }
+
+    case "stats": {
+      const result = await runStats(rest);
+      const stdout = result.stats !== null ? JSON.stringify(result.stats, null, 2) : "";
+      const stderr = result.error ?? "";
+      return { exitCode: result.exitCode, stdout, stderr };
+    }
+
+    case "policy": {
+      // Namespace command: "policy test", "policy --help", etc.
+      const sub = findSubcommandToken(rest);
+
+      if (hasFlag(rest, "--help") || sub === undefined) {
+        const help = getCommandHelp("policy");
+        return { exitCode: 0, stdout: help ?? "", stderr: "" };
+      }
+
+      if (sub.token === "test") {
+        // Remove the "test" subcommand token from rest before passing to handler
+        const policyTestArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(policyTestArgs, "--help")) {
+          const help = getCommandHelp("policy test");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runPolicyTest(policyTestArgs);
+        const stdout = result.result !== null ? JSON.stringify(result.result, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: `Unknown policy subcommand: ${sub.token}\n\n${getCommandHelp("policy") ?? ""}`,
+      };
     }
 
     default: {

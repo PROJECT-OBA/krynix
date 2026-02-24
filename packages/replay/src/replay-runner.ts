@@ -131,7 +131,7 @@ export async function verifyTrace(
   }
 
   // Hash determinism check: strip hashes, recompute, compare
-  const stripped = events.map((e) => ({
+  const stripped = events.map((e: TraceEvent) => ({
     ...e,
     prev_hash: "",
     event_hash: "",
@@ -276,7 +276,7 @@ export async function regenerateTrace(tracePath: string): Promise<void> {
   const events = await readTrace(tracePath);
 
   // Strip existing hashes — TraceWriter.write() recomputes them
-  const stripped = events.map((e) => ({
+  const stripped = events.map((e: TraceEvent) => ({
     ...e,
     prev_hash: "",
     event_hash: "",

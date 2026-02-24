@@ -12,6 +12,8 @@ import {
   runEvaluate,
   runReplay,
   runValidate,
+  runStats,
+  runPolicyTest,
 } from "../../packages/cli/src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -85,5 +87,41 @@ describe("CLI integration", () => {
     // Actually the openclaw-default denies shell_exec. The minimal trace has file_read which
     // is unmatched → allowed. So exit 0.
     expect(result.exitCode).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sprint 4 CLI commands: stats and policy test
+  // -------------------------------------------------------------------------
+
+  test("stats on golden minimal trace → exit 0, expected counts", async () => {
+    const result = await runStats(["--trace", MINIMAL_TRACE]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stats).not.toBeNull();
+    expect(result.stats!.event_count).toBe(3);
+    expect(result.stats!.duration_ms).toBe(2000);
+    expect(result.stats!.tool_call_count).toBe(1);
+  });
+
+  test("stats on golden openclaw trace → exit 0, token usage present", async () => {
+    const result = await runStats(["--trace", OPENCLAW_TRACE]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stats).not.toBeNull();
+    expect(result.stats!.event_count).toBe(10);
+    expect(result.stats!.total_token_usage).toBe(15);
+    expect(result.stats!.llm_request_count).toBe(1);
+  });
+
+  test("policy test openclaw policy + trace → expected verdict", async () => {
+    const result = await runPolicyTest([
+      "--policy", DEFAULT_POLICY,
+      "--trace", OPENCLAW_TRACE,
+    ]);
+
+    expect(result.exitCode).toBe(0); // reporting mode
+    expect(result.result).not.toBeNull();
+    expect(result.result!.verdict).toBe("fail"); // shell_exec is denied
+    expect(result.result!.violations.length).toBeGreaterThan(0);
   });
 });

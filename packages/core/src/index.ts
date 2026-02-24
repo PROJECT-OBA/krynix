@@ -33,7 +33,7 @@ export { KrynixError } from "./errors.js";
 
 export { canonicalize } from "./canonical-json.js";
 
-export { redact } from "./redaction.js";
+export { redact, redactWithPatterns, type RedactionPattern } from "./redaction.js";
 
 export { readTrace } from "./trace-reader.js";
 
@@ -51,7 +51,11 @@ export {
   startSession,
   recordEvent,
   endSession,
+  destroySession,
+  getActiveSessions,
   type SessionConfig,
   type Session,
   type PartialTraceEvent,
 } from "./session.js";
+
+export { computeTraceStats, type TraceStats } from "./trace-stats.js";

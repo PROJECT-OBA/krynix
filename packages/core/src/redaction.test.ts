@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { createHash } from "node:crypto";
-import { redact } from "./redaction.js";
+import { redact, redactWithPatterns } from "./redaction.js";
 import { makeToolCall } from "./test-helpers.js";
 import type { TraceEvent, ToolCallPayload } from "./types.js";
 
@@ -154,5 +154,137 @@ describe("redact", () => {
 
     const args = toolPayload(result).arguments as Record<string, unknown>;
     expect(args["login_credential"]).toBe(expectedToken("cred-value"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// redactWithPatterns (Sprint 4 — TASK-043)
+// ---------------------------------------------------------------------------
+
+describe("redactWithPatterns", () => {
+  test("custom pattern matches field and redacts value", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { ssn: "123-45-6789", name: "Alice" },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["ssn"]).toBe(expectedToken("123-45-6789"));
+    expect(args["name"]).toBe("Alice");
+    expect(result.redacted).toBe(true);
+  });
+
+  test("custom pattern does not match unrelated fields", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { name: "Alice", email: "alice@example.com" },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["name"]).toBe("Alice");
+    expect(args["email"]).toBe("alice@example.com");
+    expect(result.redacted).toBe(false);
+  });
+
+  test("built-in patterns still apply alongside custom", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { api_key: "sk-123", ssn: "123-45-6789", path: "/tmp" },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["api_key"]).toBe(expectedToken("sk-123"));
+    expect(args["ssn"]).toBe(expectedToken("123-45-6789"));
+    expect(args["path"]).toBe("/tmp");
+  });
+
+  test("multiple custom patterns all applied", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { ssn: "123-45-6789", dob: "1990-01-01", name: "Alice" },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }, { pattern: "^dob$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["ssn"]).toBe(expectedToken("123-45-6789"));
+    expect(args["dob"]).toBe(expectedToken("1990-01-01"));
+    expect(args["name"]).toBe("Alice");
+  });
+
+  test("custom patterns are case-insensitive", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { SSN: "123-45-6789" },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["SSN"]).toBe(expectedToken("123-45-6789"));
+  });
+
+  test("nested object field matching works", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { user: { ssn: "123-45-6789", name: "Alice" } },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    const user = args["user"] as Record<string, unknown>;
+    expect(user["ssn"]).toBe(expectedToken("123-45-6789"));
+    expect(user["name"]).toBe("Alice");
+  });
+
+  test("array element scanning works", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { items: [{ ssn: "111-22-3333" }, { ssn: "444-55-6666" }] },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    const items = args["items"] as Record<string, unknown>[];
+    expect(items[0]?.["ssn"]).toBe(expectedToken("111-22-3333"));
+    expect(items[1]?.["ssn"]).toBe(expectedToken("444-55-6666"));
+  });
+
+  test("empty custom patterns array behaves like redact()", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { api_key: "sk-123", name: "Alice" },
+    });
+    const withPatterns = redactWithPatterns(event, []);
+    const withRedact = redact(event);
+
+    const argsP = toolPayload(withPatterns).arguments as Record<string, unknown>;
+    const argsR = toolPayload(withRedact).arguments as Record<string, unknown>;
+    expect(argsP["api_key"]).toBe(argsR["api_key"]);
+    expect(argsP["name"]).toBe(argsR["name"]);
+  });
+
+  test("invalid regex pattern throws with descriptive message", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { field: "value" },
+    });
+
+    expect(() => redactWithPatterns(event, [{ pattern: "[invalid" }])).toThrow(
+      /Invalid redaction pattern "\[invalid"/,
+    );
+  });
+
+  test("non-string value on matching field is not redacted", () => {
+    const event = makeToolCall(0, {
+      tool_name: "test",
+      arguments: { ssn: 123456789 },
+    });
+    const result = redactWithPatterns(event, [{ pattern: "^ssn$" }]);
+
+    const args = toolPayload(result).arguments as Record<string, unknown>;
+    expect(args["ssn"]).toBe(123456789);
+    expect(result.redacted).toBe(false);
   });
 });
