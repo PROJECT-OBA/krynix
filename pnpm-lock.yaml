@@ -33,6 +33,19 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.11)
 
+  packages/adapter-openclaw:
+    dependencies:
+      '@krynix/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@krynix/policy':
+        specifier: workspace:*
+        version: link:../policy
+      '@krynix/replay':
+        specifier: workspace:*
+        version: link:../replay
+
   packages/cli:
     dependencies:
       '@krynix/core':
