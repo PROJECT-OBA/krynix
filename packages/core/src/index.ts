@@ -42,3 +42,16 @@ export { computeHashChain, validateHashChain } from "./hash-chain.js";
 export { TraceWriter } from "./trace-writer.js";
 
 export { validateTraceEvent, validatePolicy, validateReport } from "./schema-validator.js";
+
+export { SeededRandom } from "./seeded-random.js";
+
+export { type TraceAdapter, type AdapterConfig } from "./adapter-types.js";
+
+export {
+  startSession,
+  recordEvent,
+  endSession,
+  type SessionConfig,
+  type Session,
+  type PartialTraceEvent,
+} from "./session.js";

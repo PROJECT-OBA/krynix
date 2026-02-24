@@ -1,0 +1,39 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: openclaw-default
+  version: "1.0.0"
+  description: Default policy for OpenClaw agents — deny shell_exec, require approval for file_write
+terms: []
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: deny-shell-exec
+      description: Block all shell_exec tool calls
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: eq
+            value: shell_exec
+      action: deny
+      severity: critical
+      message: "Shell execution is not permitted"
+
+    - id: require-approval-file-write
+      description: Require human approval for file_write
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: eq
+            value: file_write
+      action: require-approval
+      severity: warning
+      message: "File write operations require human approval"
+
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info
