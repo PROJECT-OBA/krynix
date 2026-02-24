@@ -13,6 +13,7 @@ import { join, basename } from "node:path";
 import { readTrace } from "@krynix/core";
 import { parsePolicy, evaluate } from "@krynix/policy";
 import type { Policy, EvaluationResult } from "@krynix/policy";
+import { getArg } from "./arg-parser.js";
 
 /** Result from the evaluate command. */
 export interface EvaluateResult {
@@ -95,12 +96,6 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getArg(args: string[], flag: string): string | undefined {
-  const idx = args.indexOf(flag);
-  if (idx === -1 || idx + 1 >= args.length) return undefined;
-  return args[idx + 1];
-}
 
 function deriveVerdict(exitCode: number): string {
   switch (exitCode) {

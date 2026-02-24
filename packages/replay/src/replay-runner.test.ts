@@ -2,7 +2,12 @@ import { describe, test, expect, afterEach } from "vitest";
 import { join } from "node:path";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { verifyTrace, verifyGoldenDir, regenerateTrace } from "./replay-runner.js";
+import {
+  verifyTrace,
+  verifyGoldenDir,
+  regenerateTrace,
+  regenerateGoldenDir,
+} from "./replay-runner.js";
 import { computeHashChain, canonicalize, type TraceEvent } from "@krynix/core";
 
 let tempDir: string;
@@ -257,5 +262,71 @@ describe("regenerateTrace + determinism", () => {
     // Should still pass verification
     const result = await verifyTrace(filePath);
     expect(result.status).toBe("pass");
+  });
+});
+
+describe("regenerateGoldenDir", () => {
+  test("regenerates all traces in directory", async () => {
+    const dir = await createTempDir();
+    await writeGoldenTrace(dir, "a.trace.jsonl", makeGoldenEvents());
+    await writeGoldenTrace(dir, "b.trace.jsonl", makeGoldenEvents());
+
+    const results = await regenerateGoldenDir(dir);
+
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => r.status === "pass")).toBe(true);
+  });
+
+  test("regeneration is idempotent — file content byte-identical before/after", async () => {
+    const dir = await createTempDir();
+    const filePath = await writeGoldenTrace(dir, "regen.trace.jsonl", makeGoldenEvents());
+
+    const originalContent = await readFile(filePath, "utf-8");
+
+    await regenerateGoldenDir(dir);
+
+    const regeneratedContent = await readFile(filePath, "utf-8");
+    expect(regeneratedContent).toBe(originalContent);
+
+    // Should still pass verification
+    const verifyResults = await verifyGoldenDir(dir);
+    expect(verifyResults.every((r) => r.status === "pass")).toBe(true);
+  });
+
+  test("skips non-.trace.jsonl files", async () => {
+    const dir = await createTempDir();
+    await writeGoldenTrace(dir, "valid.trace.jsonl", makeGoldenEvents());
+    await writeFile(join(dir, "notes.txt"), "not a trace file");
+    await writeFile(join(dir, "data.json"), "{}");
+
+    const results = await regenerateGoldenDir(dir);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.status).toBe("pass");
+  });
+
+  test("empty directory returns empty array", async () => {
+    const dir = await createTempDir();
+
+    const results = await regenerateGoldenDir(dir);
+
+    expect(results).toHaveLength(0);
+  });
+
+  test("reports error for corrupted file while continuing others", async () => {
+    const dir = await createTempDir();
+    await writeGoldenTrace(dir, "a-good.trace.jsonl", makeGoldenEvents());
+    await writeFile(join(dir, "b-bad.trace.jsonl"), "not valid json\n");
+    await writeGoldenTrace(dir, "c-good.trace.jsonl", makeGoldenEvents());
+
+    const results = await regenerateGoldenDir(dir);
+
+    expect(results).toHaveLength(3);
+    const good1 = results.find((r) => r.file.includes("a-good"));
+    const bad = results.find((r) => r.file.includes("b-bad"));
+    const good2 = results.find((r) => r.file.includes("c-good"));
+    expect(good1?.status).toBe("pass");
+    expect(bad?.status).toBe("error");
+    expect(good2?.status).toBe("pass");
   });
 });

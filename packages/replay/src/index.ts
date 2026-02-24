@@ -5,7 +5,12 @@
 export { validateGoldenTraces, type GoldenValidationResult } from "./golden-validator.js";
 export { extractEnvelope } from "./envelope.js";
 export { compareTraces } from "./comparator.js";
-export { verifyTrace, verifyGoldenDir, regenerateTrace } from "./replay-runner.js";
+export {
+  verifyTrace,
+  verifyGoldenDir,
+  regenerateTrace,
+  regenerateGoldenDir,
+} from "./replay-runner.js";
 
 export {
   type DeterminismEnvelope,

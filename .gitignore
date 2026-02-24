@@ -36,6 +36,9 @@ traces/
 *.trace.jsonl
 *.trace.jsonl.gz
 
+# Golden test fixtures (override *.trace.jsonl ignore)
+!test/golden/*.trace.jsonl
+
 # local policies (if you keep personal ones)
 policies.local/
 

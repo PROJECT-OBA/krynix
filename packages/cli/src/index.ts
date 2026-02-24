@@ -4,3 +4,4 @@
 
 export { runEvaluate, type EvaluateResult, type AggregateOutput } from "./evaluate.js";
 export { runReplay, type ReplayCommandResult } from "./replay.js";
+export { runValidate, type ValidateResult, type PolicyFileResult } from "./validate.js";

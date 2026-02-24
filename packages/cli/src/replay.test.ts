@@ -184,4 +184,27 @@ describe("runReplay", () => {
     expect(result.results[0]?.status).toBe("pass");
     expect(result.error).toBeNull();
   });
+
+  test("--regenerate --golden-dir with valid traces → exit 0", async () => {
+    const dir = await createTempDir();
+    await writeTrace(dir, "a.trace.jsonl", makeValidEvents());
+    await writeTrace(dir, "b.trace.jsonl", makeValidEvents());
+
+    const result = await runReplay(["--regenerate", "--golden-dir", dir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.results).toHaveLength(2);
+    expect(result.results.every((r) => r.status === "pass")).toBe(true);
+    expect(result.error).toBeNull();
+  });
+
+  test("--regenerate --golden-dir with empty dir → exit 0 empty results", async () => {
+    const dir = await createTempDir();
+
+    const result = await runReplay(["--regenerate", "--golden-dir", dir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.results).toHaveLength(0);
+    expect(result.error).toBeNull();
+  });
 });
