@@ -197,4 +197,64 @@ describe("routeCommand", () => {
     // stdout still has valid JSON (the results array)
     expect(() => JSON.parse(result.stdout)).not.toThrow();
   });
+
+  // -------------------------------------------------------------------------
+  // Sprint 4: stats and policy routes
+  // -------------------------------------------------------------------------
+
+  test("routes 'stats' to runStats", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir, "valid.trace.jsonl");
+
+    const result = await routeCommand(["stats", "--trace", tracePath]);
+
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.event_count).toBeDefined();
+    expect(output.tool_call_count).toBeDefined();
+  });
+
+  test("stats --help returns stats-specific help", async () => {
+    const result = await routeCommand(["stats", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--trace");
+    expect(result.stdout).toContain("event_count");
+  });
+
+  test("routes 'policy test' to runPolicyTest", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir, "valid.trace.jsonl");
+    const policyPath = join(dir, "test.policy.yaml");
+    await writeFile(policyPath, ALLOW_POLICY);
+
+    const result = await routeCommand([
+      "policy",
+      "test",
+      "--policy",
+      policyPath,
+      "--trace",
+      tracePath,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.verdict).toBeDefined();
+  });
+
+  test("policy --help returns policy namespace help", async () => {
+    const result = await routeCommand(["policy", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--policy");
+    expect(result.stdout).toContain("--expect-verdict");
+  });
+
+  test("policy with unknown subcommand returns exit 1", async () => {
+    const result = await routeCommand(["policy", "unknown"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unknown policy subcommand");
+    expect(result.stderr).toContain("unknown");
+  });
 });

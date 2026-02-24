@@ -5,3 +5,5 @@
 export { runEvaluate, type EvaluateResult, type AggregateOutput } from "./evaluate.js";
 export { runReplay, type ReplayCommandResult } from "./replay.js";
 export { runValidate, type ValidateResult, type PolicyFileResult } from "./validate.js";
+export { runStats, type StatsResult } from "./stats.js";
+export { runPolicyTest, type PolicyTestResult } from "./policy-test.js";

@@ -9,11 +9,13 @@ describe("getVersion", () => {
 });
 
 describe("getMainHelp", () => {
-  test("mentions all three commands", () => {
+  test("mentions all commands", () => {
     const help = getMainHelp();
     expect(help).toContain("evaluate");
     expect(help).toContain("replay");
     expect(help).toContain("validate");
+    expect(help).toContain("stats");
+    expect(help).toContain("policy test");
   });
 
   test("mentions --help and --version flags", () => {
@@ -47,5 +49,26 @@ describe("getCommandHelp", () => {
   test("returns undefined for unknown command", () => {
     const help = getCommandHelp("unknown");
     expect(help).toBeUndefined();
+  });
+
+  test("stats help mentions --trace", () => {
+    const help = getCommandHelp("stats");
+    expect(help).toBeDefined();
+    expect(help).toContain("--trace");
+    expect(help).toContain("event_count");
+  });
+
+  test("policy help mentions --policy and --trace", () => {
+    const help = getCommandHelp("policy");
+    expect(help).toBeDefined();
+    expect(help).toContain("--policy");
+    expect(help).toContain("--trace");
+    expect(help).toContain("--expect-verdict");
+  });
+
+  test("policy test help is same as policy help", () => {
+    const policyHelp = getCommandHelp("policy");
+    const policyTestHelp = getCommandHelp("policy test");
+    expect(policyTestHelp).toBe(policyHelp);
   });
 });

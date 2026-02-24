@@ -2,7 +2,13 @@ import { describe, test, expect, beforeEach } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { startSession, recordEvent, endSession } from "./session.js";
+import {
+  startSession,
+  recordEvent,
+  endSession,
+  destroySession,
+  getActiveSessions,
+} from "./session.js";
 import type { PartialTraceEvent } from "./session.js";
 import { readTrace } from "./trace-reader.js";
 import { validateHashChain } from "./hash-chain.js";
@@ -273,5 +279,127 @@ describe("Session Manager", () => {
     expect(payload.context["replay_seed"]).toBe(42);
     expect(payload.context["agent_version"]).toBe("0.5.0");
     expect(payload.context["custom_field"]).toBe("hello");
+  });
+
+  // -------------------------------------------------------------------------
+  // destroySession + getActiveSessions (Sprint 4 — TASK-042)
+  // -------------------------------------------------------------------------
+
+  test("getActiveSessions returns 0 initially", () => {
+    // Sessions from other tests are cleaned up by endSession, so count should be 0
+    // at the start of each test (prior tests call endSession).
+    expect(getActiveSessions()).toBe(0);
+  });
+
+  test("getActiveSessions increments on start, decrements on end", async () => {
+    const path1 = join(tempDir, "trace-a.jsonl");
+    const path2 = join(tempDir, "trace-b.jsonl");
+
+    const s1 = await startSession({ agentId: "a", replaySeed: 1, outputPath: path1 });
+    expect(getActiveSessions()).toBe(1);
+
+    const s2 = await startSession({ agentId: "b", replaySeed: 2, outputPath: path2 });
+    expect(getActiveSessions()).toBe(2);
+
+    await endSession(s1);
+    expect(getActiveSessions()).toBe(1);
+
+    await endSession(s2);
+    expect(getActiveSessions()).toBe(0);
+  });
+
+  test("destroySession removes session from registry", async () => {
+    const outputPath = join(tempDir, "trace-destroy.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+    expect(getActiveSessions()).toBe(1);
+
+    await destroySession(session);
+    expect(getActiveSessions()).toBe(0);
+  });
+
+  test("destroySession is idempotent (calling twice does not throw)", async () => {
+    const outputPath = join(tempDir, "trace-idempotent.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+
+    await destroySession(session);
+    await destroySession(session); // second call — should not throw
+    expect(getActiveSessions()).toBe(0);
+  });
+
+  test("destroySession on already-ended session is a no-op", async () => {
+    const outputPath = join(tempDir, "trace-ended.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+    await endSession(session);
+
+    // Should not throw — session already cleaned up by endSession
+    await destroySession(session);
+    expect(getActiveSessions()).toBe(0);
+  });
+
+  test("recordEvent throws SESSION_CLOSED after destroySession", async () => {
+    const outputPath = join(tempDir, "trace-destroy-record.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+
+    await destroySession(session);
+
+    await expect(recordEvent(session, makePartialToolCall("file_read"))).rejects.toThrow(
+      KrynixError,
+    );
+
+    try {
+      await recordEvent(session, makePartialToolCall("file_read"));
+    } catch (e) {
+      expect((e as KrynixError).code).toBe("SESSION_CLOSED");
+    }
+  });
+
+  test("endSession throws SESSION_CLOSED after destroySession", async () => {
+    const outputPath = join(tempDir, "trace-destroy-end.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+
+    await destroySession(session);
+
+    await expect(endSession(session)).rejects.toThrow(KrynixError);
+
+    try {
+      await endSession(session);
+    } catch (e) {
+      expect((e as KrynixError).code).toBe("SESSION_CLOSED");
+    }
+  });
+
+  test("getActiveSessions returns 0 after destroySession cleans up", async () => {
+    const path1 = join(tempDir, "trace-d1.jsonl");
+    const path2 = join(tempDir, "trace-d2.jsonl");
+
+    const s1 = await startSession({ agentId: "a", replaySeed: 1, outputPath: path1 });
+    const s2 = await startSession({ agentId: "b", replaySeed: 2, outputPath: path2 });
+    expect(getActiveSessions()).toBe(2);
+
+    await destroySession(s1);
+    expect(getActiveSessions()).toBe(1);
+
+    await destroySession(s2);
+    expect(getActiveSessions()).toBe(0);
   });
 });
