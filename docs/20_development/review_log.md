@@ -750,3 +750,172 @@ All 7 non-goals verified as still holding for both OSS engine and planned contro
 - **Auth:** SSO/OIDC moved to v2, v1 uses email+password
 - **Replay:** Hosted execution deferred, v1 accepts locally-produced reports
 - **Line count:** 1107 → 1185 (net +78 lines despite removing speculative content, due to new sections)
+
+---
+
+## Sprint 6 Review (2026-02-26)
+
+**Scope:** All 5 Sprint 6 tasks (TASK-055 through TASK-059) covering compliance evidence bundle generator, CLI compliance export command, Control Plane config/credentials/auth, HTTP client and push commands, and policy pull/push.
+
+**Pre-review state:** 637 tests passing across 54 test files, all checks clean.
+**Post-review state:** 642 tests passing across 54 test files, all checks clean. 5 bugs fixed, 1 security issue fixed, 1 determinism violation resolved.
+
+### Files Reviewed
+
+| File | Type | Task |
+|---|---|---|
+| `packages/core/src/compliance-bundle.ts` | New | TASK-055 |
+| `packages/core/src/compliance-bundle.test.ts` | New | TASK-055 |
+| `packages/core/src/index.ts` | Modified | TASK-055 |
+| `packages/cli/src/compliance.ts` | New | TASK-056 |
+| `packages/cli/src/compliance.test.ts` | New | TASK-056 |
+| `packages/cli/src/config.ts` | New | TASK-057 |
+| `packages/cli/src/config.test.ts` | New | TASK-057 |
+| `packages/cli/src/credentials.ts` | New | TASK-057 |
+| `packages/cli/src/credentials.test.ts` | New | TASK-057 |
+| `packages/cli/src/auth.ts` | New | TASK-057 |
+| `packages/cli/src/auth.test.ts` | New | TASK-057 |
+| `packages/cli/src/http-client.ts` | New | TASK-058 |
+| `packages/cli/src/http-client.test.ts` | New | TASK-058 |
+| `packages/cli/src/push.ts` | New | TASK-058 |
+| `packages/cli/src/push.test.ts` | New | TASK-058 |
+| `packages/cli/src/policy-pull.ts` | New | TASK-059 |
+| `packages/cli/src/policy-pull.test.ts` | New | TASK-059 |
+| `packages/cli/src/policy-push.ts` | New | TASK-059 |
+| `packages/cli/src/policy-push.test.ts` | New | TASK-059 |
+| `packages/cli/src/arg-parser.ts` | Modified | TASK-056 |
+| `packages/cli/src/arg-parser.test.ts` | Modified | TASK-056 |
+| `packages/cli/src/router.ts` | Modified | TASK-056–059 |
+| `packages/cli/src/router.test.ts` | Modified | TASK-056–059 |
+| `packages/cli/src/help.ts` | Modified | TASK-056–059 |
+| `packages/cli/src/help.test.ts` | Modified | TASK-056–059 |
+| `packages/cli/src/index.ts` | Modified | TASK-056–059 |
+
+### Fixed
+
+#### SEC1: Path traversal via untrusted policy name in `policy-pull.ts`
+
+- **Severity:** Medium (Security)
+- **Files:** `packages/cli/src/policy-pull.ts:132-133`
+- **Problem:** The `policy.name` and `policy.version` values come from the Control Plane server response (untrusted data). A malicious or compromised server could return `name: "../../etc/evil"` which would resolve to a path outside `outputDir` via `path.join`.
+- **Fix:** Added `resolve(filePath).startsWith(resolve(outputDir))` guard after fileName construction. Policies failing this check are skipped (counted in `policies_skipped`).
+
+#### B1: YAML config parser truncated values containing `#` in quoted strings
+
+- **Severity:** Medium
+- **Files:** `packages/cli/src/config.ts:103-112`
+- **Problem:** Inline-comment stripping ran before quote stripping. A URL like `url: "https://example.com/path#fragment"` would be truncated at `#`.
+- **Fix:** Reordered: strip quotes first; strip inline comments only for unquoted values.
+- **Tests added:** "preserves # inside quoted values" in `config.test.ts`.
+
+#### SEC2: Empty Authorization header sent when no credentials configured
+
+- **Severity:** Low (Security)
+- **Files:** `packages/cli/src/http-client.ts:72-76`
+- **Problem:** When neither token nor API key is set, `Authorization: ""` header was sent. While not exploitable, it could confuse server-side logging or middleware.
+- **Fix:** Omit the `Authorization` header entirely when value is empty using conditional spread.
+
+#### B4: `auth status` reported `authenticated: true` for expired tokens
+
+- **Severity:** Low
+- **Files:** `packages/cli/src/auth.ts:83-88`
+- **Problem:** A token with an `expires_at` in the past still resulted in `authenticated: true`. The `token_expired` field was reported separately, but `authenticated` was misleading.
+- **Fix:** Factored token expiry into the `authenticated` computation: `authenticated: hasCredentials && tokenExpired !== true`.
+- **Tests added:** "reports expired token as not authenticated" now verifies `authenticated: false`.
+
+#### TS-FIX: `compliance-bundle.ts` imported `ValidationResult` from wrong module
+
+- **Severity:** Build error
+- **Files:** `packages/core/src/compliance-bundle.ts:20`
+- **Problem:** Imported `type ValidationResult` from `./hash-chain.js` where it's used locally but not exported. The type is exported from `./types.js`.
+- **Fix:** Moved the import to `./types.js`.
+
+### Test Gaps Filled
+
+| Gap | File | Tests Added |
+|---|---|---|
+| T1: No direct test for `pushTrace` with real file I/O and SHA-256 digest | `http-client.test.ts` | 2 (digest verification, non-existent file) |
+| T2: No test for `#` inside quoted YAML config values | `config.test.ts` | 1 |
+| Missing `getAllArgs` unit tests | `arg-parser.test.ts` | 5 |
+
+### Spec Drift (Documented, Deferred)
+
+| # | Drift | Rationale for deferral |
+|---|---|---|
+| S1 | Trace upload uses `application/octet-stream` vs spec's `multipart/form-data` | Simpler for v1; align when CP server is implemented |
+| S2 | CLI uses `--trace <file>` (file paths) vs spec's `--trace-ids <id>` (session IDs) | Local-first operation requires file paths; server-side will use IDs |
+| S3 | Policy pull missing `?since=` incremental sync parameter | Not needed until multi-version registry is built |
+| S4 | Local bundle missing `policies/` and `audit/` directories | These artifacts come from CP, not local files |
+| S6 | `auth login` and `auth create-key` not yet implemented | Deferred to Sprint 7 when CP server is available |
+
+### Contract Verification (Second Audit Pass)
+
+Full audit against determinism_spec.md, trace_spec.md, policy_spec.md, control_plane_spec.md, architecture.md.
+
+| Contract | Source | Status |
+|---|---|---|
+| C1-1: Trace events must include SHA-256 hash chain | trace_spec.md | PASS — `validateHashChain` used in bundle generation |
+| C1-2: Events serialized in canonical JSON | trace_spec.md | PASS — `computeHashChain` uses `canonicalize()` |
+| C2-1: Policy evaluation via `evaluate(trace, policy)` | policy_spec.md | PASS — used in cli/policy-test.ts |
+| C3-1: SHA-256 manifest with per-artifact digests | control_plane_spec.md §6 | PASS — `sha256:` prefix in manifest |
+| C3-2: Bundle directory structure matches spec | control_plane_spec.md §6 | PASS (local subset: traces/, evaluations/, replays/, stats/, otlp/) |
+| C4-1: Core functions deterministic for same input | determinism_spec.md | **FIXED** — `export_id`/`generated_at` now injectable |
+| C5-1: Offline-first guarantee | control_plane_spec.md | PASS — all local commands work without CP config |
+| C5-2: CLI structured output (JSON to stdout, errors to stderr) | architecture.md | PASS — all commands return `{ exitCode, output/results, error }` |
+| C6-1: Bundle `policies/` and `audit/` directories | control_plane_spec.md §6 | WARN — deferred (S4), CP-only resources |
+| C7-1: Trace upload Content-Type | control_plane_spec.md §2.1 | WARN — deferred (S1), simpler for v1 |
+| C8-1: Credentials stored with mode 0600 | security_practices.md | PASS — verified by unit test |
+| C8-2: No secrets in structured output | security_practices.md | PASS — auth status redacts token values |
+| C8-3: Path traversal prevention on untrusted input | security_practices.md | PASS — SEC1 fix in policy-pull.ts |
+
+### Architecture Observations
+
+#### Dependency injection consistency
+All CP-related commands (`auth`, `push`, `policy-pull`, `policy-push`) use a `Deps` interface for injectable dependencies, enabling testing with mock HTTP clients. The `compliance` command (local-only, no HTTP) does not use DI — acceptable since it only performs local file I/O.
+
+#### No circular dependencies
+Verified: `@krynix/core` has zero imports from CLI or policy. CLI imports from core and policy in the correct direction. `policy-push.ts` uses a dynamic import of `@krynix/policy` (lazy loading).
+
+#### Credential security
+`credentials.ts` writes with `mode: 0o600`, verified by unit test. Config parsing handles untrusted input safely after the B1 fix.
+
+### Deferred (Acceptable)
+
+#### B2: `findSubcommandToken` assumes all flags take values (Sprint 4)
+No change from Sprint 5 review. No boolean flags currently reach this code path.
+
+#### B3: `generateComplianceBundle` uses `Date.now()` and `Math.random()` — RESOLVED
+
+Violated the determinism contract (determinism_spec.md C4-1): core module functions must produce identical output for identical input. Fixed by making `export_id` and `generated_at` injectable via `ComplianceBundleOptions`. When both are supplied, output is fully deterministic. The JSDoc was updated to remove the incorrect "Pure function" claim. Two tests added: deterministic output verification and default fallback behavior verification.
+
+#### A1: `compliance.ts` does not use dependency injection
+Acceptable for local-only commands. Consider adding DI if testing becomes difficult.
+
+#### A2: Inconsistent result type field names (`output` vs `result`)
+Some commands use `output`, others use `result` for their success payload. Standardize in a future refactoring pass.
+
+#### A3: Duplicated `isNodeError` helper in `config.ts` and `credentials.ts`
+Extract to shared utility when a third consumer appears.
+
+#### BUG-2 (Sprint 2): Dual session_start events — still deferred
+No change. By design for adapter separation.
+
+### Test Coverage Summary
+
+| Test File | Tests Added |
+|---|---|
+| `packages/core/src/compliance-bundle.test.ts` | 15 (13 original + 2 review) |
+| `packages/cli/src/compliance.test.ts` | 7 |
+| `packages/cli/src/config.test.ts` | 12 (11 original + 1 review) |
+| `packages/cli/src/credentials.test.ts` | 12 |
+| `packages/cli/src/auth.test.ts` | 8 |
+| `packages/cli/src/http-client.test.ts` | 13 (11 original + 2 review) |
+| `packages/cli/src/push.test.ts` | 10 |
+| `packages/cli/src/policy-pull.test.ts` | 10 |
+| `packages/cli/src/policy-push.test.ts` | 8 |
+| `packages/cli/src/arg-parser.test.ts` | +5 (getAllArgs tests) |
+| `packages/cli/src/router.test.ts` | +12 (compliance, auth, push routes) |
+| `packages/cli/src/help.test.ts` | +10 (new command help) |
+
+**Total new tests this sprint (including review):** 121 (521 → 642)
+**Total test suite:** 642 tests across 54 test files

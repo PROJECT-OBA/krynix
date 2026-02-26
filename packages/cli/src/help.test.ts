@@ -16,6 +16,12 @@ describe("getMainHelp", () => {
     expect(help).toContain("validate");
     expect(help).toContain("stats");
     expect(help).toContain("policy test");
+    expect(help).toContain("policy pull");
+    expect(help).toContain("policy push");
+    expect(help).toContain("compliance export");
+    expect(help).toContain("push");
+    expect(help).toContain("auth status");
+    expect(help).toContain("auth logout");
   });
 
   test("mentions --help and --version flags", () => {
@@ -87,5 +93,72 @@ describe("getCommandHelp", () => {
     expect(help).toContain("--format");
     expect(help).toContain("--trace");
     expect(help).toContain("otlp-json");
+  });
+
+  // -------------------------------------------------------------------------
+  // Sprint 6: new command help
+  // -------------------------------------------------------------------------
+
+  test("policy pull help mentions --labels and --output-dir", () => {
+    const help = getCommandHelp("policy pull");
+    expect(help).toBeDefined();
+    expect(help).toContain("--labels");
+    expect(help).toContain("--output-dir");
+  });
+
+  test("policy push help mentions --file and --changelog", () => {
+    const help = getCommandHelp("policy push");
+    expect(help).toBeDefined();
+    expect(help).toContain("--file");
+    expect(help).toContain("--changelog");
+  });
+
+  test("compliance namespace help lists export subcommand", () => {
+    const help = getCommandHelp("compliance");
+    expect(help).toBeDefined();
+    expect(help).toContain("export");
+    expect(help).toContain("subcommand");
+  });
+
+  test("compliance export help mentions --trace and --output", () => {
+    const help = getCommandHelp("compliance export");
+    expect(help).toBeDefined();
+    expect(help).toContain("--trace");
+    expect(help).toContain("--output");
+    expect(help).toContain("--include-otlp");
+  });
+
+  test("push help mentions --trace, --evaluation, --replay-report", () => {
+    const help = getCommandHelp("push");
+    expect(help).toBeDefined();
+    expect(help).toContain("--trace");
+    expect(help).toContain("--evaluation");
+    expect(help).toContain("--replay-report");
+  });
+
+  test("auth namespace help lists status and logout", () => {
+    const help = getCommandHelp("auth");
+    expect(help).toBeDefined();
+    expect(help).toContain("status");
+    expect(help).toContain("logout");
+  });
+
+  test("auth status help mentions credentials", () => {
+    const help = getCommandHelp("auth status");
+    expect(help).toBeDefined();
+    expect(help).toContain("authentication");
+  });
+
+  test("auth logout help mentions credentials file", () => {
+    const help = getCommandHelp("auth logout");
+    expect(help).toBeDefined();
+    expect(help).toContain("credentials");
+  });
+
+  test("policy namespace includes pull and push subcommands", () => {
+    const help = getCommandHelp("policy");
+    expect(help).toBeDefined();
+    expect(help).toContain("pull");
+    expect(help).toContain("push");
   });
 });

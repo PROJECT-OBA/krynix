@@ -26,13 +26,19 @@ export function getMainHelp(): string {
 Usage: krynix <command> [options]
 
 Commands:
-  evaluate      Evaluate a trace against one or more policies
-  replay        Verify or regenerate trace files
-  validate      Validate policy file syntax
-  stats         Compute per-session analytics from a trace
-  export        Export a trace to external formats (e.g., OpenTelemetry)
-  policy test   Test a policy against a sample trace
-  policy diff   Compare two policies and detect regressions
+  evaluate           Evaluate a trace against one or more policies
+  replay             Verify or regenerate trace files
+  validate           Validate policy file syntax
+  stats              Compute per-session analytics from a trace
+  export             Export a trace to external formats (e.g., OpenTelemetry)
+  policy test        Test a policy against a sample trace
+  policy diff        Compare two policies and detect regressions
+  policy pull        Pull policies from the Control Plane registry
+  policy push        Publish a policy to the Control Plane registry
+  compliance export  Generate a compliance evidence bundle
+  push               Upload artifacts to the Control Plane
+  auth status        Show authentication status
+  auth logout        Clear stored credentials
 
 Options:
   --help      Show help
@@ -137,6 +143,8 @@ Usage: krynix policy <subcommand> [options]
 Subcommands:
   test    Test a policy against a sample trace
   diff    Compare two policies and detect regressions
+  pull    Pull policies from the Control Plane registry
+  push    Publish a policy to the Control Plane registry
 
 Run 'krynix policy <subcommand> --help' for subcommand-specific help.`;
 
@@ -175,6 +183,123 @@ Exit codes:
   0   No security-relevant regressions detected
   1   Runtime error
   2   Severity downgrade or action weakening detected`;
+
+    case "policy pull":
+      return `krynix policy pull — Pull policies from the Control Plane registry
+
+Usage: krynix policy pull [--labels <key:value>] [--output-dir <dir>]
+
+Options:
+  --labels <key:value>  Filter policies by label (e.g., environment:production)
+  --output-dir <dir>    Directory to write policies (default: ./policies)
+  --help                Show this help
+
+Pulls policies from the configured Control Plane registry. Verifies
+SHA-256 digest of each downloaded policy. Skips policies already
+present locally.
+
+Exit codes:
+  0   Success
+  1   Runtime error or auth failure`;
+
+    case "policy push":
+      return `krynix policy push — Publish a policy to the Control Plane registry
+
+Usage: krynix policy push --file <path> [--changelog <text>]
+
+Options:
+  --file <path>         Path to a .policy.yaml file
+  --changelog <text>    Description of changes (optional)
+  --help                Show this help
+
+Validates the policy file locally before uploading. Requires
+maintainer or org_admin role.
+
+Exit codes:
+  0   Policy published successfully
+  1   Runtime error, auth failure, or invalid policy`;
+
+    case "compliance":
+      return `krynix compliance — Compliance management commands
+
+Usage: krynix compliance <subcommand> [options]
+
+Subcommands:
+  export  Generate a compliance evidence bundle
+
+Run 'krynix compliance <subcommand> --help' for subcommand-specific help.`;
+
+    case "compliance export":
+      return `krynix compliance export — Generate a compliance evidence bundle
+
+Usage: krynix compliance export --trace <file> [--trace <file>...] --output <dir>
+
+Options:
+  --trace <file>                Path to a .trace.jsonl file (repeatable)
+  --output <dir>                Output directory for the bundle
+  --include-otlp                Include OTLP exports in the bundle
+  --include-evaluation <file>   Attach evaluation JSON (repeatable)
+  --include-replay <file>       Attach replay report JSON (repeatable)
+  --help                        Show this help
+
+Generates a self-contained evidence bundle with traces, evaluations,
+replay reports, statistics, and a SHA-256 integrity manifest.
+
+Exit codes:
+  0   Bundle generated successfully
+  1   Runtime error`;
+
+    case "push":
+      return `krynix push — Upload artifacts to the Control Plane
+
+Usage: krynix push [--trace <file>] [--evaluation <file>] [--replay-report <file>]
+
+Options:
+  --trace <file>           Upload a .trace.jsonl file
+  --evaluation <file>      Upload evaluation results (JSON)
+  --replay-report <file>   Upload a replay report (JSON)
+  --help                   Show this help
+
+At least one artifact flag is required. Multiple flags can be combined.
+Requires Control Plane configuration and authentication.
+
+Exit codes:
+  0   All artifacts uploaded successfully
+  1   Upload failure or auth error`;
+
+    case "auth":
+      return `krynix auth — Authentication management
+
+Usage: krynix auth <subcommand>
+
+Subcommands:
+  status    Show current authentication status
+  logout    Clear stored credentials
+
+Run 'krynix auth <subcommand> --help' for subcommand-specific help.`;
+
+    case "auth status":
+      return `krynix auth status — Show current authentication status
+
+Usage: krynix auth status
+
+Checks for Control Plane configuration and stored credentials.
+Reports token expiry and authentication method.
+
+Exit codes:
+  0   Success
+  1   Runtime error`;
+
+    case "auth logout":
+      return `krynix auth logout — Clear stored credentials
+
+Usage: krynix auth logout
+
+Removes the credentials file (~/.krynix/credentials).
+
+Exit codes:
+  0   Credentials cleared
+  1   Runtime error`;
 
     default:
       return undefined;

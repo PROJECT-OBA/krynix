@@ -21,6 +21,25 @@ export function getArg(args: string[], flag: string): string | undefined {
 }
 
 /**
+ * Get all values for a repeatable flag argument (e.g., `--trace a.jsonl --trace b.jsonl`).
+ *
+ * @returns Array of string values following each occurrence of the flag.
+ *          Empty array if the flag is not present.
+ */
+export function getAllArgs(args: string[], flag: string): string[] {
+  const values: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag && i + 1 < args.length) {
+      const val = args[i + 1];
+      if (val !== undefined) {
+        values.push(val);
+      }
+    }
+  }
+  return values;
+}
+
+/**
  * Check whether a boolean flag is present in the argument list.
  */
 export function hasFlag(args: string[], flag: string): boolean {

@@ -71,3 +71,13 @@ export {
 } from "./otlp-export.js";
 
 export { StreamingHashValidator } from "./streaming-validator.js";
+
+export {
+  generateComplianceBundle,
+  writeComplianceBundleToDir,
+  type ComplianceBundleOptions,
+  type TraceInput,
+  type BundleArtifact,
+  type BundleManifest,
+  type ComplianceBundle,
+} from "./compliance-bundle.js";

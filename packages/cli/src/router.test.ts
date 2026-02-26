@@ -258,4 +258,98 @@ describe("routeCommand", () => {
     expect(result.stderr).toContain("Unknown policy subcommand");
     expect(result.stderr).toContain("unknown");
   });
+
+  // -------------------------------------------------------------------------
+  // Sprint 6: compliance, auth, push, policy pull/push routes
+  // -------------------------------------------------------------------------
+
+  test("compliance --help returns compliance namespace help", async () => {
+    const result = await routeCommand(["compliance", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("export");
+    expect(result.stdout).toContain("subcommand");
+  });
+
+  test("compliance with no subcommand returns help", async () => {
+    const result = await routeCommand(["compliance"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("export");
+  });
+
+  test("compliance with unknown subcommand returns exit 1", async () => {
+    const result = await routeCommand(["compliance", "unknown"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unknown compliance subcommand");
+  });
+
+  test("compliance export --help returns compliance export help", async () => {
+    const result = await routeCommand(["compliance", "export", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--trace");
+    expect(result.stdout).toContain("--output");
+  });
+
+  test("compliance export errors on missing --trace flag", async () => {
+    const result = await routeCommand(["compliance", "export", "--output", "/tmp/bundle"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--trace");
+  });
+
+  test("auth --help returns auth namespace help", async () => {
+    const result = await routeCommand(["auth", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("status");
+    expect(result.stdout).toContain("logout");
+  });
+
+  test("auth with no subcommand returns help", async () => {
+    const result = await routeCommand(["auth"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("status");
+  });
+
+  test("auth with unknown subcommand returns exit 1", async () => {
+    const result = await routeCommand(["auth", "unknown"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Unknown auth subcommand");
+  });
+
+  test("auth status returns exit 0", async () => {
+    const result = await routeCommand(["auth", "status"]);
+
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.configured).toBeDefined();
+  });
+
+  test("auth logout returns exit 0", async () => {
+    const result = await routeCommand(["auth", "logout"]);
+
+    expect(result.exitCode).toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output.cleared).toBeDefined();
+  });
+
+  test("push --help returns push-specific help", async () => {
+    const result = await routeCommand(["push", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--trace");
+    expect(result.stdout).toContain("--evaluation");
+  });
+
+  test("push with no flags returns exit 1", async () => {
+    const result = await routeCommand(["push"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--trace");
+  });
 });

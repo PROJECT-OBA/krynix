@@ -9,3 +9,27 @@ export { runStats, type StatsResult } from "./stats.js";
 export { runPolicyTest, type PolicyTestResult } from "./policy-test.js";
 export { runExport, type ExportResult } from "./export.js";
 export { runPolicyDiff, type PolicyDiffResult } from "./policy-diff.js";
+export { runComplianceExport, type ComplianceExportResult } from "./compliance.js";
+export { loadConfig, parseConfigYaml, type ControlPlaneConfig } from "./config.js";
+export {
+  loadCredentials,
+  saveCredentials,
+  clearCredentials,
+  isTokenExpired,
+  type Credentials,
+} from "./credentials.js";
+export {
+  runAuthStatus,
+  runAuthLogout,
+  type AuthResult,
+  type AuthStatusOutput,
+  type AuthLogoutOutput,
+} from "./auth.js";
+export {
+  createControlPlaneClient,
+  type ControlPlaneClient,
+  type ApiResponse,
+} from "./http-client.js";
+export { runPush, type PushResult, type PushOutput, type PushArtifactResult } from "./push.js";
+export { runPolicyPull, type PolicyPullResult, type PolicyPullOutput } from "./policy-pull.js";
+export { runPolicyPush, type PolicyPushResult, type PolicyPushOutput } from "./policy-push.js";
