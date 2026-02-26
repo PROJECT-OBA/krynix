@@ -55,6 +55,15 @@ Teams deploying autonomous AI agents in production environments where:
 - Agent behavior must be reproducible for regression testing and incident investigation
 - CI/CD pipelines must enforce trust properties as merge gates
 
+## Product Layers
+
+Krynix is designed as a two-layer product:
+
+- **OSS Engine (this repository)** — The core verification infrastructure: trace standardization, policy evaluation, deterministic replay, CLI, and framework adapters. Developer-first, CI-first, MIT licensed.
+- **Krynix Control Plane (planned)** — Centralized governance infrastructure for organizations: trace storage, policy registry, signed attestations, compliance exports, RBAC. See [product model](product_model.md).
+
+The OSS engine is the current focus. The control plane is in design phase.
+
 ## Success Criteria for v1.0
 
 - TraceEvent schema is stable and implemented with hash chain integrity

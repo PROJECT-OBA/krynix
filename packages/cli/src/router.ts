@@ -15,6 +15,8 @@ import { runReplay } from "./replay.js";
 import { runValidate } from "./validate.js";
 import { runStats } from "./stats.js";
 import { runPolicyTest } from "./policy-test.js";
+import { runExport } from "./export.js";
+import { runPolicyDiff } from "./policy-diff.js";
 
 /**
  * Find the first positional token in an argument list, skipping
@@ -68,8 +70,8 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
     };
   }
 
-  // Per-command --help
-  if (hasFlag(rest, "--help")) {
+  // Per-command --help (namespace commands like "policy" handle their own help)
+  if (hasFlag(rest, "--help") && command !== "policy") {
     const help = getCommandHelp(command);
     if (help !== undefined) {
       return { exitCode: 0, stdout: help, stderr: "" };
@@ -117,11 +119,18 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
       return { exitCode: result.exitCode, stdout, stderr };
     }
 
+    case "export": {
+      const result = await runExport(rest);
+      const stdout = result.output ?? "";
+      const stderr = result.error ?? "";
+      return { exitCode: result.exitCode, stdout, stderr };
+    }
+
     case "policy": {
-      // Namespace command: "policy test", "policy --help", etc.
+      // Namespace command: "policy test", "policy diff", "policy --help", etc.
       const sub = findSubcommandToken(rest);
 
-      if (hasFlag(rest, "--help") || sub === undefined) {
+      if (sub === undefined) {
         const help = getCommandHelp("policy");
         return { exitCode: 0, stdout: help ?? "", stderr: "" };
       }
@@ -136,6 +145,20 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         }
 
         const result = await runPolicyTest(policyTestArgs);
+        const stdout = result.result !== null ? JSON.stringify(result.result, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "diff") {
+        const policyDiffArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(policyDiffArgs, "--help")) {
+          const help = getCommandHelp("policy diff");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runPolicyDiff(policyDiffArgs);
         const stdout = result.result !== null ? JSON.stringify(result.result, null, 2) : "";
         const stderr = result.error ?? "";
         return { exitCode: result.exitCode, stdout, stderr };

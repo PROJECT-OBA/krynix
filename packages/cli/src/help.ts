@@ -30,7 +30,9 @@ Commands:
   replay        Verify or regenerate trace files
   validate      Validate policy file syntax
   stats         Compute per-session analytics from a trace
+  export        Export a trace to external formats (e.g., OpenTelemetry)
   policy test   Test a policy against a sample trace
+  policy diff   Compare two policies and detect regressions
 
 Options:
   --help      Show help
@@ -110,7 +112,34 @@ Exit codes:
   0   Success
   1   Runtime error`;
 
+    case "export":
+      return `krynix export — Export a trace to external formats
+
+Usage: krynix export --format <format> --trace <file>
+
+Options:
+  --format <format>     Output format (supported: otlp-json)
+  --trace <file>        Path to a .trace.jsonl file
+  --help                Show this help
+
+Formats:
+  otlp-json   OpenTelemetry protobuf-JSON (ExportTraceServiceRequest)
+
+Exit codes:
+  0   Success
+  1   Runtime error`;
+
     case "policy":
+      return `krynix policy — Policy management commands
+
+Usage: krynix policy <subcommand> [options]
+
+Subcommands:
+  test    Test a policy against a sample trace
+  diff    Compare two policies and detect regressions
+
+Run 'krynix policy <subcommand> --help' for subcommand-specific help.`;
+
     case "policy test":
       return `krynix policy test — Test a policy against a sample trace
 
@@ -128,6 +157,24 @@ always exits 0 (reporting mode).
 Exit codes:
   0   Success (or verdict matches expectation)
   1   Runtime error or verdict mismatch`;
+
+    case "policy diff":
+      return `krynix policy diff — Compare two policies and detect regressions
+
+Usage: krynix policy diff --old <file> --new <file>
+
+Options:
+  --old <file>          Path to the baseline .policy.yaml file
+  --new <file>          Path to the updated .policy.yaml file
+  --help                Show this help
+
+Detects severity downgrades, action weakenings, rule additions/removals,
+and scope changes. Designed for CI integration.
+
+Exit codes:
+  0   No security-relevant regressions detected
+  1   Runtime error
+  2   Severity downgrade or action weakening detected`;
 
     default:
       return undefined;

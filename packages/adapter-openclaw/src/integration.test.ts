@@ -6,7 +6,7 @@ import { OpenClawAdapter } from "./adapter.js";
 import type { OpenClawHookEvent } from "./openclaw-types.js";
 import { startSession, recordEvent, endSession, readTrace, validateHashChain } from "@krynix/core";
 import type { TraceEvent } from "@krynix/core";
-import { parsePolicy, evaluate } from "@krynix/policy";
+import { parsePolicy, evaluate, type Violation } from "@krynix/policy";
 import { verifyTrace } from "@krynix/replay";
 
 let tempDir: string;
@@ -161,7 +161,9 @@ describe("OpenClaw Integration", () => {
 
     // shell_exec events should trigger critical deny
     expect(result.exitCode).toBeGreaterThan(0);
-    const shellViolations = result.violations.filter((v) => v.ruleId === "deny-shell-exec");
+    const shellViolations = result.violations.filter(
+      (v: Violation) => v.ruleId === "deny-shell-exec",
+    );
     expect(shellViolations.length).toBeGreaterThan(0);
     expect(shellViolations[0]?.severity).toBe("critical");
   });
@@ -179,7 +181,7 @@ describe("OpenClaw Integration", () => {
     const result = evaluate(events, policy);
 
     // file_read events should not cause violations
-    const fileReadViolations = result.violations.filter((v) => {
+    const fileReadViolations = result.violations.filter((v: Violation) => {
       const event = events[v.eventIndex];
       if (!event || event.event_type !== "tool_call") return false;
       const payload = event.payload as { tool_name: string };

@@ -19,11 +19,11 @@ The native `.trace.jsonl` format is directly consumable by log aggregation syste
 tail -f traces/session.trace.jsonl | curl -X POST -d @- https://logs.example.com/ingest
 ```
 
-### OpenTelemetry Span Conversion (Future)
+### OpenTelemetry Span Conversion
 
-Krynix traces can be converted to OpenTelemetry spans for integration with OTel-compatible backends (Jaeger, Zipkin, Grafana Tempo). This conversion is a planned feature — it is not yet implemented in the CLI.
+Krynix traces can be converted to OpenTelemetry spans for integration with OTel-compatible backends (Jaeger, Zipkin, Grafana Tempo). The `krynix export` CLI command provides this conversion.
 
-Planned mapping:
+Mapping:
 
 | Krynix Concept | OTel Concept |
 |---|---|
@@ -38,8 +38,8 @@ Planned mapping:
 **Note:** `session_id` is a UUIDv4 (128-bit) while OTel Trace IDs are also 128-bit, so the mapping is 1:1. `event_id` is also UUIDv4, mapping to the 128-bit OTel Span ID (which is typically 64-bit) — this may require truncation or a mapping strategy. TraceEvent payloads can contain high-cardinality values (e.g., full LLM prompt text); these should be mapped to span attributes with care to avoid exceeding backend attribute size limits.
 
 ```bash
-# Planned CLI command (not yet available)
-krynix export --format otlp --trace traces/session.trace.jsonl --endpoint http://otel-collector:4317
+# Export trace to OTLP JSON format
+krynix export --format otlp --trace traces/session.trace.jsonl
 ```
 
 ## Derived Metrics

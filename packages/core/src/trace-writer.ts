@@ -36,6 +36,9 @@ export class TraceWriter {
    * @param path - Filesystem path to write to (created or truncated)
    */
   async open(path: string): Promise<void> {
+    if (this.fileHandle !== null) {
+      throw new Error("TraceWriter is already open; call close() first");
+    }
     this.fileHandle = await open(path, "w");
     this.lastEventHash = "";
   }
@@ -70,6 +73,13 @@ export class TraceWriter {
     await this.fileHandle.write(canonicalize(hashed) + "\n");
 
     this.lastEventHash = eventHash;
+  }
+
+  /**
+   * The event_hash of the last written event, or "" if none written yet.
+   */
+  get currentHash(): string {
+    return this.lastEventHash;
   }
 
   /**

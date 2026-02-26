@@ -40,6 +40,12 @@ export async function runStats(args: string[]): Promise<StatsResult> {
     return { exitCode: 1, stats: null, error: `Failed to read trace: ${String(err)}` };
   }
 
-  const stats = computeTraceStats(trace);
+  let stats;
+  try {
+    stats = computeTraceStats(trace);
+  } catch (err) {
+    return { exitCode: 1, stats: null, error: `Failed to compute stats: ${String(err)}` };
+  }
+
   return { exitCode: 0, stats, error: null };
 }

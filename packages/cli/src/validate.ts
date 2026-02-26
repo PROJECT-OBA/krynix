@@ -72,7 +72,7 @@ export async function runValidate(args: string[]): Promise<ValidateResult> {
       const content = await readFile(fullPath, "utf-8");
       parsePolicy(content);
       results.push({ file: name, valid: true, errors: [] });
-    } catch (err) {
+    } catch (err: unknown) {
       if (err instanceof PolicyValidationError) {
         results.push({
           file: name,

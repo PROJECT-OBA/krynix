@@ -58,17 +58,34 @@ describe("getCommandHelp", () => {
     expect(help).toContain("event_count");
   });
 
-  test("policy help mentions --policy and --trace", () => {
+  test("policy namespace help lists subcommands", () => {
     const help = getCommandHelp("policy");
+    expect(help).toBeDefined();
+    expect(help).toContain("test");
+    expect(help).toContain("diff");
+    expect(help).toContain("subcommand");
+  });
+
+  test("policy test help mentions --policy and --trace", () => {
+    const help = getCommandHelp("policy test");
     expect(help).toBeDefined();
     expect(help).toContain("--policy");
     expect(help).toContain("--trace");
     expect(help).toContain("--expect-verdict");
   });
 
-  test("policy test help is same as policy help", () => {
-    const policyHelp = getCommandHelp("policy");
-    const policyTestHelp = getCommandHelp("policy test");
-    expect(policyTestHelp).toBe(policyHelp);
+  test("policy diff help mentions --old and --new", () => {
+    const help = getCommandHelp("policy diff");
+    expect(help).toBeDefined();
+    expect(help).toContain("--old");
+    expect(help).toContain("--new");
+  });
+
+  test("export help mentions --format and --trace", () => {
+    const help = getCommandHelp("export");
+    expect(help).toBeDefined();
+    expect(help).toContain("--format");
+    expect(help).toContain("--trace");
+    expect(help).toContain("otlp-json");
   });
 });

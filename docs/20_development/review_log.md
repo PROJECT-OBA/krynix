@@ -414,3 +414,339 @@ No change from Sprint 3 review. By design for adapter separation.
 
 **Total new tests this sprint (including review):** 85 (347 → 432)
 **Total test suite:** 432 tests across 37 test files
+
+---
+
+## Sprint 5 Review (2026-02-25)
+
+**Scope:** All 7 Sprint 5 tasks (TASK-048 through TASK-054) covering OTLP trace export, policy inheritance/merge, streaming hash chain validator, policy diff engine, CLI export command, CLI policy diff command, and integration tests.
+
+**Pre-review state:** 508 tests passing across 45 test files, all checks clean.
+**Post-review state:** 521 tests passing across 45 test files, all checks clean. 7 bugs fixed across 2 review passes.
+
+### Files Reviewed
+
+| File | Type | Task |
+|---|---|---|
+| `packages/core/src/otlp-export.ts` | New | TASK-048 |
+| `packages/core/src/otlp-export.test.ts` | New | TASK-048 |
+| `packages/core/src/streaming-validator.ts` | New | TASK-049 |
+| `packages/core/src/streaming-validator.test.ts` | New | TASK-049 |
+| `packages/core/src/trace-writer.ts` | Modified | TASK-049 |
+| `packages/core/src/trace-stats.ts` | Modified (review fix) | TASK-041 |
+| `packages/core/src/trace-stats.test.ts` | Modified (review fix) | TASK-041 |
+| `packages/core/src/index.ts` | Modified | TASK-048, 049 |
+| `packages/policy/src/inheritance.ts` | New | TASK-050 |
+| `packages/policy/src/inheritance.test.ts` | New | TASK-050 |
+| `packages/policy/src/diff.ts` | New | TASK-051 |
+| `packages/policy/src/diff.test.ts` | New | TASK-051 |
+| `packages/policy/src/parser.ts` | Modified | TASK-050 |
+| `packages/policy/src/schema.ts` | Modified | TASK-050 |
+| `packages/cli/src/export.ts` | New | TASK-052 |
+| `packages/cli/src/export.test.ts` | New | TASK-052 |
+| `packages/cli/src/policy-diff.ts` | New | TASK-053 |
+| `packages/cli/src/policy-diff.test.ts` | New | TASK-053 |
+| `packages/cli/src/stats.ts` | Modified (review fix) | TASK-044 |
+| `packages/cli/src/policy-test.ts` | Modified (review fix) | TASK-045 |
+| `packages/cli/src/router.ts` | Modified | TASK-052, 053 |
+| `packages/cli/src/help.ts` | Modified | TASK-054 |
+| `packages/cli/src/index.ts` | Modified | TASK-052, 053 |
+| `test/integration/export-otlp.test.ts` | New | TASK-054 |
+| `test/integration/policy-inheritance.test.ts` | New | TASK-054 |
+
+### Fixed — Pass 1
+
+#### BUG-13: `toNanoTimestamp` crashes on invalid timestamps
+
+- **Severity:** Moderate
+- **Files:** `packages/core/src/otlp-export.ts:165-168`
+- **Problem:** `BigInt(NaN)` throws an opaque `TypeError` when `new Date(invalidString).getTime()` returns `NaN`.
+- **Fix:** Guard with `isNaN(ms)` check, return `"0"` for invalid timestamps.
+- **Tests added:** "invalid timestamp returns '0' instead of throwing"
+
+#### BUG-14: Float values mapped to `intValue` instead of `doubleValue`
+
+- **Severity:** Moderate
+- **Files:** `packages/core/src/otlp-export.ts:233-234`
+- **Problem:** All numbers used `intValue` in OTel attributes. OTel protobuf-JSON distinguishes `intValue` (integers) from `doubleValue` (floats).
+- **Fix:** Added `doubleValue` to `OtlpAttributeValue` interface. Used `Number.isInteger(val)` to choose between `intValue` and `doubleValue`.
+- **Tests added:** "float payload values use doubleValue attribute"
+
+#### BUG-15: Merged policy retains `metadata.extends`
+
+- **Severity:** Moderate
+- **Files:** `packages/policy/src/inheritance.ts:67`
+- **Problem:** `mergePolicy` copied `{ ...child.metadata }`, preserving the `extends` field. If the result were passed to `resolvePolicy` again, it would attempt double-resolution.
+- **Fix:** Used destructuring to strip `extends` from merged metadata: `const { extends: _extendsRef, ...metadataWithoutExtends } = child.metadata;`.
+- **Tests added:** "mergePolicy strips extends from result metadata"
+
+#### BUG-16: Cycle detection uses `metadata.name` instead of reference string
+
+- **Severity:** Moderate
+- **Files:** `packages/policy/src/inheritance.ts:127`
+- **Problem:** `visited` set tracked `parent.metadata.name`, but multiple policy files could share the same metadata name. This could produce false cycle detections.
+- **Fix:** Track the `extends` reference string (file path) in the visited set instead of the metadata name.
+- **Tests added:** Existing circular dependency test confirmed to still pass.
+
+#### BUG-17: Defaults change details omitted when one side has no defaults
+
+- **Severity:** Moderate
+- **Files:** `packages/policy/src/diff.ts:249-254`
+- **Problem:** Adding `defaults: { unmatched_action: "allow" }` to a policy that had no defaults wouldn't show change details due to an `oldAction !== undefined && newAction !== undefined` guard.
+- **Fix:** Populate change details using `"(none)"` sentinel for the missing side.
+- **Tests added:** "defaults added from none shows change details"
+
+#### BUG-18: `ci_failure` and `on_violation` changes not detected by diff
+
+- **Severity:** Moderate
+- **Files:** `packages/policy/src/diff.ts:212-233`
+- **Problem:** `diffSingleRule` compared action, severity, match, and message, but ignored `ci_failure` and `on_violation` fields. Changes to these fields went undetected.
+- **Fix:** Added `ciFailureChanged` and `onViolationChanged` to `RuleDiff` and `diffSingleRule`.
+- **Tests added:** "ci_failure change detected in rule diff"
+
+#### BUG-19: `convertToOtlp` not wrapped in try/catch in CLI export
+
+- **Severity:** Low
+- **Files:** `packages/cli/src/export.ts:58`
+- **Problem:** If `convertToOtlp` threw, the error propagated unhandled to the process level.
+- **Fix:** Wrapped in try/catch with structured error result.
+
+### Fixed — Pass 2 (Edge Case Hardening)
+
+#### BUG-20: `convertEvent` tool_result endTime bypasses NaN guard
+
+- **Severity:** Bug (crash)
+- **Files:** `packages/core/src/otlp-export.ts:180-184`
+- **Problem:** `toNanoTimestamp` had the NaN guard from BUG-13, but `convertEvent` at lines 182-184 called `new Date(event.timestamp).getTime()` separately without a guard. For a `tool_result` event with an invalid timestamp, `startMs = NaN`, `endMs = NaN + 500 = NaN`, `BigInt(NaN)` → **throws TypeError**.
+- **Fix:** Added `if (!isNaN(startMs))` guard around the endTime computation.
+- **Tests added:** "tool_result with invalid timestamp does not crash"
+
+#### BUG-21: Invalid timestamps produce `NaN` duration in `computeTraceStats`
+
+- **Severity:** Moderate
+- **Files:** `packages/core/src/trace-stats.ts:103-106`
+- **Problem:** `computeTraceStats` computed `durationMs = end - start` without checking for `NaN`. Invalid timestamps produced `durationMs = NaN` instead of `null`. This violated the documented return type contract.
+- **Fix:** Added `if (!isNaN(start) && !isNaN(end))` guard around duration computation.
+- **Tests added:** "invalid lifecycle timestamps produce null duration_ms"
+
+#### BUG-22: `TraceWriter.open()` double-call leaks file handle
+
+- **Severity:** Moderate
+- **Files:** `packages/core/src/trace-writer.ts:38-41`
+- **Problem:** Calling `open()` a second time without `close()` silently overwrote `this.fileHandle`, leaking the previous OS file handle.
+- **Fix:** Added guard: `if (this.fileHandle !== null) throw new Error("TraceWriter is already open; call close() first")`.
+- **Tests added:** "TraceWriter double open without close throws error"
+
+#### BUG-23: `visited.add(parentRef)` after resolver call
+
+- **Severity:** Low
+- **Files:** `packages/policy/src/inheritance.ts:133-135`
+- **Problem:** `visited.add(parentRef)` happened after `resolver(parentRef)` — an extra recursion level was needed to detect cycles (e.g., self-referencing policies). Moving it before prevents unnecessary resolver calls for cycles.
+- **Fix:** Moved `visited.add(parentRef)` before the `resolver()` call.
+- **Tests added:** "self-referencing policy detected as circular dependency"
+
+#### BUG-24: CLI stats/policy-test missing try/catch for compute functions
+
+- **Severity:** Low
+- **Files:** `packages/cli/src/stats.ts:43`, `packages/cli/src/policy-test.ts:81`
+- **Problem:** `computeTraceStats(trace)` and `evaluate(trace, policy)` were called without try/catch. Malformed trace data could cause unhandled runtime errors.
+- **Fix:** Wrapped both in try/catch with structured error results.
+
+### Edge Cases Verified (No Fix Needed)
+
+#### EC-23: Streaming validator — failed event does not advance state
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/streaming-validator.ts`
+- **Observation:** On validation failure, `eventsValidated` is not incremented and `currentHash` is unchanged. This means the failing event can be retried (the correct event can be fed again and it will validate successfully). Events cannot be skipped — feeding event N+1 after a failure at N will fail the sequence_num check.
+- **Tests added:** "failed validation does not advance state"
+
+#### EC-24: Resolver error propagates correctly
+
+- **Severity:** Informational
+- **Files:** `packages/policy/src/inheritance.ts`
+- **Observation:** If the resolver callback throws (e.g., file not found), the error propagates directly to the caller without being swallowed or wrapped. The `visited` set remains consistent because `visited.add(parentRef)` runs before the resolver call (after the fix).
+- **Tests added:** "resolver error propagates to caller"
+
+#### EC-25: Defaults removal detected as change
+
+- **Severity:** Informational
+- **Files:** `packages/policy/src/diff.ts`
+- **Observation:** Removing `defaults: { unmatched_action: "deny" }` from a policy is correctly detected as a change. The `unmatchedActionChanged` field shows `{ old: "deny", new: "(none)" }`. The `"(none)"` sentinel allows change tracking without falsely triggering `hasActionWeakening` (since `ACTION_STRENGTH["(none)"]` is `undefined`, the comparison returns `false`).
+- **Tests added:** "defaults removed shows change details with (none) sentinel"
+
+#### EC-26: Identical scope produces no change flags
+
+- **Severity:** Informational
+- **Files:** `packages/policy/src/diff.ts`
+- **Observation:** When comparing policies with identical scope, `agentsChanged` and `eventTypesChanged` are both `false`, and `oldAgents`/`newAgents`/`oldEventTypes`/`newEventTypes` are undefined (not populated). No false positives.
+- **Tests added:** "identical scope produces no scope change flags"
+
+#### EC-27: Shallow clone in streaming validator is safe
+
+- **Severity:** Informational
+- **Files:** `packages/core/src/streaming-validator.ts:74`
+- **Observation:** `{ ...event, event_hash: "" }` creates a shallow clone — nested objects (like `payload`) are shared by reference. This is safe because `canonicalize()` (called on the clone) only reads properties to produce a JSON string and never mutates the input.
+
+#### EC-28: `NaN`/`Infinity` in OTel `doubleValue` attributes
+
+- **Severity:** Low
+- **Files:** `packages/core/src/otlp-export.ts:230-246`
+- **Observation:** `typeof NaN === "number"` is true and `Number.isInteger(NaN)` is false, so `NaN` goes to `doubleValue`. `JSON.stringify({ doubleValue: NaN })` produces `{"doubleValue":null}`. Similarly, `Infinity` and `-Infinity` become `null`. This could confuse OTel collectors but is extremely unlikely to occur in practice since payload values come from structured LLM/tool outputs, not raw computation.
+- **Deferred:** No fix. The edge case is theoretical and the fix (filtering special numbers) would add complexity for zero practical benefit.
+
+### Deferred (Acceptable)
+
+#### `findSubcommandToken` assumes all flags take values (from Sprint 4)
+
+- **Severity:** Low
+- **Files:** `packages/cli/src/router.ts:27-37`
+- **Problem:** `findSubcommandToken` skips any token immediately after a `--`-prefixed flag, assuming it's a flag value. Boolean flags (like `--verbose`) don't take values, so the token after them would be wrongly skipped. Currently no impact because `--help` and `--version` are handled before `findSubcommandToken` is called.
+- **Rationale for deferral:** Would require maintaining a list of boolean vs. value-taking flags. No current boolean flags reach this code path. Fix when a new boolean flag is added.
+
+#### `on_violation` removal not flagged as action weakening
+
+- **Severity:** Low
+- **Files:** `packages/policy/src/diff.ts`
+- **Problem:** Removing an `on_violation` handler from a rule is tracked as a change (`onViolationChanged: true`) but not flagged in the top-level `hasActionWeakening`. Whether removal constitutes "weakening" is debatable.
+- **Rationale for deferral:** The change is tracked for visibility. Whether to flag it as a regression is a policy decision, not a code bug. Can be revisited based on user feedback.
+
+#### BUG-2 (Sprint 2): Dual session_start events — still deferred
+
+No change from prior reviews. By design for adapter separation.
+
+### Test Coverage Summary
+
+| Test File | Tests Added |
+|---|---|
+| `packages/core/src/otlp-export.test.ts` | 16 (14 original + 2 review) |
+| `packages/core/src/streaming-validator.test.ts` | 12 (9 original + 3 review) |
+| `packages/core/src/trace-stats.test.ts` | +1 (review only) |
+| `packages/policy/src/inheritance.test.ts` | 15 (11 original + 4 review) |
+| `packages/policy/src/diff.test.ts` | 16 (12 original + 4 review) |
+| `test/integration/export-otlp.test.ts` | 4 |
+| `test/integration/policy-inheritance.test.ts` | 7 |
+
+**Total new tests this sprint (including review):** 89 (432 → 521)
+**Total test suite:** 521 tests across 45 test files
+
+---
+
+## Documentation Repositioning Audit (2026-02-25)
+
+**Scope:** All public-facing documentation — README, vision, non-goals, architecture, observability, glossary, CLAUDE.md, ADR-001.
+
+**Problem:** `.agents/SYSTEM.md` defines a two-layer product architecture (OSS Engine + Control Plane), but all public documentation positioned Krynix exclusively as "a CLI and library" with no reference to the governance/commercial layer.
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `docs/00_overview/product_model.md` | NEW — OSS Engine vs Control Plane, capabilities table, shared non-goals |
+| `docs/00_overview/business_model.md` | NEW — ICP, monetization hypotheses, competitive positioning |
+| `README.md` | Added "Why This Matters" section, two-layer mention in architecture, product/business doc links |
+| `docs/00_overview/vision.md` | Added "Product Layers" section between Target Users and Success Criteria |
+| `docs/00_overview/non_goals.md` | Scoped non-goals to OSS engine via callout, updated monitoring UI section with control plane note |
+| `docs/10_architecture/architecture.md` | Added OSS engine context + control plane reference in System Overview |
+| `docs/20_development/observability.md` | Fixed stale "planned feature" for OTel export — now reflects implemented `krynix export` command |
+| `CLAUDE.md` | Added OSS engine / control plane context line |
+
+### Audit Findings
+
+| # | Finding | Resolution |
+|---|---------|------------|
+| P1-P2 | README has no two-layer context | Added "Why This Matters", architecture update, doc links |
+| P3-P4 | Vision frames entire product as infrastructure-only | Added "Product Layers" section |
+| P5 | Non-goals says "Krynix itself is a CLI and library" | Scoped to "the Krynix OSS engine", added control plane note |
+| P6 | Architecture has no product layer context | Added OSS engine / control plane reference |
+| P7 | CLAUDE.md scoped to repo (correct) but no broader context | Added one-line context |
+| P8 | Observability describes OTel as "planned" — now implemented | Updated to reflect `krynix export` availability |
+| P9, P10 | product_model.md and business_model.md missing | Created both |
+
+### Non-Goals Verification
+
+All 7 non-goals verified as still holding for both OSS engine and planned control plane:
+
+| Non-Goal | OSS Engine | Control Plane | Status |
+|---|---|---|---|
+| Not an agent framework | Holds | Holds | No change |
+| Not LLM inference | Holds | Holds | No change |
+| Not a monitoring UI | Holds | Adds visibility, not monitoring UI | Clarified |
+| Not a CI replacement | Holds | Holds | No change |
+| Not real-time enforcement | Holds | Holds | No change |
+| Not agent orchestration | Holds | Holds | No change |
+| Not secret management | Holds | Holds | No change |
+
+---
+
+## Control Plane Architecture Design (2026-02-25)
+
+**Scope:** Design the Krynix Control Plane — centralized governance layer operating around OSS engine artifacts.
+
+**Output:** `docs/10_architecture/control_plane_spec.md` — 1100+ line architecture specification.
+
+### Architecture Summary
+
+- **7 services:** Trace Ingest API, Policy Registry, Replay Service (v2), Golden Trace Registry, Compliance Engine, Dashboard API, Auth & RBAC
+- **Security model:** API key + JWT auth, 5-role RBAC (org-admin, team-lead, developer, auditor, ci-agent), hash chain verification on ingest, TLS 1.3, AES-256 at rest
+- **3 deployment models:** SaaS, self-hosted, hybrid
+- **v1 monetization:** Trace storage + search, policy registry, compliance export bundles, basic RBAC
+- **Deferred to v2:** Hosted replay, signed attestations, real-time dashboards, webhooks
+
+### Key Architectural Decisions
+
+| Decision | Rationale |
+|---|---|
+| OSS engine remains fully standalone | No OSS command requires network connectivity; Control Plane is purely additive |
+| Artifact-centric (not runtime) | CP operates around .trace.jsonl/.policy.yaml, never inside agent execution |
+| Hash chain verification on ingest | Rejects tampered traces; reuses existing StreamingHashValidator |
+| PolicyResolver injection | Existing callback supports remote resolution with zero OSS code changes |
+| Hosted replay deferred | High infra cost; focus v1 on storage + registry + compliance |
+| 5-role RBAC | Covers ICP: regulated environments needing org-admin, auditor, ci-agent roles |
+
+### Cross-Reference Updates
+
+| File | Change |
+|---|---|
+| `docs/00_overview/product_model.md` | Added link to control_plane_spec.md |
+| `docs/10_architecture/architecture.md` | Added control_plane_spec.md reference |
+| `docs/10_architecture/threat_model.md` | Added "See Also" for T7–T12 threat additions |
+| `CLAUDE.md` | Added control_plane_spec.md to authoritative documents list |
+
+### Threat Model Additions
+
+6 new threats documented (T7–T12): credential theft, unauthorized trace access, policy registry poisoning, compliance export forgery, denial of service, data exfiltration via API.
+
+---
+
+## Control Plane Architecture Audit (2026-02-25)
+
+**Scope:** 10-point review and correction of `docs/10_architecture/control_plane_spec.md`.
+
+**Problem:** The initial Control Plane spec over-architected the deployment model (7 independent microservices), had vague/incorrect crypto claims, used 5 RBAC roles where 4 suffice, implied runtime control in some data flows, lacked an explicit boundaries section, and had several technical accuracy issues.
+
+### Changes Applied
+
+| # | Audit Category | Changes |
+|---|---|---|
+| 1 | Over-Architecture Reduction | Added deployment model statement at top ("v1 is a modular monolith"). Reframed "Control Plane Services" (Section 7) as "Control Plane Logical Components" (Section 8) with implementation note. Changed component summary from "Location" to "Boundary" column with `(logical)` labels. Replaced "All 7 services" in deployment diagrams with "Modular monolith" / "Single container". Added "Deployment Note" subsection explaining single-process architecture. Updated scaling notes to reference modular monolith context. |
+| 2 | Security Model Correction | Changed "TLS 1.3 required" to "TLS 1.2+ required (prefer TLS 1.3) with modern AEAD cipher suites (AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305)". Replaced "AES-256-GCM for object store" with envelope encryption via KMS (DEK/KEK model, AWS KMS/GCP Cloud KMS/self-managed HSM). Added key rotation model (90-day default, transparent rotation). Replaced "Service-to-service mTLS" auth row with "Service accounts" (API key with restricted permissions). Added API key expiration support, `last_used_at` tracking, staleness detection. Labeled SSO/OIDC as v2, v1 uses email+password. Added `service_account` actor_type to audit log schema. |
+| 3 | RBAC Simplification | Reduced from 5 roles (`org-admin`, `team-lead`, `developer`, `auditor`, `ci-agent`) to 4 roles (`org_admin`, `maintainer`, `member`, `auditor`). Extracted `ci-agent` into a separate service account model (not a role). Renamed `team-lead` to `maintainer`, `developer` to `member`. Updated permission matrix to include `service_account` column with restricted permissions. Removed "Manage team membership" from `maintainer`. Updated all role references in SQL data models (org_members.role comment, api_keys.role). |
+| 4 | Data Flow Tightening | Added section preamble: "All data flows are explicit, user-initiated, and post-hoc." Added failure behavior documentation for trace push. Added GitOps-compatible workflow description for policy sync. Changed evaluation reporting to clarify CP aggregates, does not evaluate. Removed `--registry <url>` from policy pull CLI (URL comes from config). Removed `auto_push: true` from config example, replaced with comment "All pushes are explicit CLI commands. No automatic uploads." |
+| 5 | Hosted Replay Positioning | Replaced "Replay Verification Request" (Section 2.4) with "Replay Report Ingestion (v1) / Hosted Replay (v2)". Defined v1 bridge: CLI pushes locally-produced replay reports, CP validates metadata and stores. Added `krynix push --replay-report <path>` CLI command. Renamed service from "Replay Service" to "Replay Report Ingest (v1) / Replay Service (v2)". Updated data model: removed `status/mode/worker_id/error_message` columns (hosted replay fields), added `source/engine_version/submitted_by/stored_at` columns. Added replay report storage to v1 features table. |
+| 6 | Compliance Export Clarification | Created new Section 6 "Compliance Evidence Bundles" with: bundle contents table (8 artifact types with source and inclusion criteria), bundle directory structure, integrity mechanism (SHA-256 manifest with per-artifact digests). Defined full `manifest.json` schema including `integrity_note` and `redaction_notice`. Removed `format: "zip"` from request body (format is always archive). Compliance Engine (Section 8.5) now references Section 6 for bundle specification. |
+| 7 | Boundary Enforcement | Added new "Control Plane Boundaries" section (after Invariants, before Section 1). Defines CP as "artifact aggregation and governance layer". Lists 5 things CP does and 6 things CP does NOT do. Added "Offline-first guarantee" paragraph. |
+| 8 | Monetization Alignment | Removed "Price Signal" and "$0 / Usage-based / Annual contract" columns from pricing table. Removed "SSO/OIDC" from Enterprise tier features (deferred to v2). Added "Replay report storage" to v1 features and Team tier. Added SSO/OIDC to deferred features table. Removed speculative SLA claim ("99.9% uptime") from SaaS characteristics. |
+| 9 | Technical Accuracy Pass | Changed "Replay Service: Runs deterministic replay in hosted environment" to "Replay Report Ingest: Receives locally-produced replay results (v1)". Removed "estimated_duration_ms" from replay response (v1 is synchronous report ingest). Changed `users.identity_provider` to `users.password_hash` with comment "bcrypt; v2 adds OIDC". Removed "external OIDC provider" from dependencies. Changed `org_members.role` comment from "org-admin, team-lead, developer, auditor" to "org_admin, maintainer, member, auditor". Changed "Terraform module" from self-hosted delivery options (premature). Reduced self-hosted minimum from "4 vCPU, 8 GB RAM" to "2 vCPU, 4 GB RAM". Updated Appendix A: added `--replay-report` command, added `--service-account` to create-key. Updated Appendix C migration path: removed `auto_push: true` step, added replay report push step. Updated T9 mitigation to use "maintainer/org_admin" instead of "team-lead/org-admin". |
+| 10 | Section Renumbering | Original "What Remains Purely OSS" moved from Section 6 to Section 7. New "Compliance Evidence Bundles" is Section 6. "Control Plane Services" renamed to "Control Plane Logical Components" and moved from Section 7 to Section 8. "Deployment Model" moved from Section 8 to Section 9. |
+
+### Summary of Structural Changes
+
+- **Added sections:** Control Plane Boundaries, Compliance Evidence Bundles (Section 6), Deployment Note
+- **Renamed sections:** "Control Plane Services" → "Control Plane Logical Components", "Auth & RBAC Service" → "Auth & Access Control", "Replay Service" → "Replay Report Ingest (v1) / Replay Service (v2)"
+- **RBAC:** 5 roles → 4 roles + service accounts
+- **Crypto:** Vague claims → specific KMS envelope encryption, TLS version range, cipher suites, key rotation
+- **Deployment:** 7 microservices → modular monolith with logical boundaries
+- **Auth:** SSO/OIDC moved to v2, v1 uses email+password
+- **Replay:** Hosted execution deferred, v1 accepts locally-produced reports
+- **Line count:** 1107 → 1185 (net +78 lines despite removing speculative content, due to new sections)

@@ -207,6 +207,17 @@ describe("computeTraceStats", () => {
     expect(stats.duration_ms).toBeNull();
   });
 
+  test("invalid lifecycle timestamps produce null duration_ms", () => {
+    const trace = [
+      makeLifecycle("session_start", "not-a-date"),
+      makeLifecycle("session_end", "also-not-a-date"),
+    ];
+
+    const stats = computeTraceStats(trace);
+    // Should return null, not NaN, for invalid timestamps
+    expect(stats.duration_ms).toBeNull();
+  });
+
   test("sums token usage across multiple llm_response events", () => {
     const trace = [
       makeLifecycle("session_start", "2025-01-15T14:00:00.000Z"),

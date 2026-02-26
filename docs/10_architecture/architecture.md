@@ -8,6 +8,8 @@ See [glossary](../00_overview/glossary.md) for term definitions.
 
 Krynix is infrastructure, not an agent framework. It sits alongside agent execution runtimes and provides three composable primitives:
 
+This repository contains the Krynix **OSS engine** — the core verification infrastructure. A planned [Control Plane](../00_overview/product_model.md) will provide centralized governance capabilities around these same primitives. See [product model](../00_overview/product_model.md) for the two-layer architecture and [control plane spec](control_plane_spec.md) for the full Control Plane design.
+
 1. **Trace** — structured, immutable record of agent behavior ([spec](trace_spec.md))
 2. **Policy** — declarative rules constraining what agents may do ([spec](policy_spec.md))
 3. **Replay** — deterministic re-execution for reproducibility verification ([spec](determinism_spec.md))

@@ -86,6 +86,7 @@ export interface PolicyMetadata {
   version: string;
   description: string;
   labels?: Record<string, string>;
+  extends?: string;
 }
 
 /**

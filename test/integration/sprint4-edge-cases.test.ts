@@ -402,15 +402,17 @@ describe("redactWithPatterns edge cases", () => {
 describe("Router policy namespace edge cases", () => {
   test("policy test with --help before test subcommand shows help", async () => {
     const result = await routeCommand(["policy", "--help", "test"]);
-    // --help takes priority over subcommand
+    // --help takes priority over subcommand, shows namespace help
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--policy");
+    expect(result.stdout).toContain("test");
+    expect(result.stdout).toContain("diff");
   });
 
   test("policy with no subcommand shows namespace help", async () => {
     const result = await routeCommand(["policy"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("policy test");
+    expect(result.stdout).toContain("test");
+    expect(result.stdout).toContain("diff");
   });
 
   test("policy test --help shows help, not error", async () => {
