@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { getArg, hasFlag, parseCommand } from "./arg-parser.js";
+import { getArg, getAllArgs, hasFlag, parseCommand } from "./arg-parser.js";
 
 describe("getArg", () => {
   test("returns value after flag", () => {
@@ -42,5 +42,35 @@ describe("parseCommand", () => {
     const result = parseCommand([]);
     expect(result.command).toBeUndefined();
     expect(result.rest).toEqual([]);
+  });
+});
+
+describe("getAllArgs", () => {
+  test("returns all values for a repeated flag", () => {
+    const result = getAllArgs(["--trace", "a.jsonl", "--trace", "b.jsonl"], "--trace");
+    expect(result).toEqual(["a.jsonl", "b.jsonl"]);
+  });
+
+  test("returns empty array when flag is absent", () => {
+    const result = getAllArgs(["--policy", "x"], "--trace");
+    expect(result).toEqual([]);
+  });
+
+  test("returns single value for one occurrence", () => {
+    const result = getAllArgs(["--trace", "file.jsonl", "--verbose"], "--trace");
+    expect(result).toEqual(["file.jsonl"]);
+  });
+
+  test("skips flag when it has no following value", () => {
+    const result = getAllArgs(["--trace"], "--trace");
+    expect(result).toEqual([]);
+  });
+
+  test("handles interleaved flags", () => {
+    const result = getAllArgs(
+      ["--trace", "a.jsonl", "--output", "/tmp", "--trace", "b.jsonl"],
+      "--trace",
+    );
+    expect(result).toEqual(["a.jsonl", "b.jsonl"]);
   });
 });

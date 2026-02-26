@@ -17,6 +17,11 @@ import { runStats } from "./stats.js";
 import { runPolicyTest } from "./policy-test.js";
 import { runExport } from "./export.js";
 import { runPolicyDiff } from "./policy-diff.js";
+import { runComplianceExport } from "./compliance.js";
+import { runAuthStatus, runAuthLogout } from "./auth.js";
+import { runPush } from "./push.js";
+import { runPolicyPull } from "./policy-pull.js";
+import { runPolicyPush } from "./policy-push.js";
 
 /**
  * Find the first positional token in an argument list, skipping
@@ -70,8 +75,13 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
     };
   }
 
-  // Per-command --help (namespace commands like "policy" handle their own help)
-  if (hasFlag(rest, "--help") && command !== "policy") {
+  // Per-command --help (namespace commands handle their own help)
+  if (
+    hasFlag(rest, "--help") &&
+    command !== "policy" &&
+    command !== "compliance" &&
+    command !== "auth"
+  ) {
     const help = getCommandHelp(command);
     if (help !== undefined) {
       return { exitCode: 0, stdout: help, stderr: "" };
@@ -164,11 +174,118 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         return { exitCode: result.exitCode, stdout, stderr };
       }
 
+      if (sub.token === "pull") {
+        const policyPullArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(policyPullArgs, "--help")) {
+          const help = getCommandHelp("policy pull");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runPolicyPull(policyPullArgs);
+        const stdout = result.result !== null ? JSON.stringify(result.result, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "push") {
+        const policyPushArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(policyPushArgs, "--help")) {
+          const help = getCommandHelp("policy push");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runPolicyPush(policyPushArgs);
+        const stdout = result.result !== null ? JSON.stringify(result.result, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
       return {
         exitCode: 1,
         stdout: "",
         stderr: `Unknown policy subcommand: ${sub.token}\n\n${getCommandHelp("policy") ?? ""}`,
       };
+    }
+
+    case "compliance": {
+      const sub = findSubcommandToken(rest);
+
+      if (sub === undefined) {
+        const help = getCommandHelp("compliance");
+        return { exitCode: 0, stdout: help ?? "", stderr: "" };
+      }
+
+      if (sub.token === "export") {
+        const complianceArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(complianceArgs, "--help")) {
+          const help = getCommandHelp("compliance export");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runComplianceExport(complianceArgs);
+        const stdout = result.output ?? "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: `Unknown compliance subcommand: ${sub.token}\n\n${getCommandHelp("compliance") ?? ""}`,
+      };
+    }
+
+    case "auth": {
+      const sub = findSubcommandToken(rest);
+
+      if (sub === undefined) {
+        const help = getCommandHelp("auth");
+        return { exitCode: 0, stdout: help ?? "", stderr: "" };
+      }
+
+      if (sub.token === "status") {
+        const authArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(authArgs, "--help")) {
+          const help = getCommandHelp("auth status");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = runAuthStatus(authArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "logout") {
+        const authArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(authArgs, "--help")) {
+          const help = getCommandHelp("auth logout");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = runAuthLogout(authArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: `Unknown auth subcommand: ${sub.token}\n\n${getCommandHelp("auth") ?? ""}`,
+      };
+    }
+
+    case "push": {
+      const result = await runPush(rest);
+      const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+      const stderr = result.error ?? "";
+      return { exitCode: result.exitCode, stdout, stderr };
     }
 
     default: {
