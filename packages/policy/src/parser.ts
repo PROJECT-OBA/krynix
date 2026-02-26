@@ -195,6 +195,11 @@ export function parsePolicy(yaml: string): Policy {
   assertString(meta["version"], "metadata.version");
   assertString(meta["description"], "metadata.description");
 
+  // metadata.extends (optional)
+  if (meta["extends"] !== undefined) {
+    assertString(meta["extends"], "metadata.extends");
+  }
+
   // spec
   assertObject(doc["spec"], "spec");
   const spec = doc["spec"] as Record<string, unknown>;
@@ -244,6 +249,7 @@ export function parsePolicy(yaml: string): Policy {
       version: meta["version"] as string,
       description: meta["description"] as string,
       ...(meta["labels"] != null ? { labels: meta["labels"] as Record<string, string> } : {}),
+      ...(meta["extends"] !== undefined ? { extends: meta["extends"] as string } : {}),
     },
     spec: {
       scope: {

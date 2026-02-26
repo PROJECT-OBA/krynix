@@ -31,6 +31,18 @@ These compose into a trust pipeline:
                      └──────────────────┘
 ```
 
+## Why This Matters
+
+Autonomous agents are moving from prototypes to production. When agents make decisions, invoke tools, and produce outputs at scale, organizations need infrastructure to answer three questions:
+
+1. **What did the agent do?** → Trace
+2. **Was it allowed to do that?** → Policy
+3. **Can we prove it would do the same thing again?** → Replay
+
+Krynix provides the trust primitives that make these questions answerable — in CI, before code ships.
+
+The OSS engine (this repository) provides the core verification infrastructure. A future [Krynix Control Plane](docs/00_overview/product_model.md) will provide centralized governance for organizations deploying agents at scale.
+
 ## What Krynix Is NOT
 
 - **Not an agent framework** — does not run agents or provide execution runtimes
@@ -65,6 +77,7 @@ Key design decisions:
 - **Hash-chained traces** — SHA-256 linking provides tamper-evidence for every recorded event
 - **Determinism Envelope** — fixed seeds, frozen time, stubbed network, snapshotted filesystem
 - **Infrastructure-first** — Krynix is a foundational layer, not an application
+- **Two-layer product** — The OSS engine (this repository) provides core verification primitives. A planned [Control Plane](docs/00_overview/product_model.md) will add centralized governance, policy distribution, and compliance tooling.
 
 See [architecture.md](docs/10_architecture/architecture.md) for the full system design.
 
@@ -72,6 +85,8 @@ See [architecture.md](docs/10_architecture/architecture.md) for the full system 
 
 ### Overview
 - [Vision](docs/00_overview/vision.md) — problem statement, core principles, target users
+- [Product Model](docs/00_overview/product_model.md) — OSS engine vs. Control Plane, what's available vs. planned
+- [Business Model](docs/00_overview/business_model.md) — target users, monetization hypotheses
 - [Non-Goals](docs/00_overview/non_goals.md) — explicit boundaries and scope exclusions
 - [Glossary](docs/00_overview/glossary.md) — canonical terminology reference
 

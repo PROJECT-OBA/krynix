@@ -103,7 +103,9 @@ export function computeTraceStats(trace: readonly TraceEvent[]): TraceStats {
   if (sessionStartTimestamp !== null && sessionEndTimestamp !== null) {
     const start = new Date(sessionStartTimestamp).getTime();
     const end = new Date(sessionEndTimestamp).getTime();
-    durationMs = end - start;
+    if (!isNaN(start) && !isNaN(end)) {
+      durationMs = end - start;
+    }
   }
 
   return {

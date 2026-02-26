@@ -35,3 +35,7 @@ export {
   type Violation,
   type EvaluationResult,
 } from "./evaluator.js";
+
+export { mergePolicy, resolvePolicy, type PolicyResolver } from "./inheritance.js";
+
+export { diffPolicies, type PolicyDiff, type RuleDiff } from "./diff.js";

@@ -78,7 +78,12 @@ export async function runPolicyTest(args: string[]): Promise<PolicyTestResult> {
   }
 
   // Evaluate
-  const evalResult = evaluate(trace, policy);
+  let evalResult;
+  try {
+    evalResult = evaluate(trace, policy);
+  } catch (err) {
+    return { exitCode: 1, result: null, error: `Failed to evaluate policy: ${String(err)}` };
+  }
 
   // Build result
   let expectation: { expected: string; actual: string; match: boolean } | null = null;

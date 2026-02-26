@@ -261,3 +261,5 @@ This threat model should be reviewed:
 - When new tool types are supported
 - When the policy evaluation model changes
 - At minimum, quarterly
+
+See also: [Control Plane Threat Model Additions](control_plane_spec.md#appendix-b-threat-model-additions) for threats T7–T12 introduced by the hosted governance layer.

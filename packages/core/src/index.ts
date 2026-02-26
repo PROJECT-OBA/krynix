@@ -59,3 +59,15 @@ export {
 } from "./session.js";
 
 export { computeTraceStats, type TraceStats } from "./trace-stats.js";
+
+export {
+  convertToOtlp,
+  type OtlpExportData,
+  type OtlpSpan,
+  type OtlpAttribute,
+  type OtlpAttributeValue,
+  type OtlpStatus,
+  type OtlpScope,
+} from "./otlp-export.js";
+
+export { StreamingHashValidator } from "./streaming-validator.js";

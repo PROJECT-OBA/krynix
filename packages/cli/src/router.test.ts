@@ -246,8 +246,9 @@ describe("routeCommand", () => {
     const result = await routeCommand(["policy", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--policy");
-    expect(result.stdout).toContain("--expect-verdict");
+    expect(result.stdout).toContain("test");
+    expect(result.stdout).toContain("diff");
+    expect(result.stdout).toContain("subcommand");
   });
 
   test("policy with unknown subcommand returns exit 1", async () => {

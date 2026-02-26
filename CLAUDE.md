@@ -18,6 +18,7 @@ Primary wedge:
 👉 “Agent Evals + Guardrails in CI”
 
 This repository is infrastructure-first.
+This repository contains the OSS engine layer. A planned Control Plane layer (not in this repository) will provide centralized governance. See docs/00_overview/product_model.md.
 We optimize for correctness, determinism, and testability over speed.
 
 ---
@@ -26,6 +27,7 @@ We optimize for correctness, determinism, and testability over speed.
 
 Architecture & Contracts:
 - docs/10_architecture/architecture.md
+- docs/10_architecture/control_plane_spec.md
 - docs/10_architecture/trace_spec.md
 - docs/10_architecture/policy_spec.md
 - docs/10_architecture/determinism_spec.md
