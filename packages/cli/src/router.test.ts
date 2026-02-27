@@ -352,4 +352,71 @@ describe("routeCommand", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("--trace");
   });
+
+  // -------------------------------------------------------------------------
+  // Sprint 7: auth login / create-key routes
+  // -------------------------------------------------------------------------
+
+  test("auth login --help returns auth login help", async () => {
+    const result = await routeCommand(["auth", "login", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--email");
+    expect(result.stdout).toContain("--password");
+  });
+
+  test("auth create-key --help returns auth create-key help", async () => {
+    const result = await routeCommand(["auth", "create-key", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("--name");
+    expect(result.stdout).toContain("API key");
+  });
+
+  test("auth login with missing email returns exit 1", async () => {
+    const result = await routeCommand(["auth", "login", "--password", "secret"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("email");
+  });
+
+  test("auth create-key without auth returns exit 1", async () => {
+    const result = await routeCommand(["auth", "create-key"]);
+
+    expect(result.exitCode).toBe(1);
+    // Should error due to missing config or auth
+    expect(result.stderr.length).toBeGreaterThan(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sprint 7 Review: argv redaction
+  // -------------------------------------------------------------------------
+
+  test("unknown arguments redact sensitive flag values in error output", async () => {
+    const result = await routeCommand(["--password", "my-secret-pw", "--email", "user@test.com"]);
+
+    expect(result.exitCode).toBe(1);
+    // The password value is parsed as the "command" by parseCommand —
+    // it should be redacted in the error output
+    expect(result.stderr).toContain("[REDACTED]");
+    expect(result.stderr).not.toContain("my-secret-pw");
+    expect(result.stderr).not.toContain("user@test.com");
+  });
+
+  test("unknown arguments preserve non-sensitive flag values in error output", async () => {
+    const result = await routeCommand(["--trace", "/path/to/file.jsonl"]);
+
+    expect(result.exitCode).toBe(1);
+    // Non-sensitive values are shown in the error
+    expect(result.stderr).toContain("/path/to/file.jsonl");
+  });
+
+  test("redacts value that appears earlier as non-sensitive but later after sensitive flag", async () => {
+    // "mysecret" appears first as a non-sensitive --trace value, then as --password value
+    const result = await routeCommand(["--trace", "mysecret", "--password", "mysecret"]);
+
+    expect(result.exitCode).toBe(1);
+    // The value should be redacted because it follows --password somewhere in argv
+    expect(result.stderr).not.toContain("mysecret");
+  });
 });

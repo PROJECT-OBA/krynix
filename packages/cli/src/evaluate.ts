@@ -10,10 +10,10 @@
 
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { readTrace } from "@krynix/core";
+import { readTrace, filterTraceEvents } from "@krynix/core";
 import { parsePolicy, evaluate } from "@krynix/policy";
 import type { Policy, EvaluationResult } from "@krynix/policy";
-import { getArg } from "./arg-parser.js";
+import { getArg, getAllArgs } from "./arg-parser.js";
 
 /** Result from the evaluate command. */
 export interface EvaluateResult {
@@ -44,6 +44,10 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   // Parse args
   const tracePath = getArg(args, "--trace");
   const policyPath = getArg(args, "--policy");
+  const filterTypes = getAllArgs(args, "--filter-type");
+  const filterAgents = getAllArgs(args, "--filter-agent");
+  const afterArg = getArg(args, "--after");
+  const beforeArg = getArg(args, "--before");
 
   if (tracePath === undefined) {
     return { exitCode: 1, output: null, error: "Missing required argument: --trace" };
@@ -58,6 +62,18 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     trace = await readTrace(tracePath);
   } catch (err) {
     return { exitCode: 1, output: null, error: `Failed to read trace: ${String(err)}` };
+  }
+
+  // Apply filters
+  try {
+    trace = filterTraceEvents(trace, {
+      event_types: filterTypes.length > 0 ? filterTypes : undefined,
+      agent_ids: filterAgents.length > 0 ? filterAgents : undefined,
+      after: afterArg,
+      before: beforeArg,
+    });
+  } catch (err) {
+    return { exitCode: 1, output: null, error: `Invalid filter: ${String(err)}` };
   }
 
   // Load policies

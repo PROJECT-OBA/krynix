@@ -18,10 +18,46 @@ import { runPolicyTest } from "./policy-test.js";
 import { runExport } from "./export.js";
 import { runPolicyDiff } from "./policy-diff.js";
 import { runComplianceExport } from "./compliance.js";
-import { runAuthStatus, runAuthLogout } from "./auth.js";
+import { runAuthStatus, runAuthLogout, runAuthLogin, runAuthCreateKey } from "./auth.js";
 import { runPush } from "./push.js";
 import { runPolicyPull } from "./policy-pull.js";
 import { runPolicyPush } from "./policy-push.js";
+
+/** Sensitive flags whose values must not appear in error messages. */
+const SENSITIVE_FLAGS = new Set(["--password", "--email", "--token", "--api-key"]);
+
+/**
+ * Redact values that follow sensitive flags in an argv array.
+ * Returns a new array with sensitive values replaced by `"[REDACTED]"`.
+ */
+function redactFlagValues(argv: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i];
+    if (token === undefined) continue;
+    result.push(token);
+    if (token.startsWith("--") && SENSITIVE_FLAGS.has(token) && i + 1 < argv.length) {
+      result.push("[REDACTED]");
+      i++; // skip the value
+    }
+  }
+  return result;
+}
+
+/**
+ * Check whether a value appears in argv immediately after a sensitive flag.
+ */
+function isSensitiveFlagValue(argv: string[], value: string): boolean {
+  // Scan all occurrences — indexOf only finds the first, which may not be
+  // the one following a sensitive flag.
+  for (let i = 1; i < argv.length; i++) {
+    const prev = argv[i - 1];
+    if (argv[i] === value && prev !== undefined && SENSITIVE_FLAGS.has(prev)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Find the first positional token in an argument list, skipping
@@ -67,11 +103,12 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
     if (hasFlag(argv, "--help") || argv.length === 0) {
       return { exitCode: 0, stdout: getMainHelp(), stderr: "" };
     }
-    // Only flags but no recognized command
+    // Only flags but no recognized command — redact flag values to avoid leaking secrets
+    const safeArgv = redactFlagValues(argv);
     return {
       exitCode: 1,
       stdout: "",
-      stderr: `Unknown arguments: ${argv.join(" ")}\n\n${getMainHelp()}`,
+      stderr: `Unknown arguments: ${safeArgv.join(" ")}\n\n${getMainHelp()}`,
     };
   }
 
@@ -274,6 +311,34 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         return { exitCode: result.exitCode, stdout, stderr };
       }
 
+      if (sub.token === "login") {
+        const authArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(authArgs, "--help")) {
+          const help = getCommandHelp("auth login");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runAuthLogin(authArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "create-key") {
+        const authArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(authArgs, "--help")) {
+          const help = getCommandHelp("auth create-key");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runAuthCreateKey(authArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
       return {
         exitCode: 1,
         stdout: "",
@@ -290,10 +355,13 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
 
     default: {
       const help = getMainHelp();
+      // The "command" may be a flag value (e.g., password) mis-parsed as a
+      // positional argument. Redact it if it follows a sensitive flag in argv.
+      const displayCommand = isSensitiveFlagValue(argv, command) ? "[REDACTED]" : command;
       return {
         exitCode: 1,
         stdout: "",
-        stderr: `Unknown command: ${command}\n\n${help}`,
+        stderr: `Unknown command: ${displayCommand}\n\n${help}`,
       };
     }
   }

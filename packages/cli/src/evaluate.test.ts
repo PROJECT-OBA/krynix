@@ -251,4 +251,22 @@ describe("runEvaluate", () => {
     expect(result.output?.verdict).toBe("fail");
     expect(result.output?.policyResults).toHaveLength(2);
   });
+
+  test("--filter-type filters events before policy evaluation", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    // Filter to only lifecycle events — should still pass with allow-all policy
+    const result = await runEvaluate([
+      "--trace",
+      tracePath,
+      "--policy",
+      policyPath,
+      "--filter-type",
+      "lifecycle",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output?.verdict).toBe("pass");
+  });
 });

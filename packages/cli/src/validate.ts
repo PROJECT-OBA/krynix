@@ -9,7 +9,7 @@
 
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { parsePolicy, PolicyValidationError } from "@krynix/policy";
+import { parsePolicy } from "@krynix/policy";
 import { getArg } from "./arg-parser.js";
 
 /** Per-file validation result. */
@@ -73,19 +73,12 @@ export async function runValidate(args: string[]): Promise<ValidateResult> {
       parsePolicy(content);
       results.push({ file: name, valid: true, errors: [] });
     } catch (err: unknown) {
-      if (err instanceof PolicyValidationError) {
-        results.push({
-          file: name,
-          valid: false,
-          errors: [err.message],
-        });
-      } else {
-        results.push({
-          file: name,
-          valid: false,
-          errors: [String(err)],
-        });
-      }
+      const message = err instanceof Error ? err.message : String(err);
+      results.push({
+        file: name,
+        valid: false,
+        errors: [message],
+      });
     }
   }
 

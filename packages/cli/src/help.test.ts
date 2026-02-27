@@ -37,6 +37,10 @@ describe("getCommandHelp", () => {
     expect(help).toBeDefined();
     expect(help).toContain("--trace");
     expect(help).toContain("--policy");
+    expect(help).toContain("--filter-type");
+    expect(help).toContain("--filter-agent");
+    expect(help).toContain("--after");
+    expect(help).toContain("--before");
   });
 
   test("replay help mentions --verify and --regenerate", () => {
@@ -62,6 +66,8 @@ describe("getCommandHelp", () => {
     expect(help).toBeDefined();
     expect(help).toContain("--trace");
     expect(help).toContain("event_count");
+    expect(help).toContain("--filter-type");
+    expect(help).toContain("--filter-agent");
   });
 
   test("policy namespace help lists subcommands", () => {
@@ -93,6 +99,8 @@ describe("getCommandHelp", () => {
     expect(help).toContain("--format");
     expect(help).toContain("--trace");
     expect(help).toContain("otlp-json");
+    expect(help).toContain("--filter-type");
+    expect(help).toContain("--filter-agent");
   });
 
   // -------------------------------------------------------------------------
@@ -141,6 +149,8 @@ describe("getCommandHelp", () => {
     expect(help).toBeDefined();
     expect(help).toContain("status");
     expect(help).toContain("logout");
+    expect(help).toContain("login");
+    expect(help).toContain("create-key");
   });
 
   test("auth status help mentions credentials", () => {
@@ -153,6 +163,27 @@ describe("getCommandHelp", () => {
     const help = getCommandHelp("auth logout");
     expect(help).toBeDefined();
     expect(help).toContain("credentials");
+  });
+
+  test("auth login help mentions --email and --password", () => {
+    const help = getCommandHelp("auth login");
+    expect(help).toBeDefined();
+    expect(help).toContain("--email");
+    expect(help).toContain("--password");
+    expect(help).toContain("KRYNIX_EMAIL");
+  });
+
+  test("auth create-key help mentions --name", () => {
+    const help = getCommandHelp("auth create-key");
+    expect(help).toBeDefined();
+    expect(help).toContain("--name");
+    expect(help).toContain("API key");
+  });
+
+  test("main help lists auth login and auth create-key", () => {
+    const help = getMainHelp();
+    expect(help).toContain("auth login");
+    expect(help).toContain("auth create-key");
   });
 
   test("policy namespace includes pull and push subcommands", () => {
