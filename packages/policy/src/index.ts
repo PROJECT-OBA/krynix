@@ -39,3 +39,5 @@ export {
 export { mergePolicy, resolvePolicy, type PolicyResolver } from "./inheritance.js";
 
 export { diffPolicies, type PolicyDiff, type RuleDiff } from "./diff.js";
+
+export { createHttpPolicyResolver, type HttpPolicyResolverOptions } from "./http-resolver.js";

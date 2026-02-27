@@ -21,9 +21,16 @@ export {
 export {
   runAuthStatus,
   runAuthLogout,
+  runAuthLogin,
+  runAuthCreateKey,
   type AuthResult,
   type AuthStatusOutput,
   type AuthLogoutOutput,
+  type AuthLoginOutput,
+  type AuthCreateKeyOutput,
+  type AuthDeps,
+  type AuthLoginDeps,
+  type AuthCreateKeyDeps,
 } from "./auth.js";
 export {
   createControlPlaneClient,

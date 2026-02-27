@@ -39,6 +39,8 @@ Commands:
   push               Upload artifacts to the Control Plane
   auth status        Show authentication status
   auth logout        Clear stored credentials
+  auth login         Authenticate with email/password
+  auth create-key    Create an API key
 
 Options:
   --help      Show help
@@ -62,6 +64,10 @@ Usage: krynix evaluate --trace <file> --policy <file-or-dir>
 Options:
   --trace <file>        Path to a .trace.jsonl file
   --policy <path>       Path to a .policy.yaml file or directory
+  --filter-type <type>  Filter events by type (repeatable)
+  --filter-agent <id>   Filter events by agent_id (repeatable)
+  --after <timestamp>   Include events at or after this ISO-8601 time
+  --before <timestamp>  Include events at or before this ISO-8601 time
   --help                Show this help
 
 Exit codes:
@@ -107,6 +113,10 @@ Usage: krynix stats --trace <file>
 
 Options:
   --trace <file>        Path to a .trace.jsonl file
+  --filter-type <type>  Filter events by type (repeatable)
+  --filter-agent <id>   Filter events by agent_id (repeatable)
+  --after <timestamp>   Include events at or after this ISO-8601 time
+  --before <timestamp>  Include events at or before this ISO-8601 time
   --help                Show this help
 
 Output:
@@ -126,6 +136,10 @@ Usage: krynix export --format <format> --trace <file>
 Options:
   --format <format>     Output format (supported: otlp-json)
   --trace <file>        Path to a .trace.jsonl file
+  --filter-type <type>  Filter events by type (repeatable)
+  --filter-agent <id>   Filter events by agent_id (repeatable)
+  --after <timestamp>   Include events at or after this ISO-8601 time
+  --before <timestamp>  Include events at or before this ISO-8601 time
   --help                Show this help
 
 Formats:
@@ -273,8 +287,10 @@ Exit codes:
 Usage: krynix auth <subcommand>
 
 Subcommands:
-  status    Show current authentication status
-  logout    Clear stored credentials
+  status      Show current authentication status
+  logout      Clear stored credentials
+  login       Authenticate with email and password
+  create-key  Create an API key
 
 Run 'krynix auth <subcommand> --help' for subcommand-specific help.`;
 
@@ -300,6 +316,39 @@ Removes the credentials file (~/.krynix/credentials).
 Exit codes:
   0   Credentials cleared
   1   Runtime error`;
+
+    case "auth login":
+      return `krynix auth login — Authenticate with email and password
+
+Usage: krynix auth login --email <email> --password <password>
+
+Options:
+  --email <email>       Email address (or set KRYNIX_EMAIL env var)
+  --password <password> Password (or set KRYNIX_PASSWORD env var)
+  --help                Show this help
+
+Flags take priority over environment variables. Stores a token
+on success, preserving any existing API key.
+
+Exit codes:
+  0   Authenticated successfully
+  1   Runtime error or auth failure`;
+
+    case "auth create-key":
+      return `krynix auth create-key — Create an API key
+
+Usage: krynix auth create-key [--name <name>]
+
+Options:
+  --name <name>   Optional name for the API key
+  --help          Show this help
+
+Requires existing authentication (token or API key).
+Stores the new API key on success, preserving any existing token.
+
+Exit codes:
+  0   API key created successfully
+  1   Runtime error or auth failure`;
 
     default:
       return undefined;

@@ -81,3 +81,16 @@ export {
   type BundleManifest,
   type ComplianceBundle,
 } from "./compliance-bundle.js";
+
+export { filterTraceEvents, matchFieldGlob, type TraceFilterCriteria } from "./trace-filter.js";
+
+export {
+  runEvaluationPipeline,
+  evaluateTrace,
+  type EvaluationPipelineOptions,
+  type EvaluationPipelineResult,
+  type EvaluationPipelineDeps,
+  type PipelineEvalResult,
+  type PipelineReplayResult,
+  type PipelinePolicyResult,
+} from "./evaluation-pipeline.js";

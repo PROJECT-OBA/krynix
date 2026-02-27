@@ -137,4 +137,16 @@ describe("runStats", () => {
     expect(result.exitCode).toBe(1);
     expect(result.error).toContain("--trace");
   });
+
+  test("--filter-type reduces computed stats", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+
+    // Filter to only tool_call events
+    const result = await runStats(["--trace", tracePath, "--filter-type", "tool_call"]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stats).not.toBeNull();
+    expect(result.stats?.event_count).toBe(1);
+    expect(result.stats?.tool_call_count).toBe(1);
+  });
 });

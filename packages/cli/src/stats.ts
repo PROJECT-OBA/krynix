@@ -7,9 +7,9 @@
  * @module
  */
 
-import { readTrace, computeTraceStats } from "@krynix/core";
+import { readTrace, computeTraceStats, filterTraceEvents } from "@krynix/core";
 import type { TraceStats } from "@krynix/core";
-import { getArg } from "./arg-parser.js";
+import { getArg, getAllArgs } from "./arg-parser.js";
 
 /** Result from the stats command. */
 export interface StatsResult {
@@ -28,6 +28,10 @@ export interface StatsResult {
  */
 export async function runStats(args: string[]): Promise<StatsResult> {
   const tracePath = getArg(args, "--trace");
+  const filterTypes = getAllArgs(args, "--filter-type");
+  const filterAgents = getAllArgs(args, "--filter-agent");
+  const afterArg = getArg(args, "--after");
+  const beforeArg = getArg(args, "--before");
 
   if (tracePath === undefined) {
     return { exitCode: 1, stats: null, error: "Missing required argument: --trace" };
@@ -38,6 +42,18 @@ export async function runStats(args: string[]): Promise<StatsResult> {
     trace = await readTrace(tracePath);
   } catch (err) {
     return { exitCode: 1, stats: null, error: `Failed to read trace: ${String(err)}` };
+  }
+
+  // Apply filters
+  try {
+    trace = filterTraceEvents(trace, {
+      event_types: filterTypes.length > 0 ? filterTypes : undefined,
+      agent_ids: filterAgents.length > 0 ? filterAgents : undefined,
+      after: afterArg,
+      before: beforeArg,
+    });
+  } catch (err) {
+    return { exitCode: 1, stats: null, error: `Invalid filter: ${String(err)}` };
   }
 
   let stats;

@@ -7,8 +7,8 @@
  * @module
  */
 
-import { readTrace, convertToOtlp } from "@krynix/core";
-import { getArg } from "./arg-parser.js";
+import { readTrace, convertToOtlp, filterTraceEvents } from "@krynix/core";
+import { getArg, getAllArgs } from "./arg-parser.js";
 
 /** Supported export formats. */
 const SUPPORTED_FORMATS = ["otlp-json"] as const;
@@ -31,6 +31,10 @@ export interface ExportResult {
 export async function runExport(args: string[]): Promise<ExportResult> {
   const tracePath = getArg(args, "--trace");
   const format = getArg(args, "--format");
+  const filterTypes = getAllArgs(args, "--filter-type");
+  const filterAgents = getAllArgs(args, "--filter-agent");
+  const afterArg = getArg(args, "--after");
+  const beforeArg = getArg(args, "--before");
 
   if (tracePath === undefined) {
     return { exitCode: 1, output: null, error: "Missing required argument: --trace" };
@@ -53,6 +57,18 @@ export async function runExport(args: string[]): Promise<ExportResult> {
     trace = await readTrace(tracePath);
   } catch (err) {
     return { exitCode: 1, output: null, error: `Failed to read trace: ${String(err)}` };
+  }
+
+  // Apply filters
+  try {
+    trace = filterTraceEvents(trace, {
+      event_types: filterTypes.length > 0 ? filterTypes : undefined,
+      agent_ids: filterAgents.length > 0 ? filterAgents : undefined,
+      after: afterArg,
+      before: beforeArg,
+    });
+  } catch (err) {
+    return { exitCode: 1, output: null, error: `Invalid filter: ${String(err)}` };
   }
 
   let otlp;

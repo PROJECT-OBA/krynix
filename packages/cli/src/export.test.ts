@@ -167,4 +167,25 @@ describe("runExport", () => {
     const parsed = JSON.parse(result.output as string) as OtlpExportData;
     expect(parsed.resourceSpans[0]?.scopeSpans[0]?.spans.length).toBeGreaterThan(0);
   });
+
+  test("--filter-type reduces exported events", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+
+    // Filter to only tool_call events
+    const result = await runExport([
+      "--format",
+      "otlp-json",
+      "--trace",
+      tracePath,
+      "--filter-type",
+      "tool_call",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output).not.toBeNull();
+
+    const parsed = JSON.parse(result.output as string) as OtlpExportData;
+    // Should have only 1 span (the tool_call)
+    expect(parsed.resourceSpans[0]?.scopeSpans[0]?.spans).toHaveLength(1);
+  });
 });
