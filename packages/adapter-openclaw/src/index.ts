@@ -16,3 +16,10 @@ export type {
   OpenClawAgentContext,
   OpenClawSessionContext,
 } from "./openclaw-types.js";
+
+export {
+  createKrynixPlugin,
+  type KrynixPluginOptions,
+  type KrynixPluginHandle,
+  type OpenClawPluginApiMinimal,
+} from "./plugin.js";

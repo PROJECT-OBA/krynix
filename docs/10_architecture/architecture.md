@@ -196,15 +196,16 @@ CI Gate ──→ exit code ──→ GitHub Actions check
 
 ```
 packages/
-├── core/              # TraceEvent types, canonical JSON, hash chain, redaction
-├── policy/            # Policy parser, rule matcher, evaluator
+├── core/              # TraceEvent types, canonical JSON, hash chain, redaction,
+│                      # session manager, evaluation pipeline, compliance bundles
+├── policy/            # Policy parser, rule matcher, evaluator, inheritance, diff,
+│                      # HTTP resolver
 ├── replay/            # Replay engine, determinism envelope, golden trace runner
-├── adapters/          # Trace Adapter implementations (one per framework)
-│   └── openclaw/      # OpenClaw adapter (reference implementation)
-└── cli/               # CLI commands (evaluate, replay)
+├── adapter-openclaw/  # OpenClaw adapter + plugin (reference implementation)
+└── cli/               # CLI commands (evaluate, replay, stats, export, etc.)
 ```
 
-**Dependency direction:** `core` ← `policy` ← `cli`, `core` ← `replay` ← `cli`, `core` ← `adapters`. No circular dependencies. No package may import from `cli`. See [STYLE.md](../../.agents/STYLE.md) for module boundary rules.
+**Dependency direction:** `core` ← `policy` ← `cli`, `core` ← `replay` ← `cli`, `core` ← `adapter-openclaw`. No circular dependencies. No package may import from `cli`. See [STYLE.md](../../.agents/STYLE.md) for module boundary rules.
 
 ## Trust Model
 
