@@ -341,7 +341,7 @@ krynix evaluate --trace <trace-file> --policy <path>
 
 ## Future Work
 
-- **Policy Testing:** A `krynix policy test` command for validating policies against sample traces without running a full agent session.
-- **Policy Inheritance:** Allow policies to extend a base policy, overriding or adding rules.
+- ~~**Policy Testing:** A `krynix policy test` command for validating policies against sample traces without running a full agent session.~~ **Implemented** — `krynix policy test --policy <file> --trace <file> [--expect-verdict <verdict>]`
+- ~~**Policy Inheritance:** Allow policies to extend a base policy, overriding or adding rules.~~ **Implemented** — `metadata.extends` field with `resolvePolicy()` and `mergePolicy()` in `@krynix/policy`.
 - **Runtime Evaluation:** Real-time policy evaluation during agent execution (pre-action gating), complementing the current CI-time post-hoc model.
 - **PCRE Support:** PCRE regex support may be added in v2+ via a dedicated regex engine. The v1 `matches` operator uses ECMAScript RegExp (Node.js `RegExp`) which covers the majority of use cases.

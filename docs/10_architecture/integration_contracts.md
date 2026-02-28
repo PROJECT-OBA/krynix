@@ -465,7 +465,7 @@ interface KrynixSDK {
 
 To add support for a new agent framework:
 
-1. Create a new package: `packages/adapters/<framework-name>/`
+1. Create a new package: `packages/adapter-<framework-name>/`
 2. Implement the `TraceAdapter` interface
 3. Map all relevant framework events to canonical TraceEvent types
 4. Write tests using recorded framework events (see [testing strategy](../20_development/testing_strategy.md))
@@ -476,6 +476,34 @@ To add support for a new agent framework:
 
 | Adapter | Framework | Status | Package |
 |---|---|---|---|
-| `openclaw` | OpenClaw | Reference implementation | `packages/adapters/openclaw/` |
+| `openclaw` | OpenClaw | Reference implementation | `packages/adapter-openclaw/` |
 
 Additional adapters will be added as community contributions following the process above.
+
+## Plugin API
+
+For frameworks that support a plugin/extension model, Krynix provides a ready-to-use plugin factory. The plugin handles session lifecycle, hook registration, and trace file management automatically.
+
+### OpenClaw Plugin
+
+The `@krynix/adapter-openclaw` package exports `createKrynixPlugin`, a factory function that returns an OpenClaw-compatible plugin initializer:
+
+```typescript
+import { createKrynixPlugin } from "@krynix/adapter-openclaw";
+
+// In an OpenClaw extensions/krynix/index.ts:
+export default createKrynixPlugin({
+  outputPath: "./trace.jsonl",
+  replaySeed: 42,                // Optional: deterministic replay seed
+  agentId: "my-agent",           // Optional: defaults to "openclaw-agent"
+  metadata: { env: "production" } // Optional: session metadata
+});
+```
+
+The plugin uses a minimal interface (`OpenClawPluginApiMinimal`) that requires only an `on()` method for hook registration, making it structurally compatible with OpenClaw's `OpenClawPluginApi` without a runtime dependency on OpenClaw.
+
+**Registered hooks:** `session_start`, `session_end`, `before_tool_call`, `after_tool_call`, `llm_input`, `llm_output`.
+
+**Lifecycle:** Session starts on plugin initialization. Events are recorded through the `OpenClawAdapter`. Session ends on `session_end` hook or explicit `shutdown()`.
+
+**Plugin handle:** The plugin returns a `KrynixPluginHandle` with `shutdown()` (for programmatic cleanup) and `getTracePath()` (to retrieve the output file path).
