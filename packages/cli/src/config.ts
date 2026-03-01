@@ -157,7 +157,8 @@ export function parseConfigYaml(content: string): ControlPlaneConfig {
 
 function parseBool(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined || value === "") return defaultValue;
-  return value === "true" || value === "yes";
+  const lower = value.toLowerCase();
+  return lower === "true" || lower === "yes" || lower === "1";
 }
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {

@@ -281,6 +281,61 @@ describe("Session Manager", () => {
     expect(payload.context["custom_field"]).toBe("hello");
   });
 
+  test("session_start includes environment context when provided", async () => {
+    const outputPath = join(tempDir, "trace-env.jsonl");
+    const environment = {
+      ci_provider: "github-actions" as const,
+      ci_run_id: "789",
+      ci_run_url: "https://github.com/org/repo/actions/runs/789",
+      git_sha: "abc123def",
+      git_branch: "main",
+      git_repository: "org/repo",
+      extra: {},
+    };
+
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+      environment,
+    });
+    await endSession(session);
+
+    const events = await readTrace(outputPath);
+    const startEvent = events[0];
+    expect(startEvent).toBeDefined();
+    const payload = startEvent?.payload as {
+      action: string;
+      context: Record<string, unknown>;
+    };
+    expect(payload.action).toBe("session_start");
+    const env = payload.context["environment"] as Record<string, unknown>;
+    expect(env).toBeDefined();
+    expect(env["ci_provider"]).toBe("github-actions");
+    expect(env["git_sha"]).toBe("abc123def");
+    expect(env["ci_run_id"]).toBe("789");
+  });
+
+  test("session_start omits environment when not provided", async () => {
+    const outputPath = join(tempDir, "trace-noenv.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+    await endSession(session);
+
+    const events = await readTrace(outputPath);
+    const startEvent = events[0];
+    expect(startEvent).toBeDefined();
+    const payload = startEvent?.payload as {
+      action: string;
+      context: Record<string, unknown>;
+    };
+    expect(payload.action).toBe("session_start");
+    expect(payload.context["environment"]).toBeUndefined();
+  });
+
   // -------------------------------------------------------------------------
   // destroySession + getActiveSessions (Sprint 4 — TASK-042)
   // -------------------------------------------------------------------------

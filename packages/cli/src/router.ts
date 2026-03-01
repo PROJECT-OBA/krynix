@@ -18,13 +18,15 @@ import { runPolicyTest } from "./policy-test.js";
 import { runExport } from "./export.js";
 import { runPolicyDiff } from "./policy-diff.js";
 import { runComplianceExport } from "./compliance.js";
+import { runComplianceVerify } from "./compliance-verify.js";
 import { runAuthStatus, runAuthLogout, runAuthLogin, runAuthCreateKey } from "./auth.js";
 import { runPush } from "./push.js";
 import { runPolicyPull } from "./policy-pull.js";
 import { runPolicyPush } from "./policy-push.js";
+import { runGoldenPromote, runGoldenList, runGoldenPull } from "./golden.js";
 
 /** Sensitive flags whose values must not appear in error messages. */
-const SENSITIVE_FLAGS = new Set(["--password", "--email", "--token", "--api-key"]);
+const SENSITIVE_FLAGS = new Set(["--password", "--email", "--token", "--api-key", "--env"]);
 
 /**
  * Redact values that follow sensitive flags in an argv array.
@@ -117,7 +119,8 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
     hasFlag(rest, "--help") &&
     command !== "policy" &&
     command !== "compliance" &&
-    command !== "auth"
+    command !== "auth" &&
+    command !== "golden"
   ) {
     const help = getCommandHelp(command);
     if (help !== undefined) {
@@ -268,6 +271,20 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         return { exitCode: result.exitCode, stdout, stderr };
       }
 
+      if (sub.token === "verify") {
+        const complianceArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(complianceArgs, "--help")) {
+          const help = getCommandHelp("compliance verify");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runComplianceVerify(complianceArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
       return {
         exitCode: 1,
         stdout: "",
@@ -343,6 +360,63 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         exitCode: 1,
         stdout: "",
         stderr: `Unknown auth subcommand: ${sub.token}\n\n${getCommandHelp("auth") ?? ""}`,
+      };
+    }
+
+    case "golden": {
+      const sub = findSubcommandToken(rest);
+
+      if (sub === undefined) {
+        const help = getCommandHelp("golden");
+        return { exitCode: 0, stdout: help ?? "", stderr: "" };
+      }
+
+      if (sub.token === "promote") {
+        const goldenArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(goldenArgs, "--help")) {
+          const help = getCommandHelp("golden promote");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runGoldenPromote(goldenArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "list") {
+        const goldenArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(goldenArgs, "--help")) {
+          const help = getCommandHelp("golden list");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runGoldenList(goldenArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      if (sub.token === "pull") {
+        const goldenArgs = [...rest.slice(0, sub.index), ...rest.slice(sub.index + 1)];
+
+        if (hasFlag(goldenArgs, "--help")) {
+          const help = getCommandHelp("golden pull");
+          return { exitCode: 0, stdout: help ?? "", stderr: "" };
+        }
+
+        const result = await runGoldenPull(goldenArgs);
+        const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+        const stderr = result.error ?? "";
+        return { exitCode: result.exitCode, stdout, stderr };
+      }
+
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: `Unknown golden subcommand: ${sub.token}\n\n${getCommandHelp("golden") ?? ""}`,
       };
     }
 

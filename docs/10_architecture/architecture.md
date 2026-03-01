@@ -197,7 +197,8 @@ CI Gate ──→ exit code ──→ GitHub Actions check
 ```
 packages/
 ├── core/              # TraceEvent types, canonical JSON, hash chain, redaction,
-│                      # session manager, evaluation pipeline, compliance bundles
+│                      # session manager, evaluation pipeline, compliance bundles,
+│                      # bundle verification, environment context detection
 ├── policy/            # Policy parser, rule matcher, evaluator, inheritance, diff,
 │                      # HTTP resolver
 ├── replay/            # Replay engine, determinism envelope, golden trace runner

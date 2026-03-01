@@ -11,9 +11,11 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
 import { readTrace, filterTraceEvents } from "@krynix/core";
+import type { EnvironmentContext } from "@krynix/core";
 import { parsePolicy, evaluate } from "@krynix/policy";
 import type { Policy, EvaluationResult } from "@krynix/policy";
 import { getArg, getAllArgs } from "./arg-parser.js";
+import { buildEnvironmentContext } from "./env-flags.js";
 
 /** Result from the evaluate command. */
 export interface EvaluateResult {
@@ -30,6 +32,7 @@ export interface AggregateOutput {
     policyName: string;
     result: EvaluationResult;
   }>;
+  environment?: EnvironmentContext;
 }
 
 /**
@@ -61,7 +64,8 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   try {
     trace = await readTrace(tracePath);
   } catch (err) {
-    return { exitCode: 1, output: null, error: `Failed to read trace: ${String(err)}` };
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}` };
   }
 
   // Apply filters
@@ -73,7 +77,17 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
       before: beforeArg,
     });
   } catch (err) {
-    return { exitCode: 1, output: null, error: `Invalid filter: ${String(err)}` };
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Invalid filter: ${message}` };
+  }
+
+  // Resolve environment context from --env flags + auto-detection
+  let environment: EnvironmentContext | undefined;
+  try {
+    environment = buildEnvironmentContext(args);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Invalid --env flag: ${message}` };
   }
 
   // Load policies
@@ -81,7 +95,8 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   try {
     policies = await loadPolicies(policyPath);
   } catch (err) {
-    return { exitCode: 1, output: null, error: `Failed to load policies: ${String(err)}` };
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Failed to load policies: ${message}` };
   }
 
   if (policies.length === 0) {
@@ -92,8 +107,13 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   const policyResults: AggregateOutput["policyResults"] = [];
 
   for (const { name, policy } of policies) {
-    const result = evaluate(trace, policy);
-    policyResults.push({ policyName: name, result });
+    try {
+      const result = evaluate(trace, policy);
+      policyResults.push({ policyName: name, result });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { exitCode: 1, output: null, error: `Policy evaluation failed (${name}): ${message}` };
+    }
   }
 
   // Aggregate: most-restrictive-wins (max exit code)
@@ -104,6 +124,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     verdict: aggregateVerdict,
     exitCode: maxExitCode,
     policyResults,
+    ...(environment ? { environment } : {}),
   };
 
   return { exitCode: maxExitCode, output, error: null };

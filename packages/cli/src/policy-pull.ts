@@ -4,13 +4,14 @@
  * @module
  */
 
-import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { writeFile, mkdir, readFile, lstat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve, sep } from "node:path";
-import { getArg } from "./arg-parser.js";
+import { getArg, hasFlag } from "./arg-parser.js";
 import { loadConfig, type ControlPlaneConfig } from "./config.js";
 import { loadCredentials, isTokenExpired, type Credentials } from "./credentials.js";
 import { createControlPlaneClient, type ControlPlaneClient } from "./http-client.js";
+import { loadSyncState, saveSyncState, type SyncState } from "./sync-state.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -29,6 +30,7 @@ export interface PolicyPullOutput {
   policies_written: number;
   policies_skipped: number;
   output_dir: string;
+  sync_timestamp?: string;
 }
 
 /** Shape of a policy from the registry API. */
@@ -48,12 +50,16 @@ export interface PolicyPullDeps {
   loadConfig: (path?: string) => ControlPlaneConfig | null;
   loadCredentials: (path?: string) => Credentials | null;
   createClient: (config: ControlPlaneConfig, creds: Credentials) => ControlPlaneClient;
+  loadSyncState: (configDir?: string) => Promise<SyncState | null>;
+  saveSyncState: (state: SyncState, configDir?: string) => Promise<void>;
 }
 
 const defaultDeps: PolicyPullDeps = {
   loadConfig,
   loadCredentials,
   createClient: createControlPlaneClient,
+  loadSyncState,
+  saveSyncState,
 };
 
 // ---------------------------------------------------------------------------
@@ -74,6 +80,20 @@ export async function runPolicyPull(
 
   const labels = getArg(args, "--labels");
   const outputDir = getArg(args, "--output-dir") ?? "./policies";
+  const sinceArg = getArg(args, "--since");
+  const incremental = hasFlag(args, "--incremental");
+
+  // Validate --since timestamp if provided
+  if (sinceArg !== undefined) {
+    const ts = Date.parse(sinceArg);
+    if (Number.isNaN(ts)) {
+      return {
+        exitCode: 1,
+        result: null,
+        error: `Invalid --since timestamp. Expected a parseable date string (e.g. ISO-8601).`,
+      };
+    }
+  }
 
   // Load config
   const config = d.loadConfig();
@@ -108,7 +128,28 @@ export async function runPolicyPull(
   const client = d.createClient(config, creds);
 
   try {
-    const response = await client.pullPolicies(labels !== undefined ? { labels } : undefined);
+    // Determine since timestamp: --since takes precedence over --incremental
+    let since: string | undefined;
+    if (sinceArg !== undefined) {
+      since = sinceArg;
+    } else if (incremental) {
+      const syncState = await d.loadSyncState();
+      if (syncState !== null && syncState.policy_pull.base_url === config.url) {
+        since = syncState.policy_pull.last_sync;
+      }
+      // else: first run, no state file — full pull (since stays undefined)
+    }
+
+    // Capture sync timestamp BEFORE pull to avoid clock-skew gaps
+    const syncTimestamp = new Date().toISOString();
+
+    const pullOptions: { labels?: string; since?: string } = {};
+    if (labels !== undefined) pullOptions.labels = labels;
+    if (since !== undefined) pullOptions.since = since;
+
+    const response = await client.pullPolicies(
+      Object.keys(pullOptions).length > 0 ? pullOptions : undefined,
+    );
 
     if (!response.ok) {
       return {
@@ -136,6 +177,17 @@ export async function runPolicyPull(
     const resolvedOutputDir = resolve(outputDir);
 
     for (const policy of policies) {
+      // Validate policy structure (untrusted data from server)
+      if (
+        typeof policy.name !== "string" ||
+        typeof policy.version !== "string" ||
+        typeof policy.yaml_content !== "string" ||
+        typeof policy.digest !== "string"
+      ) {
+        skipped++;
+        continue;
+      }
+
       // Verify digest
       const computedDigest = `sha256:${createHash("sha256").update(policy.yaml_content, "utf-8").digest("hex")}`;
       if (policy.digest !== computedDigest) {
@@ -144,9 +196,9 @@ export async function runPolicyPull(
         continue;
       }
 
-      // Sanitize policy name: replace path separators to prevent intermediate dir issues
-      const safeName = policy.name.replace(/[/\\]/g, "_");
-      const safeVersion = policy.version.replace(/[/\\]/g, "_");
+      // Sanitize policy name: use allowlist to prevent path injection from malicious server
+      const safeName = policy.name.replace(/[^a-zA-Z0-9._@-]/g, "_");
+      const safeVersion = policy.version.replace(/[^a-zA-Z0-9._-]/g, "_");
 
       // Check if file already exists with same content
       const fileName = `${safeName}@${safeVersion}.policy.yaml`;
@@ -162,18 +214,58 @@ export async function runPolicyPull(
         continue;
       }
 
+      // Reject symlinked write targets (must check BEFORE readFile to avoid following symlinks)
+      try {
+        const targetStat = await lstat(filePath);
+        if (targetStat.isSymbolicLink()) {
+          skipped++;
+          continue;
+        }
+      } catch (err: unknown) {
+        if (
+          !(
+            err instanceof Error &&
+            "code" in err &&
+            (err as NodeJS.ErrnoException).code === "ENOENT"
+          )
+        ) {
+          throw err;
+        }
+        // ENOENT is fine — file doesn't exist yet
+      }
+
+      // Check if file already exists with same content
       try {
         const existing = await readFile(filePath, "utf-8");
         if (existing === policy.yaml_content) {
           skipped++;
           continue;
         }
-      } catch {
+      } catch (err: unknown) {
+        if (
+          !(
+            err instanceof Error &&
+            "code" in err &&
+            (err as NodeJS.ErrnoException).code === "ENOENT"
+          )
+        ) {
+          throw err;
+        }
         // File doesn't exist, proceed to write
       }
 
       await writeFile(filePath, policy.yaml_content, "utf-8");
       written++;
+    }
+
+    // Save sync state after successful pull (when using --incremental or --since)
+    if (incremental || sinceArg !== undefined) {
+      await d.saveSyncState({
+        policy_pull: {
+          last_sync: syncTimestamp,
+          base_url: config.url,
+        },
+      });
     }
 
     return {
@@ -183,6 +275,7 @@ export async function runPolicyPull(
         policies_written: written,
         policies_skipped: skipped,
         output_dir: outputDir,
+        ...(incremental || sinceArg !== undefined ? { sync_timestamp: syncTimestamp } : {}),
       },
       error: null,
     };

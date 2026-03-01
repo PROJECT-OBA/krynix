@@ -10,6 +10,11 @@ export { runPolicyTest, type PolicyTestResult } from "./policy-test.js";
 export { runExport, type ExportResult } from "./export.js";
 export { runPolicyDiff, type PolicyDiffResult } from "./policy-diff.js";
 export { runComplianceExport, type ComplianceExportResult } from "./compliance.js";
+export {
+  runComplianceVerify,
+  type ComplianceVerifyResult,
+  type ComplianceVerifyDeps,
+} from "./compliance-verify.js";
 export { loadConfig, parseConfigYaml, type ControlPlaneConfig } from "./config.js";
 export {
   loadCredentials,
@@ -36,7 +41,18 @@ export {
   createControlPlaneClient,
   type ControlPlaneClient,
   type ApiResponse,
+  type GoldenTraceMetadata,
+  type GoldenTraceFilters,
+  type GoldenTraceEntry,
 } from "./http-client.js";
 export { runPush, type PushResult, type PushOutput, type PushArtifactResult } from "./push.js";
 export { runPolicyPull, type PolicyPullResult, type PolicyPullOutput } from "./policy-pull.js";
 export { runPolicyPush, type PolicyPushResult, type PolicyPushOutput } from "./policy-push.js";
+export {
+  runGoldenPromote,
+  runGoldenList,
+  runGoldenPull,
+  type GoldenResult,
+  type GoldenDeps,
+} from "./golden.js";
+export { parseEnvFlags, buildEnvironmentContext } from "./env-flags.js";

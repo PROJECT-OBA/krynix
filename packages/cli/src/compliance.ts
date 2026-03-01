@@ -16,6 +16,7 @@ import {
   type TraceInput,
 } from "@krynix/core";
 import { loadConfig } from "./config.js";
+import { buildEnvironmentContext } from "./env-flags.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -68,9 +69,17 @@ export async function runComplianceExport(args: string[]): Promise<ComplianceExp
     const evaluations = new Map<string, unknown>();
     for (const evalPath of evaluationPaths) {
       const content = await readFile(evalPath, "utf-8");
-      const parsed = JSON.parse(content) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(content);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {
+          exitCode: 1,
+          output: null,
+          error: `Invalid evaluation file (expected a JSON object): ${evalPath}`,
+        };
+      }
       // Expect evaluation JSONs to have a trace_id or session_id field
-      const rawId = parsed["trace_id"] ?? parsed["session_id"];
+      const obj = parsed as Record<string, unknown>;
+      const rawId = obj["trace_id"] ?? obj["session_id"];
       if (typeof rawId === "string" && rawId !== "") {
         evaluations.set(rawId, parsed);
       }
@@ -80,8 +89,16 @@ export async function runComplianceExport(args: string[]): Promise<ComplianceExp
     const replayReports = new Map<string, unknown>();
     for (const replayPath of replayPaths) {
       const content = await readFile(replayPath, "utf-8");
-      const parsed = JSON.parse(content) as Record<string, unknown>;
-      const rawId = parsed["trace_id"] ?? parsed["session_id"];
+      const parsed: unknown = JSON.parse(content);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {
+          exitCode: 1,
+          output: null,
+          error: `Invalid replay report file (expected a JSON object): ${replayPath}`,
+        };
+      }
+      const obj = parsed as Record<string, unknown>;
+      const rawId = obj["trace_id"] ?? obj["session_id"];
       if (typeof rawId === "string" && rawId !== "") {
         replayReports.set(rawId, parsed);
       }
@@ -107,11 +124,21 @@ export async function runComplianceExport(args: string[]): Promise<ComplianceExp
     // Load config (non-fatal) to pass org_id when available
     const config = loadConfig();
 
+    // Resolve environment context from --env flags + auto-detection
+    let environment;
+    try {
+      environment = buildEnvironmentContext(args);
+    } catch (envErr: unknown) {
+      const envMessage = envErr instanceof Error ? envErr.message : String(envErr);
+      return { exitCode: 1, output: null, error: `Invalid --env flag: ${envMessage}` };
+    }
+
     // Generate and write bundle
     const bundle = generateComplianceBundle({
       traces: traceInputs,
       include_otlp: includeOtlp,
       org_id: config?.org_id,
+      ...(environment ? { environment } : {}),
     });
 
     await writeComplianceBundleToDir(bundle, outputDir);

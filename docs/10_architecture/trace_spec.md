@@ -180,7 +180,15 @@ Records session lifecycle transitions.
   "context": {
     "agent_version": "0.1.0",
     "replay_seed": 42,
-    "environment": "ci"
+    "environment": {
+      "ci_provider": "github-actions",
+      "ci_run_id": "456",
+      "ci_run_url": "https://github.com/org/repo/actions/runs/456",
+      "git_sha": "abc123def456",
+      "git_branch": "main",
+      "git_repository": "org/repo",
+      "extra": {}
+    }
   }
 }
 ```
@@ -188,7 +196,19 @@ Records session lifecycle transitions.
 | Payload Field | Type | Required | Description |
 |---|---|---|---|
 | `action` | enum | yes | `session_start`, `session_end`, or `checkpoint` |
-| `context` | object | no | For `session_start`: environment info, `replay_seed`. For `session_end`: summary stats |
+| `context` | object | no | For `session_start`: includes `replay_seed` (uint64), optional `environment` (`EnvironmentContext` object — see below), and optional user metadata. For `session_end`: summary stats |
+
+**`EnvironmentContext` object** (optional, present in `context.environment` for `session_start`):
+
+| Field | Type | Description |
+|---|---|---|
+| `ci_provider` | `string \| null` | CI provider name: `"github-actions"`, `"gitlab-ci"`, `"jenkins"`, `"circleci"`, `"travis-ci"`, `"unknown-ci"`, or `null` if not in CI |
+| `ci_run_id` | `string \| null` | CI pipeline/workflow run ID |
+| `ci_run_url` | `string \| null` | Full URL to the CI run |
+| `git_sha` | `string \| null` | Git commit SHA |
+| `git_branch` | `string \| null` | Git branch name |
+| `git_repository` | `string \| null` | Git repository URL or slug |
+| `extra` | `Record<string, string>` | Additional user-supplied key-value pairs |
 
 ## Trace Lifecycle
 
