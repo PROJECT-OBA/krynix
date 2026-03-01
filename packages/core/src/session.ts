@@ -16,6 +16,7 @@ import { KrynixError } from "./errors.js";
 import { SeededRandom } from "./seeded-random.js";
 import { TraceWriter } from "./trace-writer.js";
 import { redact } from "./redaction.js";
+import type { EnvironmentContext } from "./environment.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -37,6 +38,9 @@ export interface SessionConfig {
 
   /** Additional metadata included in the `session_start` event context. */
   metadata?: Record<string, unknown>;
+
+  /** Optional environment context embedded in session_start payload.context.environment. */
+  environment?: EnvironmentContext;
 }
 
 /** Opaque session handle returned to callers. */
@@ -118,8 +122,9 @@ export async function startSession(config: SessionConfig): Promise<Session> {
     payload: {
       action: "session_start" as const,
       context: {
-        replay_seed: seed,
         ...(config.metadata ?? {}),
+        replay_seed: seed,
+        ...(config.environment ? { environment: config.environment } : {}),
       },
     } as LifecyclePayload,
     redacted: false,

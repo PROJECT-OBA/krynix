@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, symlink, mkdir as fsMkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { generateComplianceBundle, writeComplianceBundleToDir } from "./compliance-bundle.js";
 import type { TraceEvent } from "./types.js";
@@ -376,5 +376,131 @@ describe("writeComplianceBundleToDir", () => {
         traces: [{ session_id: "foo\\bar", events: [] }],
       }),
     ).toThrow("Invalid session_id");
+  });
+
+  test("includes environment in manifest when provided", () => {
+    const environment = {
+      ci_provider: "github-actions" as const,
+      ci_run_id: "456",
+      ci_run_url: "https://github.com/org/repo/actions/runs/456",
+      git_sha: "abc123",
+      git_branch: "main",
+      git_repository: "org/repo",
+      extra: {},
+    };
+
+    const trace = makeHashedTrace("sess-env");
+    const bundle = generateComplianceBundle({
+      traces: [{ session_id: "sess-env", events: trace }],
+      export_id: "export-env",
+      generated_at: "2025-01-01T00:00:00Z",
+      environment,
+    });
+
+    expect(bundle.manifest.environment).toBeDefined();
+    expect(bundle.manifest.environment?.ci_provider).toBe("github-actions");
+    expect(bundle.manifest.environment?.git_sha).toBe("abc123");
+    expect(bundle.manifest.environment?.ci_run_id).toBe("456");
+  });
+
+  test("omits environment from manifest when not provided", () => {
+    const trace = makeHashedTrace("sess-noenv");
+    const bundle = generateComplianceBundle({
+      traces: [{ session_id: "sess-noenv", events: trace }],
+      export_id: "export-noenv",
+      generated_at: "2025-01-01T00:00:00Z",
+    });
+
+    expect(bundle.manifest.environment).toBeUndefined();
+  });
+
+  test("rejects symlinked subdirectory escaping output dir (POSIX only)", async () => {
+    if (process.platform === "win32") return;
+
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-symlink-"));
+    try {
+      // Create a symlink: outputDir/traces -> /tmp/outside-target
+      const outsideDir = join(tmpDir, "outside-target");
+      await fsMkdir(outsideDir, { recursive: true });
+      const outputDir = join(tmpDir, "bundle");
+      await fsMkdir(outputDir, { recursive: true });
+      await symlink(outsideDir, join(outputDir, "traces"));
+
+      const trace = makeHashedTrace("sess-sym");
+      const bundle = generateComplianceBundle({
+        traces: [{ session_id: "sess-sym", events: trace }],
+        export_id: "export-sym",
+        generated_at: "2025-01-01T00:00:00Z",
+      });
+
+      await expect(writeComplianceBundleToDir(bundle, outputDir)).rejects.toThrow(
+        "Symbolic link escape detected",
+      );
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects symlinked file target in output dir (POSIX only)", async () => {
+    if (process.platform === "win32") return;
+
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-symfile-"));
+    try {
+      const outsideFile = join(tmpDir, "outside-evil.txt");
+      const { writeFile: wf, symlink: sym } = await import("node:fs/promises");
+      await wf(outsideFile, "should not be overwritten\n", "utf-8");
+
+      const outputDir = join(tmpDir, "bundle");
+      await fsMkdir(outputDir, { recursive: true });
+      await fsMkdir(join(outputDir, "traces"), { recursive: true });
+
+      // Place a symlink FILE at the expected artifact location
+      await sym(outsideFile, join(outputDir, "traces", "sess-sym.trace.jsonl"));
+
+      const trace = makeHashedTrace("sess-sym");
+      const bundle = generateComplianceBundle({
+        traces: [{ session_id: "sess-sym", events: trace }],
+        export_id: "export-symfile",
+        generated_at: "2025-01-01T00:00:00Z",
+      });
+
+      await expect(writeComplianceBundleToDir(bundle, outputDir)).rejects.toThrow(
+        "Symbolic link detected at file path",
+      );
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects degenerate artifact paths in hand-constructed bundle", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-degen-"));
+    try {
+      const outputDir = join(tmpDir, "bundle");
+
+      const degeneratePaths = ["", ".", "./", "traces/"];
+      for (const badPath of degeneratePaths) {
+        const bundle = {
+          manifest: {
+            manifest_version: "1.0.0",
+            export_id: "x",
+            org_id: "",
+            generated_at: "2025-01-01T00:00:00Z",
+            generated_by: "test",
+            krynix_engine_version: "1.0.0",
+            trace_count: 0,
+            artifacts: [{ path: badPath, type: "trace", digest: "sha256:abc" }],
+            redaction_notice: "",
+            integrity_note: "",
+          },
+          artifacts: [{ path: badPath, type: "trace" as const, digest: "abc", content: "test" }],
+        };
+
+        await expect(writeComplianceBundleToDir(bundle, outputDir)).rejects.toThrow(
+          "Invalid artifact path",
+        );
+      }
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });

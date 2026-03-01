@@ -8,6 +8,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import type { EnvironmentContext } from "@krynix/core";
 import { getArg } from "./arg-parser.js";
 import { loadConfig, type ControlPlaneConfig } from "./config.js";
 import { loadCredentials, isTokenExpired, type Credentials } from "./credentials.js";
@@ -16,6 +17,7 @@ import {
   type ControlPlaneClient,
   type ApiResponse,
 } from "./http-client.js";
+import { buildEnvironmentContext } from "./env-flags.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -31,11 +33,12 @@ export interface PushResult {
 /** Output from a successful push. */
 export interface PushOutput {
   results: PushArtifactResult[];
+  environment?: EnvironmentContext;
 }
 
 /** Result for a single pushed artifact. */
 export interface PushArtifactResult {
-  type: "trace" | "evaluation" | "replay_report";
+  type: "trace" | "evaluation" | "replay_report" | "bundle";
   path: string;
   status: "success" | "error";
   response: ApiResponse | null;
@@ -76,13 +79,19 @@ export async function runPush(args: string[], deps: Partial<PushDeps> = {}): Pro
   const tracePath = getArg(args, "--trace");
   const evaluationPath = getArg(args, "--evaluation");
   const replayReportPath = getArg(args, "--replay-report");
+  const bundleDir = getArg(args, "--bundle");
 
-  if (tracePath === undefined && evaluationPath === undefined && replayReportPath === undefined) {
+  if (
+    tracePath === undefined &&
+    evaluationPath === undefined &&
+    replayReportPath === undefined &&
+    bundleDir === undefined
+  ) {
     return {
       exitCode: 1,
       output: null,
       error:
-        "At least one of --trace, --evaluation, or --replay-report is required.\nUsage: krynix push --trace <file>",
+        "At least one of --trace, --evaluation, --replay-report, or --bundle is required.\nUsage: krynix push --trace <file>",
     };
   }
 
@@ -118,6 +127,15 @@ export async function runPush(args: string[], deps: Partial<PushDeps> = {}): Pro
 
   const client = d.createClient(config, creds);
   const results: PushArtifactResult[] = [];
+
+  // Resolve environment context from --env flags + auto-detection
+  let environment: EnvironmentContext | undefined;
+  try {
+    environment = buildEnvironmentContext(args);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Invalid --env flag: ${message}` };
+  }
 
   // Push trace
   if (tracePath !== undefined) {
@@ -192,8 +210,34 @@ export async function runPush(args: string[], deps: Partial<PushDeps> = {}): Pro
     }
   }
 
+  // Push compliance bundle
+  if (bundleDir !== undefined) {
+    try {
+      const response = await client.pushComplianceBundle(bundleDir);
+      results.push({
+        type: "bundle",
+        path: bundleDir,
+        status: response.ok ? "success" : "error",
+        response,
+        error: response.error,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      results.push({
+        type: "bundle",
+        path: bundleDir,
+        status: "error",
+        response: null,
+        error: message,
+      });
+    }
+  }
+
   const hasErrors = results.some((r) => r.status === "error");
-  const output: PushOutput = { results };
+  const output: PushOutput = {
+    results,
+    ...(environment ? { environment } : {}),
+  };
 
   return {
     exitCode: hasErrors ? 1 : 0,

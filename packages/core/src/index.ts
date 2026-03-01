@@ -94,3 +94,15 @@ export {
   type PipelineReplayResult,
   type PipelinePolicyResult,
 } from "./evaluation-pipeline.js";
+
+export {
+  detectEnvironment,
+  mergeEnvironmentContext,
+  type EnvironmentContext,
+} from "./environment.js";
+
+export {
+  verifyComplianceBundle,
+  type BundleVerificationResult,
+  type BundleVerificationError,
+} from "./bundle-verifier.js";

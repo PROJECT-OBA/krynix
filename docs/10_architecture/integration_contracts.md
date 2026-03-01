@@ -507,3 +507,96 @@ The plugin uses a minimal interface (`OpenClawPluginApiMinimal`) that requires o
 **Lifecycle:** Session starts on plugin initialization. Events are recorded through the `OpenClawAdapter`. Session ends on `session_end` hook or explicit `shutdown()`.
 
 **Plugin handle:** The plugin returns a `KrynixPluginHandle` with `shutdown()` (for programmatic cleanup) and `getTracePath()` (to retrieve the output file path).
+
+## Environment Context
+
+Sessions can capture CI/CD and Git environment metadata in the `lifecycle:session_start` event. This enables compliance bundles and audit logs to record where and how an agent session was executed.
+
+### `EnvironmentContext` Interface
+
+```typescript
+interface EnvironmentContext {
+  /** Known values: "github-actions", "gitlab-ci", "jenkins", "circleci", "travis-ci", "unknown-ci". Custom strings allowed. */
+  ci_provider: string | null;
+  ci_run_id: string | null;
+  ci_run_url: string | null;
+  git_sha: string | null;
+  git_branch: string | null;
+  git_repository: string | null;
+  extra: Record<string, string>;
+}
+```
+
+### Placement in Trace
+
+The `EnvironmentContext` object is stored in the `lifecycle:session_start` event at `payload.context.environment`:
+
+```json
+{
+  "event_type": "lifecycle",
+  "payload": {
+    "action": "session_start",
+    "context": {
+      "replay_seed": 42,
+      "environment": {
+        "ci_provider": "github-actions",
+        "ci_run_id": "456",
+        "ci_run_url": "https://github.com/org/repo/actions/runs/456",
+        "git_sha": "abc123def456",
+        "git_branch": "main",
+        "git_repository": "org/repo",
+        "extra": {}
+      }
+    }
+  }
+}
+```
+
+### Detection
+
+`@krynix/core` exports `detectEnvironment(env?)` which auto-detects CI provider and Git metadata from environment variables. The detected context can be passed to `startSession({ environment })` or `generateComplianceBundle({ environment })`.
+
+### Compliance Bundle Integration
+
+When `environment` is provided to `generateComplianceBundle`, it is included in the bundle manifest at the top level, enabling auditors to correlate bundles with specific CI runs.
+
+## Bundle Verification
+
+The `verifyComplianceBundle(bundleDir)` function in `@krynix/core` performs local integrity verification of a compliance bundle directory.
+
+### Verification Steps
+
+1. Read `manifest.json` from the bundle directory
+2. Validate `manifest_version` is supported (`"1.0.0"`)
+3. For each artifact in the manifest:
+   - Reject paths containing `..` (path traversal protection)
+   - Read the artifact file from disk
+   - Compute SHA-256 digest and compare against the manifest's `digest` field
+4. Return a structured result
+
+### Result Interface
+
+```typescript
+interface BundleVerificationResult {
+  valid: boolean;
+  manifest_found: boolean;
+  artifact_count: number;
+  verified_count: number;
+  errors: BundleVerificationError[];
+}
+
+interface BundleVerificationError {
+  artifact_path: string;
+  error_type: "digest_mismatch" | "file_missing" | "path_traversal" | "manifest_parse_error";
+  expected_digest: string;
+  actual_digest: string;
+}
+```
+
+### CLI Usage
+
+```bash
+krynix compliance verify --dir <bundle-dir>
+```
+
+Returns exit code 0 if all artifacts pass verification, non-zero otherwise.

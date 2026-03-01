@@ -44,8 +44,11 @@ export async function runValidate(args: string[]): Promise<ValidateResult> {
   let info;
   try {
     info = await stat(policyPath);
-  } catch {
-    return { exitCode: 1, results: [], error: `Path not found: ${policyPath}` };
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { exitCode: 1, results: [], error: `Path not found: ${policyPath}` };
+    }
+    throw err;
   }
 
   const files: Array<{ name: string; fullPath: string }> = [];

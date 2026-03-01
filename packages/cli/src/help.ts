@@ -36,6 +36,10 @@ Commands:
   policy pull        Pull policies from the Control Plane registry
   policy push        Publish a policy to the Control Plane registry
   compliance export  Generate a compliance evidence bundle
+  compliance verify  Verify a compliance bundle's integrity
+  golden promote     Promote a trace to golden status in the CP registry
+  golden list        List golden traces from the CP registry
+  golden pull        Download a golden trace from the CP registry
   push               Upload artifacts to the Control Plane
   auth status        Show authentication status
   auth logout        Clear stored credentials
@@ -68,6 +72,7 @@ Options:
   --filter-agent <id>   Filter events by agent_id (repeatable)
   --after <timestamp>   Include events at or after this ISO-8601 time
   --before <timestamp>  Include events at or before this ISO-8601 time
+  --env <key>=<value>   Set environment context (repeatable)
   --help                Show this help
 
 Exit codes:
@@ -201,16 +206,23 @@ Exit codes:
     case "policy pull":
       return `krynix policy pull — Pull policies from the Control Plane registry
 
-Usage: krynix policy pull [--labels <key:value>] [--output-dir <dir>]
+Usage: krynix policy pull [--labels <key:value>] [--output-dir <dir>] [--since <timestamp>] [--incremental]
 
 Options:
   --labels <key:value>  Filter policies by label (e.g., environment:production)
   --output-dir <dir>    Directory to write policies (default: ./policies)
+  --since <timestamp>   Only fetch policies changed after this ISO-8601 timestamp
+  --incremental         Auto-read last sync time from state file; update after success
   --help                Show this help
 
 Pulls policies from the configured Control Plane registry. Verifies
 SHA-256 digest of each downloaded policy. Skips policies already
 present locally.
+
+When --since is provided, only policies modified after the given
+timestamp are fetched. --incremental reads the last sync time
+from ~/.krynix/sync-state.json and passes it as --since.
+If both --since and --incremental are specified, --since wins.
 
 Exit codes:
   0   Success
@@ -240,6 +252,7 @@ Usage: krynix compliance <subcommand> [options]
 
 Subcommands:
   export  Generate a compliance evidence bundle
+  verify  Verify a compliance bundle's integrity
 
 Run 'krynix compliance <subcommand> --help' for subcommand-specific help.`;
 
@@ -254,6 +267,7 @@ Options:
   --include-otlp                Include OTLP exports in the bundle
   --include-evaluation <file>   Attach evaluation JSON (repeatable)
   --include-replay <file>       Attach replay report JSON (repeatable)
+  --env <key>=<value>           Set environment context (repeatable)
   --help                        Show this help
 
 Generates a self-contained evidence bundle with traces, evaluations,
@@ -263,15 +277,33 @@ Exit codes:
   0   Bundle generated successfully
   1   Runtime error`;
 
+    case "compliance verify":
+      return `krynix compliance verify — Verify a compliance bundle's integrity
+
+Usage: krynix compliance verify --dir <bundle-dir>
+
+Options:
+  --dir <dir>   Path to the compliance bundle directory
+  --help        Show this help
+
+Reads the bundle manifest and verifies SHA-256 digests
+for all artifacts. Reports per-artifact errors.
+
+Exit codes:
+  0   Bundle is valid
+  1   Verification failed or runtime error`;
+
     case "push":
       return `krynix push — Upload artifacts to the Control Plane
 
-Usage: krynix push [--trace <file>] [--evaluation <file>] [--replay-report <file>]
+Usage: krynix push [--trace <file>] [--evaluation <file>] [--replay-report <file>] [--bundle <dir>]
 
 Options:
   --trace <file>           Upload a .trace.jsonl file
   --evaluation <file>      Upload evaluation results (JSON)
   --replay-report <file>   Upload a replay report (JSON)
+  --bundle <dir>           Upload a compliance bundle directory
+  --env <key>=<value>      Set environment context (repeatable)
   --help                   Show this help
 
 At least one artifact flag is required. Multiple flags can be combined.
@@ -348,6 +380,66 @@ Stores the new API key on success, preserving any existing token.
 
 Exit codes:
   0   API key created successfully
+  1   Runtime error or auth failure`;
+
+    case "golden":
+      return `krynix golden — Golden Trace Registry commands
+
+Usage: krynix golden <subcommand> [options]
+
+Subcommands:
+  promote  Promote a trace to golden status in the CP registry
+  list     List golden traces from the CP registry
+  pull     Download a golden trace from the CP registry
+
+Run 'krynix golden <subcommand> --help' for subcommand-specific help.`;
+
+    case "golden promote":
+      return `krynix golden promote — Promote a trace to golden status
+
+Usage: krynix golden promote --trace <file> --name <name> [--description <desc>] [--label <key>=<value>]
+
+Options:
+  --trace <file>           Path to a .trace.jsonl file
+  --name <name>            Name for the golden trace
+  --description <desc>     Description (optional)
+  --label <key>=<value>    Label (repeatable)
+  --help                   Show this help
+
+Uploads a trace file to the CP Golden Trace Registry.
+Includes SHA-256 digest header for integrity verification.
+
+Exit codes:
+  0   Trace promoted successfully
+  1   Runtime error or auth failure`;
+
+    case "golden list":
+      return `krynix golden list — List golden traces from the CP registry
+
+Usage: krynix golden list [--name <filter>] [--label <filter>] [--limit <n>]
+
+Options:
+  --name <filter>    Filter by name
+  --label <filter>   Filter by label
+  --limit <n>        Max entries to return
+  --help             Show this help
+
+Exit codes:
+  0   Success
+  1   Runtime error or auth failure`;
+
+    case "golden pull":
+      return `krynix golden pull — Download a golden trace from the CP registry
+
+Usage: krynix golden pull --id <golden-trace-id> --output <file>
+
+Options:
+  --id <id>          Golden trace ID
+  --output <file>    Output file path
+  --help             Show this help
+
+Exit codes:
+  0   Trace downloaded successfully
   1   Runtime error or auth failure`;
 
     default:

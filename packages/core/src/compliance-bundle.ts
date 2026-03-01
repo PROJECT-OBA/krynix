@@ -12,7 +12,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, realpath, lstat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { TraceEvent, ValidationResult } from "./types.js";
 import { computeTraceStats, type TraceStats } from "./trace-stats.js";
@@ -20,6 +20,7 @@ import { convertToOtlp, type OtlpExportData } from "./otlp-export.js";
 import { validateHashChain } from "./hash-chain.js";
 import { SCHEMA_VERSION } from "./types.js";
 import { canonicalize } from "./canonical-json.js";
+import type { EnvironmentContext } from "./environment.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -55,6 +56,8 @@ export interface ComplianceBundleOptions {
   export_id?: string;
   /** Generated-at timestamp override (defaults to current ISO timestamp). */
   generated_at?: string;
+  /** Optional environment context to include in the bundle manifest. */
+  environment?: EnvironmentContext;
 }
 
 /** A single artifact in the bundle. */
@@ -75,6 +78,7 @@ export interface BundleArtifact {
 
 /** The bundle manifest. */
 export interface BundleManifest {
+  manifest_version: string;
   export_id: string;
   org_id: string;
   generated_at: string;
@@ -90,6 +94,7 @@ export interface BundleManifest {
   }>;
   redaction_notice: string;
   integrity_note: string;
+  environment?: EnvironmentContext;
 }
 
 /** A complete compliance evidence bundle (in-memory). */
@@ -130,16 +135,22 @@ export function generateComplianceBundle(options: ComplianceBundleOptions): Comp
     engine_version,
     export_id,
     generated_at,
+    environment,
   } = options;
 
   const artifacts: BundleArtifact[] = [];
 
   for (const traceInput of traces) {
-    // Sanitize session_id: reject path separators and traversal sequences so
-    // the in-memory bundle is safe regardless of how consumers write it.
+    // Sanitize session_id: reject path separators, traversal sequences,
+    // empty strings, and control characters so the in-memory bundle is
+    // safe regardless of how consumers write it.
     const sid = traceInput.session_id;
-    if (/[/\\]/.test(sid) || sid.includes("..")) {
-      throw new Error(`Invalid session_id for bundle artifact: ${sid}`);
+    const hasControlChar = Array.from(sid).some((ch) => {
+      const code = ch.charCodeAt(0);
+      return code <= 0x1f || code === 0x7f;
+    });
+    if (sid.length === 0 || /[/\\]/.test(sid) || sid.includes("..") || hasControlChar) {
+      throw new Error("Invalid session_id for bundle artifact");
     }
 
     // 1. Trace file (.trace.jsonl) — canonical JSON lines, matching TraceWriter format
@@ -213,6 +224,7 @@ export function generateComplianceBundle(options: ComplianceBundleOptions): Comp
 
   // Build manifest
   const manifest: BundleManifest = {
+    manifest_version: "1.0.0",
     export_id: export_id ?? generateExportId(),
     org_id,
     generated_at: generated_at ?? new Date().toISOString(),
@@ -241,6 +253,7 @@ export function generateComplianceBundle(options: ComplianceBundleOptions): Comp
     }),
     redaction_notice: REDACTION_NOTICE,
     integrity_note: INTEGRITY_NOTE,
+    ...(environment ? { environment } : {}),
   };
 
   return { manifest, artifacts };
@@ -262,43 +275,76 @@ export async function writeComplianceBundleToDir(
   // Create output dir
   await mkdir(outputDir, { recursive: true });
 
-  // Collect subdirs needed
+  const resolvedOutputDir = resolve(outputDir);
+  const realOutputDir = await realpath(resolvedOutputDir);
+
+  // Collect subdirs needed, with lexical path traversal check before creating anything
   const subdirs = new Set<string>();
   for (const artifact of bundle.artifacts) {
-    const dir = artifact.path.split("/").slice(0, -1).join("/");
-    if (dir) {
-      subdirs.add(dir);
+    // Reject degenerate artifact paths that resolve to the output directory itself
+    const p = artifact.path;
+    if (p === "" || p === "." || p === "./" || p.endsWith("/")) {
+      throw new Error(`Invalid artifact path: ${JSON.stringify(p)}`);
     }
-  }
 
-  // Create subdirs
-  for (const subdir of subdirs) {
-    await mkdir(join(outputDir, subdir), { recursive: true });
-  }
-
-  // Write artifacts
-  const resolvedOutputDir = resolve(outputDir);
-  for (const artifact of bundle.artifacts) {
+    // Lexical guard against path traversal (catches ".." components)
     const target = join(outputDir, artifact.path);
     const resolvedTarget = resolve(target);
-    // Guard against path traversal from untrusted session_id
     if (
       !resolvedTarget.startsWith(resolvedOutputDir + sep) &&
       resolvedTarget !== resolvedOutputDir
     ) {
       throw new Error(`Path traversal detected in artifact path: ${artifact.path}`);
     }
+
+    const dir = artifact.path.split("/").slice(0, -1).join("/");
+    if (dir) {
+      subdirs.add(dir);
+    }
+  }
+
+  // Create subdirs and verify real paths to catch symlinked directories
+  for (const subdir of subdirs) {
+    const subdirPath = join(outputDir, subdir);
+    await mkdir(subdirPath, { recursive: true });
+    const realSubdir = await realpath(subdirPath);
+    if (!realSubdir.startsWith(realOutputDir + sep) && realSubdir !== realOutputDir) {
+      throw new Error(`Symbolic link escape detected in directory: ${subdir}`);
+    }
+  }
+
+  // Write artifacts (reject symlinked file targets)
+  for (const artifact of bundle.artifacts) {
+    const target = join(outputDir, artifact.path);
+    await rejectSymlinkTarget(target, artifact.path);
     await writeFile(target, artifact.content, "utf-8");
   }
 
-  // Write manifest
+  // Write manifest (reject symlinked target)
+  const manifestPath = join(outputDir, "manifest.json");
+  await rejectSymlinkTarget(manifestPath, "manifest.json");
   const manifestContent = JSON.stringify(bundle.manifest, null, 2);
-  await writeFile(join(outputDir, "manifest.json"), manifestContent, "utf-8");
+  await writeFile(manifestPath, manifestContent, "utf-8");
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Reject a write target if it already exists as a symbolic link. */
+async function rejectSymlinkTarget(filePath: string, label: string): Promise<void> {
+  try {
+    const s = await lstat(filePath);
+    if (s.isSymbolicLink()) {
+      throw new Error(`Symbolic link detected at file path: ${label}`);
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return; // File doesn't exist yet — safe to write
+    }
+    throw err;
+  }
+}
 
 /** Compute SHA-256 hex digest of a string. */
 function sha256(content: string): string {

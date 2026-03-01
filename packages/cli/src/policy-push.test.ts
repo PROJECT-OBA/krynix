@@ -43,6 +43,20 @@ function makeClient(overrides: Partial<ControlPlaneClient> = {}): ControlPlaneCl
     pushReplayReport: async () => ({ ok: true, status: 200, data: {}, error: null }),
     pullPolicies: async () => ({ ok: true, status: 200, data: [], error: null }),
     pushPolicy: async () => okResponse({ name: "test-policy", version: "1.0.0" }),
+    pushComplianceBundle: async () => ({
+      ok: true,
+      status: 201,
+      data: { bundle_id: "b" },
+      error: null,
+    }),
+    promoteGoldenTrace: async () => ({
+      ok: true,
+      status: 201,
+      data: { golden_trace_id: "gt" },
+      error: null,
+    }),
+    listGoldenTraces: async () => ({ ok: true, status: 200, data: [], error: null }),
+    pullGoldenTrace: async () => ({ ok: true, status: 200, data: { path: "" }, error: null }),
     ...overrides,
   };
 }

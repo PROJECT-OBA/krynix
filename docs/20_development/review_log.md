@@ -1297,3 +1297,720 @@ As noted above, the skip pattern could be improved but doesn't affect correctnes
 | Golden Traces        | No behavioral regression                | CI (always)         |
 | Live OpenClaw        | Real framework integration works        | Local (with OpenClaw) |
 | Compliance Round-Trip | Auditable output is correct            | CI (always)         |
+
+---
+
+## Sprint 9 Review (2026-02-28)
+
+**Scope:** All 4 Sprint 9 tasks (TASK-068 through TASK-071) covering environment context detection, compliance bundle verification and push, golden trace registry client, and incremental policy sync.
+
+**Pre-review state:** 910 tests passing across 68 test files, all checks clean.
+**Post-review state:** 917 tests passing across 68 test files, all checks clean.
+
+### Files Reviewed
+
+| File | Type | Task |
+| --- | --- | --- |
+| `packages/core/src/environment.ts` | New | TASK-068 |
+| `packages/core/src/environment.test.ts` | New | TASK-068 |
+| `packages/core/src/compliance-bundle.ts` | Modified | TASK-068 |
+| `packages/core/src/session.ts` | Modified | TASK-068 |
+| `packages/core/src/index.ts` | Modified | TASK-068, 069 |
+| `packages/cli/src/env-flags.ts` | New | TASK-068 |
+| `packages/cli/src/env-flags.test.ts` | New | TASK-068 |
+| `packages/cli/src/evaluate.ts` | Modified | TASK-068 |
+| `packages/cli/src/compliance.ts` | Modified | TASK-068 |
+| `packages/cli/src/push.ts` | Modified | TASK-068, 069 |
+| `packages/cli/src/push.test.ts` | Modified | TASK-069, 070 |
+| `packages/cli/src/help.ts` | Modified | TASK-068–071 |
+| `packages/core/src/bundle-verifier.ts` | New | TASK-069 |
+| `packages/core/src/bundle-verifier.test.ts` | New | TASK-069 |
+| `packages/cli/src/compliance-verify.ts` | New | TASK-069 |
+| `packages/cli/src/compliance-verify.test.ts` | New | TASK-069 |
+| `packages/cli/src/http-client.ts` | Modified | TASK-069, 070, 071 |
+| `packages/cli/src/http-client.test.ts` | Modified | TASK-069, 070, 071 |
+| `packages/cli/src/router.ts` | Modified | TASK-069, 070 |
+| `packages/cli/src/index.ts` | Modified | TASK-069, 070 |
+| `packages/cli/src/golden.ts` | New | TASK-070 |
+| `packages/cli/src/golden.test.ts` | New | TASK-070 |
+| `packages/cli/src/sync-state.ts` | New | TASK-071 |
+| `packages/cli/src/sync-state.test.ts` | New | TASK-071 |
+| `packages/cli/src/policy-pull.ts` | Modified | TASK-071 |
+| `packages/cli/src/policy-pull.test.ts` | Modified | TASK-071 |
+| `packages/cli/src/policy-push.test.ts` | Modified | TASK-070 (makeClient update) |
+
+### Test Gaps Filled
+
+Five missing tests were identified and added during review:
+
+1. **`compliance-bundle.test.ts` — "includes environment in manifest when provided"**: Generates a bundle with `environment: { ci_provider: "github-actions", ... }`, asserts `manifest.environment` is populated with correct values.
+
+2. **`compliance-bundle.test.ts` — "omits environment from manifest when not provided"**: Generates a bundle without `environment`, asserts `manifest.environment` is undefined.
+
+3. **`session.test.ts` — "session_start includes environment context when provided"**: Starts a session with `environment`, reads trace, asserts `payload.context.environment` matches.
+
+4. **`session.test.ts` — "session_start omits environment when not provided"**: Starts a session without `environment`, asserts `payload.context.environment` is absent.
+
+5. **`bundle-verifier.test.ts` — "symlink artifact is rejected with path_traversal error (POSIX only)"**: Documents that symlinked artifacts are rejected by `verifyComplianceBundle` with `error_type: "path_traversal"` due to `realpath()`-based path traversal protection. Low severity on POSIX (attacker needs write access to bundle dir).
+
+### Spec Drift Fixed
+
+| # | File | Drift | Fix |
+| --- | --- | --- | --- |
+| SD-1 | `trace_spec.md` | `lifecycle:session_start` example showed `"environment": "ci"` (simple string) | Updated to full `EnvironmentContext` object with field table |
+| SD-2 | `architecture.md` | Core package description missing bundle verification and environment context | Added "bundle verification, environment context detection" |
+| SD-3 | `integration_contracts.md` | No mention of `EnvironmentContext` or `verifyComplianceBundle` | Added Environment Context section (interface, placement, detection, bundle integration) and Bundle Verification section (steps, result interface, CLI usage) |
+
+### Spec Drift Resolution (from prior sprints)
+
+| # | Drift | Resolution |
+| --- | --- | --- |
+| S3 (Sprint 6) | Policy pull missing `?since=` incremental sync parameter | **RESOLVED** — TASK-071 adds `--since` and `--incremental` flags with sync state file |
+
+### New Spec Drift (Documented, Deferred)
+
+| # | Drift | Rationale for deferral |
+| --- | --- | --- |
+| S9 | `pushComplianceBundle` uses base64 JSON payload vs spec's `multipart/form-data` | Consistent with trace push (S1); align when CP server is implemented |
+| S10 | Golden trace promote sends base64-encoded trace content vs raw binary | Consistent with trace push pattern; align with CP server |
+
+### Edge Cases Verified
+
+| Edge Case | File | Result |
+| --- | --- | --- |
+| Symlink artifact in bundle dir | `bundle-verifier.ts` | Rejected with `path_traversal` via `realpath()` resolution |
+| Path traversal in manifest artifact path | `bundle-verifier.ts` | Correctly produces `path_traversal` error |
+| Empty bundle (zero traces) | `compliance-bundle.ts` | Passes verification; 0 artifacts |
+| Corrupt manifest JSON | `bundle-verifier.ts` | `manifest_parse_error` with `valid: false` |
+| Unknown `manifest_version` | `bundle-verifier.ts` | Rejected with `manifest_parse_error` |
+| Nonexistent bundle directory | `bundle-verifier.ts` | Throws "Bundle directory does not exist" |
+| `detectEnvironment` with empty env | `environment.ts` | Returns all-null fields with `ci_provider: null` |
+| `detectEnvironment` with unknown CI vars | `environment.ts` | Returns `ci_provider: "unknown-ci"` |
+| `mergeEnvironmentContext` override precedence | `environment.ts` | Override fields take precedence via nullish coalescing |
+| Sync state file missing/corrupt | `sync-state.ts` | Returns `null` gracefully |
+| `--incremental` boolean flag in policy pull | `policy-pull.ts` | Handled by `hasFlag()` before `findSubcommandToken` |
+
+### Contract Verification
+
+| Contract | Source | Status |
+| --- | --- | --- |
+| C1-1: Trace events must include SHA-256 hash chain | trace_spec.md | PASS — unchanged |
+| C1-2: Events serialized in canonical JSON | trace_spec.md | PASS — unchanged |
+| C3-1: SHA-256 manifest with per-artifact digests | control_plane_spec.md §6 | PASS — bundle verifier validates digests |
+| C3-2: Bundle manifest version pinned to "1.0.0" | control_plane_spec.md §6 | PASS — verifier rejects unknown versions |
+| C4-1: Core functions deterministic for same input | determinism_spec.md | PASS — `detectEnvironment` is pure (takes env parameter) |
+| C5-1: Offline-first guarantee | control_plane_spec.md | PASS — environment detection, bundle verification work offline |
+| C5-2: CLI structured output (JSON to stdout, errors to stderr) | architecture.md | PASS — all new commands return structured results |
+| C8-1: Credentials stored with mode 0600 | security_practices.md | PASS — sync state file also written with 0o600 |
+| C8-3: Path traversal prevention on untrusted input | security_practices.md | PASS — bundle verifier checks artifact paths via `resolve()` + `realpath()` + `startsWith()` |
+| C9-1: API endpoint paths match control_plane_spec.md | control_plane_spec.md | PASS — golden trace endpoints use `/api/v1/golden-traces` |
+
+### Architecture Observations
+
+#### Environment context at `payload.context.environment`
+
+Environment context is stored at `lifecycle(session_start).payload.context.environment` rather than in top-level `metadata`. This placement ensures CP search/indexing finds it at a predictable path for `session_start` events. The `SessionConfig.environment` field is optional — when absent, no environment context is written.
+
+#### Shared `--env` parser utility
+
+The `env-flags.ts` module provides a shared parser for `--env key=value` flags used by `evaluate`, `compliance export`, and `push` commands. This avoids duplicating the parsing/validation logic across three commands. The parser validates that each entry contains a `=` separator, splits on the first `=`, and returns a `Record<string, string>`.
+
+#### Bundle verifier path traversal defense
+
+The bundle verifier resolves each artifact path via `path.resolve()` and then `realpath()`, and checks it stays under the bundle directory (including all intermediate directories). This prevents a compromised/malicious manifest from using `../` traversal or symlinked paths to read files outside the bundle. Violations produce the distinct `error_type: "path_traversal"` (vs `file_missing`) for clear diagnostics.
+
+#### Deterministic multipart ordering
+
+`pushComplianceBundle` sorts artifacts lexicographically by path before computing the `X-Krynix-Bundle-Digest` header. This ensures the same bundle always produces the same digest regardless of filesystem iteration order.
+
+#### Sync state scoped by base URL
+
+The sync state file (`~/.krynix/sync-state.json`) scopes entries by CP base URL. Switching between CP instances (e.g., staging vs production) correctly triggers a full policy pull. The state file uses 0o600 permissions, matching the credentials file security model.
+
+#### Golden trace commands reuse `resolveClient` pattern
+
+All three golden commands (`promote`, `list`, `pull`) share a `resolveClient()` helper that validates config + credentials + token expiry. This is consistent with the established auth validation pattern from Sprint 6-8 commands.
+
+### Deferred (Acceptable)
+
+#### BUG-2 (Sprint 2): Dual session_start events — still deferred
+
+No change. By design for adapter separation.
+
+#### B2: `findSubcommandToken` assumes all flags take values (Sprint 4)
+
+No change from Sprint 8 review. No boolean flags currently reach this code path. Sprint 9 adds `--incremental` (a boolean flag), but it is handled by `hasFlag()` before `findSubcommandToken` is called for the `policy pull` route.
+
+#### A2: Inconsistent result type field names (`output` vs `result`)
+
+No change from Sprint 8 review. Sprint 9 adds `golden.ts` using `output` and `compliance-verify.ts` using `output` — consistent within the sprint but the cross-sprint inconsistency persists.
+
+#### S1: Trace upload uses `application/octet-stream` vs spec's `multipart/form-data`
+
+No change. Sprint 9 extends this pattern to bundle push and golden trace promote (S9, S10 above).
+
+### Test Coverage Summary
+
+| Test File | Tests |
+| --- | --- |
+| `packages/core/src/environment.test.ts` | 20 (new) |
+| `packages/core/src/bundle-verifier.test.ts` | 10 + 1 (review) + 1 (round 2) = 12 |
+| `packages/core/src/compliance-bundle.test.ts` | +2 (environment in manifest, review) |
+| `packages/core/src/session.test.ts` | +2 (environment in session_start, review) |
+| `packages/cli/src/env-flags.test.ts` | 9 (new) |
+| `packages/cli/src/compliance-verify.test.ts` | 4 (new) |
+| `packages/cli/src/http-client.test.ts` | +11 (bundle push, golden trace, since) |
+| `packages/cli/src/golden.test.ts` | 13 (new) |
+| `packages/cli/src/sync-state.test.ts` | 7 (new) |
+| `packages/cli/src/policy-pull.test.ts` | +7 (incremental sync) |
+| `packages/cli/src/push.test.ts` | +3 (bundle push) |
+| `packages/cli/src/policy-push.test.ts` | +0 (makeClient update only) |
+
+**Total new tests this sprint:** 89 (827 → 916)
+**Total test suite:** 916 tests across 68 test files
+**New files:** 12 (6 source + 6 test)
+**Modified files:** 15
+**Tests added during review:** 5 (2 compliance-bundle, 2 session, 1 bundle-verifier)
+**Spec drift items fixed during review:** 3 (trace_spec.md, architecture.md, integration_contracts.md)
+
+### Post-Review Security Fixes
+
+The following issues were identified during PR review and fixed:
+
+#### SEC-1: Symlink bypass in bundle verifier and push (CRITICAL)
+
+Both `verifyComplianceBundle()` and `pushComplianceBundle()` used `path.resolve()` for path traversal checks, but `resolve()` doesn't follow symlinks. A symlink within the bundle directory pointing outside it would pass the path check while `readFile()` follows the symlink to read/upload external file content.
+
+**Fix:** Added `lstat()` check after path traversal validation in both `bundle-verifier.ts` and `http-client.ts`. Symlinked artifacts are now rejected with `error_type: "path_traversal"` before `readFile` is called.
+
+**Files:** `packages/core/src/bundle-verifier.ts`, `packages/cli/src/http-client.ts`
+
+#### SEC-2: Sync state file permissions on overwrite
+
+`saveSyncState()` used `writeFile()` with `mode: 0o600`, but this option only applies when creating a new file. Overwriting an existing file with looser permissions would retain those permissions.
+
+**Fix:** Added `chmod(filePath, 0o600)` after `writeFile()`, mirroring the existing `saveCredentials()` pattern in `credentials.ts`.
+
+**File:** `packages/cli/src/sync-state.ts`
+
+#### DET-1: Locale-dependent artifact sorting
+
+`pushComplianceBundle()` sorted artifacts using `localeCompare()`, which can produce different orderings depending on runtime locale, violating the project's determinism guarantee.
+
+**Fix:** Replaced `localeCompare()` with direct string comparison operators (`<`/`>`).
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### DOC-1: Integration contracts documentation drift
+
+Three documentation issues in `integration_contracts.md`:
+1. `EnvironmentContext.ci_provider` documented as string union literal but actual type is `string | null`
+2. `BundleVerificationError` documented with `expected?`/`actual?` but actual fields are `expected_digest`/`actual_digest` (required)
+3. CLI usage showed `krynix compliance verify <bundle-dir>` but actual syntax is `--dir <bundle-dir>`
+
+**Fix:** All three corrected to match implementation.
+
+#### DOC-2: Review log --env parser wording
+
+Review log claimed "exactly one `=` separator" but `parseEnvFlags()` splits on the first `=` and allows additional `=` chars in the value portion.
+
+**Fix:** Wording corrected.
+
+### Post-Review Test Additions
+
+| Test File | Tests Added |
+| --- | --- |
+| `packages/cli/src/sync-state.test.ts` | +1 (overwrite permission enforcement) |
+
+**Post-review test total:** 916 (915 + 1)
+
+### Post-Review Security Fixes — Round 2
+
+The following additional issues were identified during a second PR review and fixed:
+
+#### SEC-3: Intermediate directory symlink bypass (CRITICAL)
+
+The `lstat()` check (SEC-1) only validated the final artifact file. If an intermediate directory was a symlink pointing outside the bundle (e.g., `traces/` → `/etc`), `lstat("traces/passwd")` sees a regular file (not a symlink), so the check passes. Meanwhile `readFile` follows intermediate symlinks, reading `/etc/passwd`.
+
+**Fix:** Replaced `lstat()` with `realpath()` in both `bundle-verifier.ts` and `http-client.ts`. `realpath()` resolves the entire path chain including intermediate symlinks, letting us compare the fully-resolved path against the fully-resolved bundle directory. Files are also read via the resolved real path to avoid TOCTOU between `realpath()` and `readFile()`.
+
+**Files:** `packages/core/src/bundle-verifier.ts`, `packages/cli/src/http-client.ts`
+
+#### SEC-4: Secret leakage in `parseEnvFlags` error messages
+
+Error messages from `parseEnvFlags()` included the raw `--env` value (e.g., `Invalid --env value: "SECRET_TOKEN=abc123"`). This leaks secrets into stderr, CI logs, and error reports.
+
+**Fix:** Removed raw user input from error messages. Errors now describe the problem structurally: `'Invalid --env value (missing "=" separator). Expected format: key=value'` and `"Invalid --env value (empty key). Expected format: key=value"`.
+
+**File:** `packages/cli/src/env-flags.ts`
+
+#### SEC-5: `--env` not in `SENSITIVE_FLAGS`
+
+The router's `redactFlagValues()` function didn't cover `--env`, which may contain secrets (API keys, tokens, passwords passed as environment variable overrides).
+
+**Fix:** Added `"--env"` to the `SENSITIVE_FLAGS` set.
+
+**File:** `packages/cli/src/router.ts`
+
+#### DET-2: Bundle digest non-reproducibility
+
+`pushComplianceBundle()` computed the `X-Krynix-Bundle-Digest` by hashing `manifestRaw` (raw file bytes) + artifact bytes. But the payload re-serialized the manifest via `JSON.parse(manifestRaw)` + `JSON.stringify(payload)`, producing different bytes than `manifestRaw`. The server receives the re-serialized form and cannot reproduce the digest. Additionally, artifact paths were not included in the hash.
+
+**Fix:** Hash the serialized JSON payload that is actually sent. This ensures the server can reproduce the digest by hashing the request body, artifact paths are included, and there is no serialization discrepancy.
+
+**File:** `packages/cli/src/http-client.ts`
+
+### Post-Review Round 2 Test Additions
+
+| Test File | Tests Added |
+| --- | --- |
+| `packages/core/src/bundle-verifier.test.ts` | +1 (intermediate symlinked directory rejection) |
+
+**Post-review round 2 test total:** 917 (916 + 1)
+
+### Post-Review Fixes — Round 3
+
+The following issues were identified during a third PR review and fixed:
+
+#### ROB-1: Manifest schema validation in bundle verifier
+
+`verifyComplianceBundle()` assumed `manifest.artifacts` was an array of objects with string `path`/`digest` fields. If the manifest had an unexpected shape (e.g., `artifacts` is a string, or entries missing `path`), the `for..of` loop would throw an unstructured exception instead of returning a `BundleVerificationResult`.
+
+**Fix:** Added explicit schema validation after JSON parse: `Array.isArray(artifacts)` check and per-entry `typeof path === "string"` / `typeof digest === "string"` validation. Invalid structures now return `manifest_parse_error`.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+#### DOC-3: `--since` error message accuracy
+
+The `--since` validation error message said "Expected ISO-8601 format" but `Date.parse()` in Node.js accepts many non-ISO formats. The error message also included the raw `--since` value.
+
+**Fix:** Relaxed wording to "Expected a parseable date string (e.g. ISO-8601)" and removed raw user input from the error message (consistent with SEC-4 redaction principle).
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+#### DOC-4: Stale review log references after `lstat→realpath` refactor
+
+Three sections in the review log still referenced the old `lstat()`-based symlink defense and `digest_mismatch` behavior, which were superseded by the `realpath()` refactor in Round 2:
+1. Test gap item #5 described symlink artifact producing `digest_mismatch` — now produces `path_traversal`
+2. "Bundle verifier path traversal defense" section mentioned `lstat()` — now uses `realpath()`
+3. Edge cases table showed `digest_mismatch` for symlinks — now `path_traversal`
+4. Contract C8-3 only mentioned `resolve()` + `startsWith()` — now includes `realpath()`
+5. Post-review state header said 915 tests — actual final state is 917
+
+**Fix:** All five items corrected to match current implementation.
+
+**File:** `docs/20_development/review_log.md`
+
+### Post-Review Round 3 Test Additions
+
+| Test File | Tests Added |
+| --- | --- |
+| `packages/core/src/bundle-verifier.test.ts` | +2 (non-array artifacts, non-string path/digest) |
+
+**Post-review round 3 test total:** 919 (917 + 2)
+
+### Post-Review Fixes — Round 4
+
+#### ROB-2: Manifest schema validation in `pushComplianceBundle()`
+
+`pushComplianceBundle()` in `http-client.ts` cast the parsed manifest to `BundleManifest` without runtime validation. If `manifest.artifacts` was a non-array or contained entries without string `path` fields, the sort comparator or `join()` call would throw an unstructured exception, violating the module's "no unhandled throws" contract.
+
+**Fix:** Added the same schema validation pattern used in `bundle-verifier.ts`: check `Array.isArray(rawArtifacts)` and per-entry `typeof path === "string"`. Invalid structures now return structured `{ ok: false, ... }` error results.
+
+**File:** `packages/cli/src/http-client.ts`
+
+### Post-Review Round 4 Test Additions
+
+| Test File | Tests Added |
+| --- | --- |
+| `packages/cli/src/http-client.test.ts` | +2 (non-array artifacts, non-string path) |
+
+**Post-review round 4 test total:** 921 (919 + 2)
+
+### Post-Review Fixes — Round 5
+
+#### TEST-1: Non-deterministic `buildEnvironmentContext` test
+
+`buildEnvironmentContext()` in `env-flags.ts` called `detectEnvironment(process.env)` internally. Tests had no way to control the environment, making assertions non-deterministic — tests passed in both CI and non-CI environments regardless of the function's actual behavior.
+
+**Fix:** Added optional `env` parameter to `buildEnvironmentContext()` (defaults to `process.env`). Updated all tests to pass explicit env maps: `{}` for non-CI, `{ GITHUB_ACTIONS: "true", ... }` for CI simulation.
+
+**Files:** `packages/cli/src/env-flags.ts`, `packages/cli/src/env-flags.test.ts`
+
+#### SEC-6: `parseLabels` error message leaked user input
+
+Same pattern as SEC-4 (`parseEnvFlags`). The error message included the raw `--label` value: `Invalid --label value: "${entry}"`. This could expose sensitive data in error output.
+
+**Fix:** Changed to structural error messages without user input: `'Invalid --label value (missing "=" separator). Expected format: key=value'` and `"Invalid --label value (empty key). Expected format: key=value"`.
+
+**File:** `packages/cli/src/golden.ts`
+
+#### ROB-3: Missing empty key validation in `parseLabels`
+
+`parseLabels` accepted `--label =value` (empty key), creating `labels[""] = "value"`. This was inconsistent with `parseEnvFlags` which validates for empty keys.
+
+**Fix:** Added `key.length === 0` check matching `parseEnvFlags`.
+
+**File:** `packages/cli/src/golden.ts`
+
+#### ROB-4: `--limit` accepted non-integer values
+
+`runGoldenList` validated `--limit` with `!Number.isFinite(n) || n < 1` but did not check `Number.isInteger(n)`. Values like `5.5` passed validation and were sent to the server.
+
+**Fix:** Added `!Number.isInteger(n)` to the validation check.
+
+**File:** `packages/cli/src/golden.ts`
+
+#### TEST-2: Non-deterministic test credentials in `golden.test.ts`
+
+`TEST_CREDS.expires_at` used `new Date(Date.now() + 3600_000).toISOString()`, producing a different ISO string on every test run. In edge cases (slow test suites, clock changes), tokens could appear expired.
+
+**Fix:** Changed to fixed far-future date: `expires_at: "2099-01-01T00:00:00Z"`.
+
+**File:** `packages/cli/src/golden.test.ts`
+
+#### ERR-1: Double-prefixed error messages in catch blocks
+
+Multiple catch blocks used `String(err)` which produces `"Error: <message>"` when `err` is an Error instance. Combined with an outer prefix (e.g., `Invalid --env flag: Error: Invalid --env value...`), this created redundant double-prefixing.
+
+**Fix:** Changed all affected catch blocks to use `err instanceof Error ? err.message : String(err)` pattern.
+
+**Files:** `packages/cli/src/push.ts`, `packages/cli/src/evaluate.ts`
+
+#### ROB-5: Unsafe type assertion for `RegistryPolicy[]` from server
+
+`policy-pull.ts` checked `Array.isArray(rawData)` but then cast directly to `RegistryPolicy[]` without validating that each element has the required `name`, `version`, `yaml_content`, and `digest` fields. Malformed server responses (missing `yaml_content`) would crash at the `createHash("sha256").update(policy.yaml_content)` call.
+
+**Fix:** Added per-element validation: `typeof policy.name !== "string" || typeof policy.version !== "string" || typeof policy.yaml_content !== "string" || typeof policy.digest !== "string"` — invalid entries are skipped (counted in `policies_skipped`).
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+#### SEC-7: Incomplete path sanitization for policy names
+
+Policy names from the server were sanitized by replacing only `/` and `\` characters. This missed: null bytes (`\x00` which truncate paths on some systems), colons (`:` problematic on Windows), and other special characters. A malicious server could craft names with these characters.
+
+**Fix:** Changed from `replace(/[/\\]/g, "_")` to allowlist approach: `replace(/[^a-zA-Z0-9._@-]/g, "_")`. The `@` is preserved for scoped package names. Applied to both `safeName` and `safeVersion`.
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+#### ERR-2: Inconsistent `buildEnvironmentContext` error handling in `compliance.ts`
+
+`compliance.ts` called `buildEnvironmentContext(args)` inside the outer try block without explicit error handling. Errors would be caught by the generic catch with a plain message instead of the specific `Invalid --env flag:` prefix used in `push.ts` and `evaluate.ts`.
+
+**Fix:** Added explicit try/catch around `buildEnvironmentContext(args)` matching the pattern used in `push.ts` and `evaluate.ts`.
+
+**File:** `packages/cli/src/compliance.ts`
+
+### Post-Review Round 5 Summary
+
+**Post-review round 5 test total:** 921 (no new tests — all fixes are code hardening)
+
+---
+
+### Post-Review Fixes — Round 6
+
+**Trigger:** Copilot flagged `pullGoldenTrace()` wrapping both `fetchFn` and `fsWriteFile` in a single try/catch, reporting filesystem errors as "Network error". Prompted a comprehensive re-review of all Sprint 9 files.
+
+**Approach:** Ran 6 parallel thorough code reviews covering every Sprint 9 file. Identified and fixed 8 issues across 6 files:
+
+#### ERR-3: `pullGoldenTrace` — filesystem write errors misclassified as "Network error"
+
+`pullGoldenTrace()` wrapped both the `fetchFn()` call and `fsWriteFile(outputPath, buffer)` in a single try/catch that labeled all errors as `"Network error: ..."`. When `fsWriteFile` fails (ENOENT, EACCES, disk full), users see a misleading "Network error" message.
+
+**Fix:** Separated into distinct try/catch blocks: network errors from `fetchFn` get `"Network error:"` prefix, filesystem errors from `fsWriteFile` get `"File write error:"` prefix. Also added a try/catch around error-response `response.json()` parsing to prevent JSON parse failures from propagating.
+
+**Tests added:** 2 — "returns network error when fetch throws" and "returns file write error when output path is invalid".
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### ERR-4: `apiRequest` — `response.json()` SyntaxError misclassified as "Network error"
+
+The generic `apiRequest` function's outer catch wraps `fetchFn`, response header reading, and `response.json()` in a single try/catch. If the server returns `Content-Type: application/json` with a malformed body, the `SyntaxError` from `response.json()` was caught by the outer handler and labeled `"Network error:"`. The network call succeeded; only the response body is corrupt.
+
+**Fix:** Wrapped `response.json()` in its own try/catch that catches `SyntaxError` and falls back to `data = null`, allowing the request to proceed with null data instead of misclassifying the error.
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### DET-1: Double `JSON.parse` of manifest in `pushComplianceBundle`
+
+The manifest was parsed once into the `manifest` variable (for validation), then parsed again from the raw string when building the payload. This is wasteful and introduces a subtle correctness risk: if the two parses ever produce different results due to intermediate state changes, the payload would carry a different manifest than the one validated.
+
+**Fix:** Replaced `JSON.parse(manifestRaw) as unknown` in the payload construction with the already-parsed `manifest` object.
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### SEC-8: `writeComplianceBundleToDir` — subdirectory creation before path traversal check
+
+`writeComplianceBundleToDir` is a public API that accepts any `ComplianceBundle`. It extracted subdirectory names from artifact paths and called `mkdir` on them *before* the path traversal guard. If called with a maliciously crafted bundle (bypassing `generateComplianceBundle`), a path like `../../etc/malicious.txt` would cause `mkdir(join(outputDir, "../../etc"), { recursive: true })` — creating directories outside the output dir — before the traversal check could reject it.
+
+**Fix:** Moved the `resolve()` + `startsWith()` path traversal check *before* subdirectory collection and creation. All artifact paths are now validated in a first pass; subdirectories are only created after all paths pass validation.
+
+**File:** `packages/core/src/compliance-bundle.ts`
+
+#### ROB-6: Session ID validation misses empty strings and control characters
+
+The session ID validation only checked for `/`, `\`, and `..`. It did not reject: empty strings (creating hidden files), null bytes (truncating paths on some OSes), or control characters (corrupting log output or filenames). The error message also leaked the raw session ID value (SEC-6 pattern).
+
+**Fix:** Extended regex to `/[/\\\x00-\x1f\x7f]/` and added `sid.length === 0` check. Changed error message to static string: `"Invalid session_id for bundle artifact"` (no user input interpolation).
+
+**File:** `packages/core/src/compliance-bundle.ts`
+
+#### ROB-7: `compliance.ts` — unsafe `as Record<string, unknown>` cast on `JSON.parse` for evaluations/replays
+
+`JSON.parse(content)` was immediately cast to `Record<string, unknown>` with no validation. If the JSON file contained a literal `null`, array, or primitive, the subsequent property access (`parsed["trace_id"]`) would throw a `TypeError` with a confusing internal message like "Cannot read properties of null (reading 'trace_id')".
+
+**Fix:** Added explicit validation that `JSON.parse` result is a non-null, non-array object before property access. Returns a clear error message: `"Invalid evaluation file (expected a JSON object): <path>"`.
+
+**File:** `packages/cli/src/compliance.ts`
+
+#### ROB-8: `loadSyncState` silently swallows all errors including EACCES
+
+The catch block in `loadSyncState` returned `null` for any error, including permission errors (EACCES), I/O errors, and disk errors. A user with a valid sync state file that is temporarily unreadable would silently lose their incremental sync state, causing a full re-pull instead of surfacing the real problem.
+
+**Fix:** Changed to only return `null` for `ENOENT` (missing file) and `SyntaxError` (malformed JSON). All other errors now propagate to the caller for proper handling.
+
+**File:** `packages/cli/src/sync-state.ts`
+
+#### ERR-5: `evaluate()` call not wrapped in try-catch
+
+The `evaluate(trace, policy)` call in the evaluation loop had no error handling. If the policy evaluator throws (e.g., due to a malformed policy that passed parsing but fails at evaluation time, or an unexpected event shape), the entire command crashes with an unhandled exception. Every other processing call in the function was wrapped in try-catch.
+
+**Fix:** Wrapped the loop body in try-catch, returning a structured error: `"Policy evaluation failed (<policyName>): <message>"`.
+
+**File:** `packages/cli/src/evaluate.ts`
+
+### Post-Review Round 6 Summary
+
+| Category | ID | File | Description |
+|----------|----|------|-------------|
+| Error classification | ERR-3 | http-client.ts | pullGoldenTrace: separate network vs filesystem errors |
+| Error classification | ERR-4 | http-client.ts | apiRequest: response.json() SyntaxError isolation |
+| Determinism | DET-1 | http-client.ts | Eliminate double JSON.parse of manifest |
+| Security | SEC-8 | compliance-bundle.ts | Path traversal check before subdirectory creation |
+| Robustness | ROB-6 | compliance-bundle.ts | Session ID: reject empty, control chars; redact from error |
+| Robustness | ROB-7 | compliance.ts | Validate JSON.parse result before property access |
+| Robustness | ROB-8 | sync-state.ts | Only swallow ENOENT/SyntaxError, not all errors |
+| Error handling | ERR-5 | evaluate.ts | Wrap evaluate() in try-catch |
+
+**Post-review round 6 test total:** 924 (921 + 2 new http-client tests + 1 from prior test additions)
+
+### Post-Review Fixes — Round 7
+
+The following issues were identified during a seventh PR review pass and fixed:
+
+#### SEC-9: `writeFile` follows symlinks for individual files in `writeComplianceBundleToDir`
+
+`writeComplianceBundleToDir()` verified that subdirectories were not symlinks (added in Round 2 via `realpath()`), but the individual `writeFile()` calls for artifact files and `manifest.json` had no symlink check. If an attacker placed a symlink file at an expected artifact location (e.g., `traces/sess-1.trace.jsonl → /etc/cron.d/evil`), `writeFile` would follow the symlink and write content outside the bundle directory.
+
+**Fix:** Added `lstat()` check before every `writeFile()` call via a shared `rejectSymlinkTarget()` helper. Symlinked file targets are rejected with `"Symbolic link detected at file path"`. ENOENT (file doesn't exist yet) is gracefully handled.
+
+**File:** `packages/core/src/compliance-bundle.ts`
+
+#### SEC-10: `writeFile` follows symlinks for policy files in `runPolicyPull`
+
+`runPolicyPull()` sanitized policy names and checked for path traversal via `resolve()` + `startsWith()`, but the `writeFile()` call had no symlink check. A malicious local user could place a symlink at the expected policy file path (e.g., `./policies/my-policy@1.0.policy.yaml → /etc/sensitive-file`), causing policy content from the server to be written to an arbitrary location.
+
+**Fix:** Added `lstat()` check before `writeFile()`. Symlinked targets are silently skipped (counted in `policies_skipped`) since policy pull processes multiple policies and partial failure is acceptable.
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+### Post-Review Round 7 Test Additions
+
+| Test File | Tests Added |
+| --- | --- |
+| `packages/core/src/compliance-bundle.test.ts` | +1 (symlinked file target rejection) |
+| `packages/cli/src/policy-pull.test.ts` | +1 (symlinked policy file target skipped) |
+
+**Post-review round 7 test total:** 926 (924 + 2)
+
+### Post-Review Fixes — Round 8
+
+The following issues were identified during an eighth PR review pass and fixed:
+
+#### ROB-9: Manifest readFile bare catch misreports EACCES as "manifest not found"
+
+`verifyComplianceBundle()` used a bare `catch` for the `readFile(manifestPath)` call. Any error (including EACCES, EIO, EMFILE) was returned as `manifest_found: false`, hiding the real problem. Callers cannot distinguish a missing manifest from an unreadable one.
+
+**Fix:** Changed to typed `catch (err: unknown)` that only returns `manifest_found: false` for ENOENT. All other errors are rethrown.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+#### ROB-10: Empty/degenerate artifact paths accepted by schema validation
+
+The per-entry artifact validation checked `typeof path === "string"` but accepted `""`, `"."`, and `"./"`. These degenerate paths cause confusing downstream behavior (attempting to read the bundle directory itself) instead of a clear `manifest_parse_error`.
+
+**Fix:** Added `p === "" || p === "." || p === "./"` to the rejection condition. Invalid paths now return `manifest_parse_error`.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+#### ROB-11: `pushComplianceBundle` realpath fallback masks errors
+
+`pushComplianceBundle()` used `.catch(() => resolvedBundleDir)` for `realpath(bundleDir)`, silently falling back on ANY error. This masks permission errors (EACCES) and degrades the correctness of the symlink-escape check (comparing real paths against a non-real base).
+
+**Fix:** Replaced with explicit try/catch. Only ENOENT falls back to `resolvedBundleDir`. Other errors return a structured `{ ok: false, error: "Bundle directory resolution error: ..." }`.
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### ROB-12: Artifact realpath/readFile bare catches misreport EACCES as "file_missing"
+
+Two bare catch blocks in the artifact verification loop treated all errors (including EACCES) as `file_missing`. The `realpath()` catch additionally handles ENOTDIR (e.g., path component is a regular file, not a directory).
+
+**Fix:** Changed both to typed `catch (err: unknown)` blocks. Only ENOENT (and ENOTDIR for realpath) map to `file_missing`. Other errors are rethrown.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+### Post-Review Round 8 Summary
+
+| Category | ID | File | Description |
+|----------|----|------|-------------|
+| Robustness | ROB-9 | bundle-verifier.ts | Manifest readFile: ENOENT-only catch |
+| Robustness | ROB-10 | bundle-verifier.ts | Reject empty/degenerate artifact paths |
+| Robustness | ROB-11 | http-client.ts | realpath fallback: ENOENT-only, structured error for others |
+| Robustness | ROB-12 | bundle-verifier.ts | Artifact realpath/readFile: ENOENT-only catch |
+
+**Post-review round 8 test total:** 926 (no new tests — all fixes are error handling hardening)
+
+---
+
+### Post-Review Fixes -- Round 9
+
+**Date:** 2026-03-01
+**Reviewer:** GitHub Copilot (automated code review)
+**Scope:** Timing correctness and untrusted-data access before validation
+
+#### ROB-13: Sync timestamp captured after pull creates clock-skew gap
+
+`runPolicyPull()` captured `syncTimestamp = new Date().toISOString()` after the entire pull + file-write loop completed. If a policy was updated on the server between the pull cutoff and the post-pull timestamp, it would be missed by the next incremental sync.
+
+**Fix:** Moved `syncTimestamp` capture to just before the `client.pullPolicies()` call, ensuring no updates fall into the gap.
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+#### ROB-14: Untrusted `manifest.artifacts?.length` used before array validation
+
+In the unsupported-manifest-version error return, `artifact_count: manifest.artifacts?.length ?? 0` accessed `.length` on `manifest.artifacts` before validating it is an array. If `artifacts` were a string (which has `.length`), a misleading count would be returned.
+
+**Fix:** Changed to `artifact_count: 0` — at this point the manifest is rejected, so the count is meaningless and should not depend on untrusted data.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+### Post-Review Round 9 Summary
+
+| Category | ID | File | Description |
+|----------|----|------|-------------|
+| Robustness | ROB-13 | policy-pull.ts | Sync timestamp: capture before pull to avoid clock-skew gap |
+| Robustness | ROB-14 | bundle-verifier.ts | Untrusted `artifacts?.length` replaced with `0` before validation |
+
+**Post-review round 9 test total:** 931 (no new tests — logic/timing hardening only)
+
+---
+
+### Post-Review Fixes -- Round 10
+
+**Date:** 2026-03-01
+**Reviewer:** GitHub Copilot (automated code review)
+**Scope:** Symlink-before-read ordering, degenerate path validation, bare catch narrowing, platform guards
+
+#### ROB-15: Symlink check runs after readFile in policy pull
+
+`runPolicyPull()` called `readFile(filePath)` to check for unchanged content before the `lstat()` symlink guard. A malicious symlink at `filePath` would be followed by `readFile` before `lstat` could reject it. Additionally, the `readFile` catch was a bare `catch {}` that masked all errors as "file not found."
+
+**Fix:** Moved the `lstat()` symlink check before `readFile()`. Narrowed the `readFile` catch to ENOENT-only, rethrowing other errors.
+
+**File:** `packages/cli/src/policy-pull.ts`
+
+#### ROB-16: `writeComplianceBundleToDir` accepts degenerate artifact paths
+
+`writeComplianceBundleToDir()` is a public function that accepts any `ComplianceBundle`. It validated artifact paths for traversal (`..`) but not for degenerate values like `""`, `"."`, `"./"`, or paths ending with `"/"`. These would cause EISDIR or confusing behaviour when passed to `writeFile`.
+
+**Fix:** Added upfront validation rejecting `""`, `"."`, `"./"`, and paths ending with `/` before any filesystem operations.
+
+**File:** `packages/core/src/compliance-bundle.ts`
+
+#### ROB-17: POSIX-only symlink test missing Windows platform guard
+
+The test "rejects symlinked subdirectory escaping output dir (POSIX only)" was missing the `if (process.platform === "win32") return;` guard present in all other POSIX-only tests. This would fail in Windows CI where symlinks require admin privileges.
+
+**Fix:** Added early return on Windows.
+
+**File:** `packages/core/src/compliance-bundle.test.ts`
+
+#### ROB-18: Bare catch on `stat()` in validate command (proactive)
+
+`runValidate()` used a bare `catch {}` on `stat(policyPath)`, treating all errors (EACCES, EIO) as "path not found."
+
+**Fix:** Narrowed to ENOENT-only; other errors are rethrown.
+
+**File:** `packages/cli/src/validate.ts`
+
+#### ROB-19: Degenerate artifact path validation missing in `pushComplianceBundle` (proactive)
+
+`pushComplianceBundle()` validated that artifact paths are strings but did not reject `""`, `"."`, `"./"`, or paths ending with `/`. This is the same class of issue as ROB-16 but in the http-client push path.
+
+**Fix:** Added degenerate path rejection matching the pattern in `bundle-verifier.ts`.
+
+**File:** `packages/cli/src/http-client.ts`
+
+### Post-Review Round 10 Summary
+
+| Category | ID | File | Description |
+|----------|----|------|-------------|
+| Security | ROB-15 | policy-pull.ts | Move lstat symlink check before readFile; narrow readFile catch to ENOENT |
+| Robustness | ROB-16 | compliance-bundle.ts | Reject degenerate artifact paths in writeComplianceBundleToDir |
+| Testing | ROB-17 | compliance-bundle.test.ts | Add Windows platform guard to POSIX-only test |
+| Robustness | ROB-18 | validate.ts | Narrow bare catch on stat() to ENOENT-only |
+| Robustness | ROB-19 | http-client.ts | Reject degenerate artifact paths in pushComplianceBundle |
+
+**Post-review round 10 test total:** 933 (added 2 tests: degenerate path in writeComplianceBundleToDir, degenerate path in pushComplianceBundle)
+
+---
+
+### Post-Review Fixes -- Round 11
+
+**Date:** 2026-03-01
+**Reviewer:** GitHub Copilot (automated code review)
+**Scope:** Trailing-slash path validation gap, object spread ordering allowing override of reserved fields
+
+#### ROB-20: Bundle verifier allows artifact paths ending with `/`
+
+`verifyComplianceBundle()` validated artifact paths for `""`, `"."`, `"./"` but not paths ending with `/` (e.g., `"traces/"`). These pass schema validation but resolve to a directory, causing `readFile()` to throw EISDIR instead of returning a structured verification error.
+
+**Fix:** Added `p.endsWith("/")` to the degenerate path condition, matching the pattern already used in `writeComplianceBundleToDir` and `pushComplianceBundle`.
+
+**File:** `packages/core/src/bundle-verifier.ts`
+
+#### ROB-21: `config.metadata` can override `replay_seed` in session_start context
+
+In `startSession()`, `config.metadata` was spread after the computed `replay_seed` in the session_start payload context. A caller passing `{ replay_seed: ... }` in metadata would silently replace the actual seed, breaking determinism and making replay impossible.
+
+**Fix:** Moved metadata spread before `replay_seed` so the internal field always wins.
+
+**File:** `packages/core/src/session.ts`
+
+#### ROB-22: `options.headers` can override `Authorization` header (proactive)
+
+In the HTTP client's `apiRequest()` method, user-supplied `options.headers` were spread after `Authorization`, allowing callers to override the computed authentication header.
+
+**Fix:** Reversed spread order: user headers first, then Authorization last.
+
+**File:** `packages/cli/src/http-client.ts`
+
+#### ROB-23: `bundleOptions` can override `traces` in evaluation pipeline (proactive)
+
+In `runEvaluationPipeline()`, `options.bundleOptions` was spread after the `traces` array. A caller could override the entire trace data via `bundleOptions`, replacing actual computed traces with arbitrary content.
+
+**Fix:** Reversed spread order: bundleOptions first, then traces last.
+
+**File:** `packages/core/src/evaluation-pipeline.ts`
+
+### Post-Review Round 11 Summary
+
+| Category | ID | File | Description |
+|----------|----|------|-------------|
+| Robustness | ROB-20 | bundle-verifier.ts | Add `endsWith("/")` to artifact path validation |
+| Security | ROB-21 | session.ts | Spread metadata before reserved `replay_seed` field |
+| Security | ROB-22 | http-client.ts | Spread options.headers before internal `Authorization` |
+| Security | ROB-23 | evaluation-pipeline.ts | Spread bundleOptions before internal `traces` |
+
+**Post-review round 11 test total:** 933 (no new tests — spread ordering and validation tightening)
+

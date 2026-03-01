@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, symlink, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -37,6 +37,10 @@ function makeClient(overrides: Partial<ControlPlaneClient> = {}): ControlPlaneCl
     pushReplayReport: async () => okResponse({}),
     pullPolicies: async () => okResponse([]),
     pushPolicy: async () => okResponse({}),
+    pushComplianceBundle: async () => okResponse({ bundle_id: "b" }),
+    promoteGoldenTrace: async () => okResponse({ golden_trace_id: "gt" }),
+    listGoldenTraces: async () => okResponse([]),
+    pullGoldenTrace: async () => okResponse({ path: "" }),
     ...overrides,
   };
 }
@@ -46,6 +50,8 @@ function makeDeps(overrides: Partial<PolicyPullDeps> = {}): Partial<PolicyPullDe
     loadConfig: () => TEST_CONFIG,
     loadCredentials: () => TEST_CREDS,
     createClient: () => makeClient(),
+    loadSyncState: async () => null,
+    saveSyncState: async () => {},
     ...overrides,
   };
 }
@@ -269,5 +275,237 @@ describe("runPolicyPull", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.result?.output_dir).toBe("./policies");
+  });
+
+  // -------------------------------------------------------------------------
+  // Sprint 9: Incremental policy sync
+  // -------------------------------------------------------------------------
+
+  test("--since passes since parameter to pullPolicies", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let capturedOpts: Record<string, unknown> | undefined;
+      const client = makeClient({
+        pullPolicies: async (opts) => {
+          capturedOpts = opts as Record<string, unknown>;
+          return okResponse([]);
+        },
+      });
+
+      await runPolicyPull(
+        ["--since", "2025-06-01T00:00:00Z", "--output-dir", join(tmpDir, "policies")],
+        makeDeps({ createClient: () => client }),
+      );
+
+      expect(capturedOpts?.since).toBe("2025-06-01T00:00:00Z");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("--incremental first run → no since param, state written", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let capturedOpts: Record<string, unknown> | undefined;
+      let savedState: unknown = null;
+
+      const client = makeClient({
+        pullPolicies: async (opts) => {
+          capturedOpts = opts as Record<string, unknown>;
+          return okResponse([]);
+        },
+      });
+
+      const result = await runPolicyPull(
+        ["--incremental", "--output-dir", join(tmpDir, "policies")],
+        makeDeps({
+          createClient: () => client,
+          loadSyncState: async () => null,
+          saveSyncState: async (state) => {
+            savedState = state;
+          },
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      // First run: no since param
+      expect(capturedOpts?.since).toBeUndefined();
+      // State was saved
+      expect(savedState).not.toBeNull();
+      expect((savedState as { policy_pull: { base_url: string } }).policy_pull.base_url).toBe(
+        "https://cp.example.com",
+      );
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("--incremental second run → since param from state", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let capturedOpts: Record<string, unknown> | undefined;
+      const client = makeClient({
+        pullPolicies: async (opts) => {
+          capturedOpts = opts as Record<string, unknown>;
+          return okResponse([]);
+        },
+      });
+
+      await runPolicyPull(
+        ["--incremental", "--output-dir", join(tmpDir, "policies")],
+        makeDeps({
+          createClient: () => client,
+          loadSyncState: async () => ({
+            policy_pull: {
+              last_sync: "2025-05-01T00:00:00.000Z",
+              base_url: "https://cp.example.com",
+            },
+          }),
+        }),
+      );
+
+      expect(capturedOpts?.since).toBe("2025-05-01T00:00:00.000Z");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("--since and --incremental → --since wins", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let capturedOpts: Record<string, unknown> | undefined;
+      const client = makeClient({
+        pullPolicies: async (opts) => {
+          capturedOpts = opts as Record<string, unknown>;
+          return okResponse([]);
+        },
+      });
+
+      await runPolicyPull(
+        [
+          "--since",
+          "2025-06-15T00:00:00Z",
+          "--incremental",
+          "--output-dir",
+          join(tmpDir, "policies"),
+        ],
+        makeDeps({
+          createClient: () => client,
+          loadSyncState: async () => ({
+            policy_pull: {
+              last_sync: "2025-05-01T00:00:00.000Z",
+              base_url: "https://cp.example.com",
+            },
+          }),
+        }),
+      );
+
+      expect(capturedOpts?.since).toBe("2025-06-15T00:00:00Z");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("state file scoped to base_url — different URL = fresh pull", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let capturedOpts: Record<string, unknown> | undefined;
+      const client = makeClient({
+        pullPolicies: async (opts) => {
+          capturedOpts = opts as Record<string, unknown>;
+          return okResponse([]);
+        },
+      });
+
+      await runPolicyPull(
+        ["--incremental", "--output-dir", join(tmpDir, "policies")],
+        makeDeps({
+          createClient: () => client,
+          loadSyncState: async () => ({
+            policy_pull: {
+              last_sync: "2025-05-01T00:00:00.000Z",
+              base_url: "https://different.example.com",
+            },
+          }),
+        }),
+      );
+
+      // Different base_url → treats as fresh
+      expect(capturedOpts?.since).toBeUndefined();
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("invalid --since timestamp → error", async () => {
+    const result = await runPolicyPull(["--since", "not-a-timestamp"], makeDeps());
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("Invalid --since timestamp");
+  });
+
+  test("--incremental updates state after success", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      let savedState: unknown = null;
+      const client = makeClient({
+        pullPolicies: async () => okResponse([]),
+      });
+
+      const result = await runPolicyPull(
+        ["--incremental", "--output-dir", join(tmpDir, "policies")],
+        makeDeps({
+          createClient: () => client,
+          saveSyncState: async (state) => {
+            savedState = state;
+          },
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.result?.sync_timestamp).toBeDefined();
+      expect(savedState).not.toBeNull();
+      const ss = savedState as { policy_pull: { last_sync: string } };
+      expect(ss.policy_pull.last_sync).toBe(result.result?.sync_timestamp);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("skips policy when write target is a symlink (POSIX only)", async () => {
+    if (process.platform === "win32") return;
+
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-pull-"));
+    try {
+      const outputDir = join(tmpDir, "policies");
+      await mkdir(outputDir, { recursive: true });
+
+      const yaml = "name: test-policy\nversion: '1'\nrules: []\n";
+      const policy = makePolicy("test-policy", "1.0.0", yaml);
+
+      // Create a symlink at the expected policy file location pointing outside
+      const outsideFile = join(tmpDir, "outside-target.txt");
+      await writeFile(outsideFile, "should not be overwritten", "utf-8");
+      await symlink(outsideFile, join(outputDir, "test-policy@1.0.0.policy.yaml"));
+
+      const client = makeClient({
+        pullPolicies: async () => okResponse([policy]),
+      });
+
+      const result = await runPolicyPull(
+        ["--output-dir", outputDir],
+        makeDeps({ createClient: () => client }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.result?.policies_written).toBe(0);
+      expect(result.result?.policies_skipped).toBe(1);
+
+      // Verify the outside file was not overwritten
+      const outsideContent = await readFile(outsideFile, "utf-8");
+      expect(outsideContent).toBe("should not be overwritten");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });

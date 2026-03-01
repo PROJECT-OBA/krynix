@@ -189,6 +189,7 @@ export async function runEvaluationPipeline(
     const sessionId = allEvents[0]?.session_id ?? events[0]?.session_id ?? "unknown";
 
     const bundleOpts: ComplianceBundleOptions = {
+      ...options.bundleOptions,
       traces: [
         {
           session_id: sessionId,
@@ -197,7 +198,6 @@ export async function runEvaluationPipeline(
           replay_report: replayResult?.details,
         },
       ],
-      ...options.bundleOptions,
     };
     bundle = generateComplianceBundle(bundleOpts);
   }

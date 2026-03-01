@@ -35,6 +35,10 @@ function makeClient(overrides: Partial<ControlPlaneClient> = {}): ControlPlaneCl
     pushReplayReport: async () => okResponse({ id: "replay-1" }),
     pullPolicies: async () => okResponse([]),
     pushPolicy: async () => okResponse({ name: "p", version: "1" }),
+    pushComplianceBundle: async () => okResponse({ bundle_id: "bundle-1" }),
+    promoteGoldenTrace: async () => okResponse({ golden_trace_id: "gt-1" }),
+    listGoldenTraces: async () => okResponse([]),
+    pullGoldenTrace: async () => okResponse({ path: "" }),
     ...overrides,
   };
 }
@@ -198,5 +202,66 @@ describe("runPush", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.output?.results?.[0]?.status).toBe("error");
+  });
+
+  test("push --bundle sends bundle to CP", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "krynix-push-"));
+    try {
+      // Write a minimal bundle with manifest
+      await writeFile(
+        join(tmpDir, "manifest.json"),
+        JSON.stringify({
+          manifest_version: "1.0.0",
+          export_id: "export-1",
+          org_id: "",
+          generated_at: "2025-01-01T00:00:00Z",
+          generated_by: "krynix-cli",
+          krynix_engine_version: "1.0.0",
+          trace_count: 0,
+          artifacts: [],
+          redaction_notice: "",
+          integrity_note: "",
+        }),
+        "utf-8",
+      );
+
+      const mockClient = makeClient();
+      const result = await runPush(
+        ["--bundle", tmpDir],
+        makeDeps({ createClient: () => mockClient }),
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output?.results).toHaveLength(1);
+      expect(result.output?.results?.[0]?.type).toBe("bundle");
+      expect(result.output?.results?.[0]?.status).toBe("success");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("push --bundle with missing dir returns error", async () => {
+    const mockClient = makeClient({
+      pushComplianceBundle: async () => ({
+        ok: false,
+        status: 0,
+        data: null,
+        error: "Manifest read error: ENOENT",
+      }),
+    });
+    const result = await runPush(
+      ["--bundle", "/nonexistent/bundle"],
+      makeDeps({ createClient: () => mockClient }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output?.results?.[0]?.status).toBe("error");
+    expect(result.output?.results?.[0]?.type).toBe("bundle");
+  });
+
+  test("push --bundle includes --bundle in required flag error", async () => {
+    const result = await runPush([], makeDeps());
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--bundle");
   });
 });
