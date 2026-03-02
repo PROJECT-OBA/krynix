@@ -20,6 +20,11 @@
     "lint:fix": "eslint 'packages/*/src/**/*.ts' --fix",
     "format": "prettier --write 'packages/*/src/**/*.ts'",
     "format:check": "prettier --check 'packages/*/src/**/*.ts'",
+    "docs:check": "pnpm docs:check:links && pnpm docs:check:terminology && pnpm docs:check:claims && pnpm docs:check:readme",
+    "docs:check:links": "node scripts/docs/check-links.mjs",
+    "docs:check:terminology": "node scripts/docs/check-terminology.mjs",
+    "docs:check:claims": "node scripts/docs/check-claim-tags.mjs",
+    "docs:check:readme": "node scripts/docs/check-readme-consistency.mjs",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
