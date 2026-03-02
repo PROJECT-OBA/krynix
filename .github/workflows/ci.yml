@@ -42,6 +42,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Docs checks
+        run: pnpm docs:check
+
       - name: Test
         run: pnpm test
 

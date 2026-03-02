@@ -1,218 +1,69 @@
 # Determinism Specification
 
-This document defines the requirements and mechanisms for deterministic Replay in Krynix. Replay is the process by which a recorded Trace is re-executed to verify reproducibility.
+## Purpose
+Define replay semantics with explicit separation between current implementation guarantees and future deterministic execution goals.
 
-See [glossary](../00_overview/glossary.md) for term definitions. See [trace_spec](trace_spec.md) for the TraceEvent format used in Replay.
+## Where Used
+- Replay command behavior (`krynix replay`).
+- CI behavioral regression workflows.
+- Trust claim validation in docs and agent guidance.
 
-## Overview
+## Guarantees (Current)
+Determinism remains a core design principle.
 
-Determinism is a core principle of Krynix. If you cannot replay an agent's execution and get identical results, you cannot trust that the agent's behavior is understood, auditable, or safe.
+- [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event behavior (when seed is provided).  
+  Evidence: `packages/core/src/canonical-json.ts`, `packages/core/src/session.ts`, `packages/core/src/trace-writer.ts`
+- [CURRENT] `krynix replay --verify` validates trace structure, lifecycle, contiguous sequence, session consistency, envelope extractability, and hash integrity.  
+  Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
+- [CURRENT] Hash recomputation determinism is verified by strip-and-recompute checks.  
+  Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/replay-runner.test.ts`
+- [PARTIAL] `--baseline` compares current trace behavior against baseline trace behavior and reports drift.
+- [CURRENT] Replay verification is artifact-based; it does not execute live agent decision/tool code paths.  
+  Evidence: `packages/replay/src/replay-runner.ts`, `packages/cli/src/replay.ts`
 
-A **Replay** produces byte-identical outputs given:
-1. The same recorded Trace as input
-2. A valid Determinism Envelope
-3. The same code version
+Current replay guarantee is integrity + baseline diff.
+Execution replay is planned and tracked.
 
-Replay is NOT re-running the agent. It is re-executing the recorded sequence of operations with all external inputs stubbed from the Trace, verifying that the agent's logic produces identical decisions and actions.
+## Planned Guarantees (Future)
+- [PLANNED] Execution replay mode that re-runs deterministic decision/tool paths through a replay executor contract.
+- [PLANNED] Explicit replay mode selection (`integrity`, `execution`) with stricter mode-specific assertions.
+- [PLANNED] Deterministic external I/O adapters for execution replay.
 
-## Replay Guarantees
+## Non-Goals
+- [CURRENT] Cross-platform floating-point bit identity.  
+  Evidence: `docs/10_architecture/trace_spec.md`
+- [CURRENT] Guaranteeing deterministic LLM provider outputs.  
+  Evidence: `docs/00_overview/non_goals.md`
+- [CURRENT] Claiming execution replay as currently implemented.  
+  Evidence: `packages/replay/src/replay-runner.ts`
 
-### What Replay Guarantees
+## Interfaces / Contracts
 
-- Given identical inputs and a valid Determinism Envelope, replay produces the same sequence of `decision` and `tool_call` events
-- Hash Chain verification passes on the replayed Trace
-- Any divergence from the original Trace is detected and reported at the exact event where divergence occurs
+### Current Replay Modes
+- `--verify`:
+  - Verifies integrity and structure.
+  - Optionally paired with `--baseline` for drift comparison.
+- `--regenerate`:
+  - Recomputes hash chains and overwrites trace artifacts.
 
-### What Replay Does Not Guarantee
+### Drift Detection Contract
+- Inputs: `--trace <current>` and `--baseline <golden>`.
+- Preconditions: both traces pass integrity verification.
+- Output: pass or divergence report from trace comparator.
 
-- Cross-platform bit-identical floating-point arithmetic (mitigated by pinning platform in CI)
-- Identical LLM outputs (mitigated by recording LLM responses in the Trace and replaying from the recording)
-- GPU computation determinism (out of scope; Krynix targets CPU-bound agent logic)
-
-## Determinism Envelope
-
-The Determinism Envelope is the complete set of constraints that must hold during Replay to guarantee reproducibility. All five constraints must be satisfied simultaneously.
-
-### 1. Seed Handling
-
-All PRNG (Pseudo-Random Number Generator) operations must use a `replay_seed` value.
-
-- The `replay_seed` is a `uint64` recorded in the `lifecycle:session_start` event's `context.replay_seed` field
-- During replay, all sources of randomness (UUIDs, random selections, shuffle operations) are seeded with this value
-- **No unseeded randomness is permitted.** Any code path that introduces randomness without using the session's PRNG is a determinism violation.
-
-```json
-{
-  "event_type": "lifecycle",
-  "payload": {
-    "action": "session_start",
-    "context": {
-      "replay_seed": 42,
-      "agent_version": "0.1.0"
-    }
-  }
-}
-```
-
-### 2. Time Freezing
-
-Wall-clock reads during Replay return the `timestamp` from the corresponding TraceEvent being replayed, not the actual system time.
-
-- `Date.now()`, `time.time()`, and equivalent calls are intercepted
-- The returned value corresponds to the `timestamp` of the current event in the replay sequence
-- Time always advances monotonically (each event's timestamp >= previous event's timestamp)
-- Duration calculations use recorded `duration_ms` values from `tool_result` events
-
-### 3. Network Stubbing
-
-All network I/O during Replay is replaced with recorded responses from the original Trace.
-
-- HTTP requests return the response body recorded in the corresponding `tool_result` event
-- DNS lookups return recorded results
-- No live network connections are made during Replay
-- Any attempt to make a network call not present in the original Trace is a replay error
-
-### 4. Filesystem Snapshotting
-
-Replay operates against a filesystem snapshot, not the live filesystem.
-
-- The filesystem state at `session_start` is captured (or reconstructed from recorded observations)
-- File reads during Replay return the content recorded in `observation` events
-- File writes during Replay are captured in an isolated overlay — they do not affect the real filesystem
-- The overlay is compared against recorded `tool_result` events for write operations
-
-### 5. Dependency Pinning
-
-Exact package versions used during the original execution are recorded and enforced during Replay.
-
-- The `lifecycle:session_start` event's `context` may include a `dependencies` map of package names to exact version strings
-- Replay verifies that the same dependency versions are available
-- Version mismatches are reported as replay warnings (not hard failures, since minor patches rarely affect determinism — but are flagged for investigation)
-
-## Golden Trace Testing
-
-Golden Traces are the primary mechanism for regression testing determinism.
-
-### What is a Golden Trace
-
-A Golden Trace is a verified `.trace.jsonl` file committed to version control that serves as a known-good baseline. It captures a complete agent session with all inputs and outputs recorded.
-
-### Creating a Golden Trace
-
-1. Run the agent session with tracing enabled
-2. Verify the Trace is valid (hash chain intact, all required fields present)
-3. Run replay against the Trace and confirm zero divergence
-4. Commit the Trace to `test/golden/<descriptive-name>.trace.jsonl`
-
-### CI Verification
-
-CI runs the following on every build:
-
+## Operational Usage
 ```bash
+# Integrity verification
+krynix replay --verify --trace traces/session.trace.jsonl
+
+# Drift detection
+krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
+
+# Verify all golden traces for integrity
 krynix replay --verify --golden-dir test/golden/
 ```
 
-This command:
-1. Loads each `.trace.jsonl` file in the golden directory
-2. Replays the Trace within a Determinism Envelope
-3. Compares the replay output event-by-event against the recorded Trace
-4. Exits with code 0 if all Golden Traces replay identically
-5. Exits with code 1 if any divergence is detected
-
-### Maintaining Golden Traces
-
-- When agent logic changes intentionally, affected Golden Traces must be regenerated
-- Golden Trace regeneration must be explicitly documented in the PR description
-- Stale Golden Traces (those that consistently diverge after a change) must be either updated or removed — never skipped
-
-## Divergence Detection
-
-When replay produces output that differs from the recorded Trace, Krynix reports the divergence with precision.
-
-### Detection Algorithm
-
-1. Replay events are compared against recorded events in sequence order
-2. For each event pair (recorded vs. replayed):
-   - Compare `event_type` — type mismatch is a structural divergence
-   - Compare `payload` — field-by-field comparison using deep equality
-   - Compare `event_hash` — hash mismatch confirms content divergence
-3. Report the **first divergence point** with:
-   - `sequence_num` of the divergent event
-   - Expected vs. actual `event_type` and `payload`
-   - Diff of the payload fields that differ
-
-### Divergence Report Format
-
-```json
-{
-  "status": "diverged",
-  "first_divergence": {
-    "sequence_num": 7,
-    "expected": {
-      "event_type": "decision",
-      "payload": { "action": "write_file", "reasoning": "..." }
-    },
-    "actual": {
-      "event_type": "decision",
-      "payload": { "action": "read_file", "reasoning": "..." }
-    },
-    "diff": {
-      "payload.action": { "expected": "write_file", "actual": "read_file" }
-    }
-  },
-  "total_events": 42,
-  "events_before_divergence": 7
-}
-```
-
-## Replay Modes
-
-### `--verify` (Default)
-
-Compare replay output against the recorded Trace. Report pass/fail.
-
-```bash
-krynix replay --verify --trace session.trace.jsonl
-```
-
-### `--regenerate`
-
-Re-run replay and overwrite the Trace file with the new output. Used when intentionally updating Golden Traces after a code change.
-
-```bash
-krynix replay --regenerate --trace test/golden/my-test.trace.jsonl
-```
-
-### `--verbose`
-
-Output detailed event-by-event comparison during replay.
-
-```bash
-krynix replay --verify --verbose --trace session.trace.jsonl
-```
-
-## Constraints and Limitations
-
-### LLM Non-Determinism
-
-LLM providers may return different outputs for identical inputs (even with `temperature: 0`). Krynix mitigates this by recording LLM responses in `llm_response` TraceEvents. During Replay, recorded responses are injected instead of making live LLM calls.
-
-This means Replay verifies that **given the same LLM outputs**, the agent makes the same decisions — not that the LLM itself is deterministic.
-
-### Floating-Point Variance
-
-IEEE 754 floating-point operations may produce different results across platforms, compilers, or optimization levels. Krynix does not attempt to solve cross-platform floating-point determinism. Golden Trace CI should run on a consistent platform (pinned CI runner image).
-
-### External State
-
-Any external state not captured in the Trace (database contents, API state, third-party service behavior) is not part of the Determinism Envelope. Agents that depend on external state must record that state in `observation` events for replay to work.
-
-### Performance
-
-Replay is not expected to match the performance of the original execution. Network stubbing and filesystem overlay add overhead. Replay is a correctness tool, not a performance benchmark.
-
-## Future Work
-
-- **Partial Replay:** Replay a subset of a Trace (e.g., events 10–20) for focused debugging.
-- **Replay Diff Visualization:** A CLI or web tool that visualizes divergence between original and replayed Traces side-by-side.
-- **Determinism Scoring:** A metric (0.0–1.0) indicating what fraction of an agent's behavior is deterministic, to guide teams toward full reproducibility incrementally.
+## Known Gaps And Roadmap
+- [PARTIAL] Behavior comparison exists without deterministic execution of agent logic.
+- [PLANNED] Replay executor RFC and interface rollout.
+- [PLANNED] Transition path from artifact diffing to execution replay assurance.

@@ -1,229 +1,74 @@
 # Architecture
 
-This document describes the Krynix system architecture — the Trace-Policy-Replay pipeline that forms the runtime trust layer for autonomous agent systems.
+## Purpose
+Describe how Krynix functions as the trust spine in a layered agent platform and define current vs future guarantees.
 
-See [glossary](../00_overview/glossary.md) for term definitions.
+## Where Used
+- Architecture decisions for OSS packages and adapters.
+- Integration planning for CI pipelines and runtime wrappers.
+- Documentation alignment reference for wiki and agent rules.
 
-## System Overview
+## Guarantees (Current)
+- [CURRENT] Krynix OSS provides trace integrity, policy evaluation, and replay integrity verification.  
+  Evidence: `packages/core/src/hash-chain.ts`, `packages/cli/src/evaluate.ts`, `packages/replay/src/replay-runner.ts`
+- [CURRENT] CI/post-run enforcement is the primary OSS control boundary.  
+  Evidence: `packages/cli/src/evaluate.ts`, `docs/10_architecture/policy_spec.md`
+- [CURRENT] Artifacts remain usable offline; Control Plane is additive.  
+  Evidence: `docs/00_overview/product_model.md`, `docs/10_architecture/control_plane_spec.md`
+- [PARTIAL] Baseline trace diff detects behavior drift but does not execute agent logic.
+- [PARTIAL] Runtime controls are integration-driven and not a built-in full inline gateway in OSS.
 
-Krynix is infrastructure, not an agent framework. It sits alongside agent execution runtimes and provides three composable primitives:
+## Planned Guarantees (Future)
+- [PLANNED] Execution replay mode for deterministic re-run contracts.
+- [PLANNED] Deeper runtime preventative controls via input/runtime/output guard integrations.
+- [PLANNED] Expanded provenance and response mapping contracts.
 
-This repository contains the Krynix **OSS engine** — the core verification infrastructure. A planned [Control Plane](../00_overview/product_model.md) will provide centralized governance capabilities around these same primitives. See [product model](../00_overview/product_model.md) for the two-layer architecture and [control plane spec](control_plane_spec.md) for the full Control Plane design.
+## Non-Goals
+- [CURRENT] Krynix does not execute agents.  
+  Evidence: `docs/10_architecture/integration_contracts.md`
+- [CURRENT] Krynix does not host LLM inference.  
+  Evidence: `docs/00_overview/non_goals.md`
+- [CURRENT] Krynix does not replace CI platforms.  
+  Evidence: `docs/20_development/ci_cd.md`
 
-1. **Trace** — structured, immutable record of agent behavior ([spec](trace_spec.md))
-2. **Policy** — declarative rules constraining what agents may do ([spec](policy_spec.md))
-3. **Replay** — deterministic re-execution for reproducibility verification ([spec](determinism_spec.md))
+## Interfaces / Contracts
 
-These three primitives compose into a trust loop: agents produce Traces, Policies evaluate Traces, and Replay verifies that Traces are reproducible.
+### Layered Platform Model
+- Input Layer: intent/context guards.
+- Runtime Layer: tool mediation and guard decisions.
+- Output Layer: response mapping and provenance.
+- Krynix: evidence/policy/replay spine across all layers.
 
-## Pipeline Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Agent Runtime                            │
-│  (external: LangChain, OpenClaw, custom frameworks)             │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ events
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     Trace Capture                                │
-│                                                                  │
-│  Trace Adapter → TraceEvent → Redaction → Hash Chain → .jsonl   │
-│                                                                  │
-│  See: trace_spec.md                                              │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ .trace.jsonl
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    Policy Evaluation                             │
-│                                                                  │
-│  Load Policies → Match Rules → Compute Verdict → Exit Code      │
-│                                                                  │
-│  See: policy_spec.md                                             │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ verdict
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                   Deterministic Replay                           │
-│                                                                  │
-│  Load Trace → Apply Envelope → Re-execute → Compare → Report    │
-│                                                                  │
-│  See: determinism_spec.md                                        │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ pass/fail
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                      CI Gate                                     │
-│                                                                  │
-│  Policy Verdict + Replay Result → merge/block decision           │
-│                                                                  │
-│  GitHub Actions integration via exit codes                       │
-└──────────────────────────────────────────────────────────────────┘
+### OSS Component Topology
+```text
+core  <- policy  <- cli
+core  <- replay  <- cli
+core  <- adapters
 ```
 
-## Components
+### Data Contract Surfaces
+- Trace contract: `docs/10_architecture/trace_spec.md`
+- Policy contract: `docs/10_architecture/policy_spec.md`
+- Replay contract: `docs/10_architecture/determinism_spec.md`
+- Integration blueprints: `docs/10_architecture/integration_blueprints.md`
+- Component responsibility matrix: `docs/10_architecture/component_contract_matrix.md`
 
-### Trace Capture
-
-**Responsibility:** Convert raw agent events into canonical TraceEvents and persist them.
-
-**Input:** Raw events from agent frameworks (via Trace Adapters).
-**Output:** `.trace.jsonl` files containing hash-chained, optionally redacted TraceEvents.
-
-**Process:**
-1. Trace Adapter receives external framework events
-2. Adapter converts each event to a canonical TraceEvent (per [trace_spec](trace_spec.md))
-3. Krynix core assigns `sequence_num` and `event_id`
-4. Redaction engine scans payloads for sensitive data patterns
-5. Hash Chain module computes `prev_hash` and `event_hash` (over the redacted form)
-6. TraceEvent is serialized and appended to the `.trace.jsonl` file
-
-**Trust properties:**
-- Hash Chain provides tamper-evidence
-- Redaction prevents secret persistence
-- Structured format enables automated evaluation
-
-### Policy Evaluation
-
-**Responsibility:** Evaluate a complete Trace against one or more Policies and produce a verdict.
-
-**Input:** `.trace.jsonl` file + `policies/*.policy.yaml` files.
-**Output:** Policy Verdict (`pass`, `fail`, `require-approval`) and corresponding exit code.
-
-**Process:**
-1. Load and validate all `.policy.yaml` files in the policy directory
-2. Load and validate the `.trace.jsonl` file (including hash chain verification)
-3. For each TraceEvent, evaluate against each Policy's rules (first-match-wins within a policy)
-4. Aggregate violations across all events and all policies
-5. Compute final verdict using most-restrictive-wins composition
-6. Return exit code per [CI mapping](policy_spec.md#severity-levels-and-ci-mapping)
-
-**Trust properties:**
-- Policies are version-controlled and PR-reviewed
-- Evaluation is external to the agent (agent cannot modify its own policies)
-- CI enforcement is non-bypassable (merge requires passing gate)
-
-### Deterministic Replay
-
-**Responsibility:** Re-execute a recorded Trace and verify reproducibility.
-
-**Input:** `.trace.jsonl` file + Determinism Envelope configuration.
-**Output:** Pass/fail result with divergence report if applicable.
-
-**Process:**
-1. Load the Trace and extract the Determinism Envelope from the `session_start` event
-2. Initialize the replay environment (freeze time, stub network, snapshot filesystem, seed PRNG)
-3. Replay each event in sequence, comparing agent decisions against recorded events
-4. On divergence, report the exact event and field-level diff
-5. On completion, verify the replayed hash chain matches the original
-
-**Trust properties:**
-- Reproducibility proves that agent behavior is deterministic and understandable
-- Golden Traces in CI catch behavioral regressions
-- Divergence reports pinpoint exactly where and how behavior changed
-
-### CI Gate
-
-**Responsibility:** Integrate Policy and Replay results into the CI pipeline to enforce trust properties on every merge.
-
-**Input:** Policy Verdict exit code + Replay verification exit code.
-**Output:** GitHub Actions check pass/fail.
-
-**Process:**
-1. CI runs `krynix evaluate` — produces policy exit code
-2. CI runs `krynix replay --verify` — produces replay exit code
-3. Both must exit 0 for the CI check to pass
-4. Violations and divergence reports are surfaced as CI annotations
-
-## System Boundaries
-
-### What Krynix Owns
-
-| Component | Description |
-|---|---|
-| TraceEvent schema | The canonical event format and all validation rules |
-| Hash Chain | Tamper-evidence computation and verification |
-| Redaction engine | Sensitive data detection and replacement |
-| Policy engine | YAML parsing, rule matching, verdict computation |
-| Replay engine | Determinism Envelope management and divergence detection |
-| CLI | `krynix evaluate`, `krynix replay`, and related commands |
-| Trace Adapter interface | The contract that framework-specific adapters implement |
-
-### What Krynix Does Not Own
-
-| Component | Owned By |
-|---|---|
-| Agent execution runtime | External frameworks (LangChain, OpenClaw, etc.) |
-| LLM inference | LLM providers (Anthropic, OpenAI, etc.) |
-| CI infrastructure | GitHub Actions (or other CI systems) |
-| Secret management | External secret managers (Vault, AWS SSM, etc.) |
-| Agent orchestration | External orchestration layers |
-
-See [non-goals](../00_overview/non_goals.md) for the full boundary definition.
-
-## Data Flow
-
-```
-Agent Framework
-     │
-     │  (1) raw events via callback/hook
-     ▼
-Trace Adapter
-     │
-     │  (2) canonical TraceEvents
-     ▼
-Redaction Engine ──→ strips secrets from payloads
-     │
-     │  (3) redacted TraceEvents
-     ▼
-Hash Chain Module ──→ computes prev_hash, event_hash
-     │
-     │  (4) hash-chained TraceEvents
-     ▼
-Trace Writer ──→ appends to .trace.jsonl
-     │
-     │  (5) complete .trace.jsonl file
-     ├──────────────────────────┐
-     ▼                          ▼
-Policy Evaluator           Replay Engine
-     │                          │
-     │  (6a) verdict            │  (6b) pass/diverge
-     ▼                          ▼
-CI Gate ──→ exit code ──→ GitHub Actions check
+## Operational Usage
+Primary CI trust gate:
+```bash
+krynix evaluate --trace <trace.jsonl> --policy <policy-or-dir>
+krynix replay --verify --trace <current.trace.jsonl> --baseline <golden.trace.jsonl>
 ```
 
-## Package Structure
-
-```
-packages/
-├── core/              # TraceEvent types, canonical JSON, hash chain, redaction,
-│                      # session manager, evaluation pipeline, compliance bundles,
-│                      # bundle verification, environment context detection
-├── policy/            # Policy parser, rule matcher, evaluator, inheritance, diff,
-│                      # HTTP resolver
-├── replay/            # Replay engine, determinism envelope, golden trace runner
-├── adapter-openclaw/  # OpenClaw adapter + plugin (reference implementation)
-└── cli/               # CLI commands (evaluate, replay, stats, export, etc.)
+Integrity verification for golden trace sets:
+```bash
+krynix replay --verify --golden-dir test/golden/
 ```
 
-**Dependency direction:** `core` ← `policy` ← `cli`, `core` ← `replay` ← `cli`, `core` ← `adapter-openclaw`. No circular dependencies. No package may import from `cli`. See [STYLE.md](../../.agents/STYLE.md) for module boundary rules.
+## Known Gaps And Roadmap
+- [PARTIAL] Replay only guarantees integrity + baseline diff in current OSS.
+- [PARTIAL] Runtime guard orchestration exists at architecture level but is not fully productized in OSS packages.
+- [PLANNED] Formal replay executor and deterministic external I/O contracts.
 
-## Trust Model
-
-Krynix's trust model is based on three layers:
-
-1. **Trace integrity** — Hash Chains ensure that recorded behavior cannot be silently modified. Any tampering breaks the chain and is detected during verification.
-
-2. **Policy enforcement** — Policies are evaluated externally from the agent and enforced via CI gates. The agent cannot bypass, modify, or influence its own policy evaluation.
-
-3. **Replay verification** — Deterministic Replay proves that the recorded behavior is reproducible. If behavior cannot be replayed, it may not be trustworthy.
-
-These layers are independent. Each provides value on its own, and they compound when used together. See [threat model](threat_model.md) for the detailed analysis of threats and mitigations.
-
-## Integration Points
-
-External systems integrate with Krynix through:
-
-1. **Trace Adapters** — convert framework-specific events to TraceEvents. See [integration contracts](integration_contracts.md).
-2. **CLI** — `krynix evaluate` and `krynix replay` are the primary integration points for CI/CD pipelines.
-3. **Observability export** — Traces can be exported to external observability platforms. See [observability](../20_development/observability.md).
+## Relationship To Canonical Spec
+This document must remain consistent with `docs/10_architecture/platform_architecture_spec.md`. If conflict exists, the canonical spec wins.

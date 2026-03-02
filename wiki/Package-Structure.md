@@ -67,12 +67,12 @@ Contains:
 ### `@krynix/replay`
 
 **Location:** `packages/replay/`
-**Role:** Deterministic replay engine.
+**Role:** Replay integrity verification and drift-comparison utilities.
 
 Contains:
 - Replay runner (`verifyTrace`, `regenerateTrace`)
 - Golden trace directory runner (`verifyGoldenDir`, `regenerateGoldenDir`)
-- Determinism Envelope extraction and validation
+- Replay envelope extraction and validation
 - Event-by-event comparison with divergence reporting
 
 **Dependencies:** `@krynix/core` (for `TraceEvent` types, hash chain, canonicalization)

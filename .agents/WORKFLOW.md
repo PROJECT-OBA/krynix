@@ -1,28 +1,23 @@
-# WORKFLOW.md — How to Work
+# WORKFLOW.md
 
 ## Branching
-
-Create branches as:
-- feat/<short-description>
-- fix/<short-description>
-- chore/<short-description>
-- docs/<short-description>
-
-Never commit to main.
+- `feat/<short-description>`
+- `fix/<short-description>`
+- `chore/<short-description>`
+- `docs/<short-description>`
 
 ## Commits
-
-Follow Conventional Commits:
-- feat(trace): add tool_call event
-- fix(policy): correct deny rule evaluation
-- test(replay): add determinism regression test
+Use Conventional Commits.
 
 ## Pull Requests
-
 PR must include:
-- Clear description
-- Tests
-- Schema impact (if any)
-- Risk notes
+- change summary
+- tests (or explicit N/A)
+- guarantee impact note (`CURRENT/PARTIAL/PLANNED`)
+- documentation impact note
+- evidence refs for `CURRENT` claims in canonical docs
 
-Squash merge is required.
+If trust/architecture claims changed:
+1. Update canonical spec first.
+2. Align README/wiki/agent rules.
+3. Run docs CI checks.
