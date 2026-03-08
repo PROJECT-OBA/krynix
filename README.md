@@ -76,12 +76,22 @@ packages/
 - Canonical: [docs/10_architecture/platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md)
 - Integration: [docs/10_architecture/integration_blueprints.md](docs/10_architecture/integration_blueprints.md)
 - Consumer model: [docs/00_overview/consumer_usage_model.md](docs/00_overview/consumer_usage_model.md)
+- Phase 1 contract draft: [docs/10_architecture/phase1_implementation_contract.md](docs/10_architecture/phase1_implementation_contract.md)
+- Phase 1 policy baseline: [docs/10_architecture/policy_baseline_phase1.md](docs/10_architecture/policy_baseline_phase1.md)
 - Architecture: [docs/10_architecture/architecture.md](docs/10_architecture/architecture.md)
 - Determinism/replay: [docs/10_architecture/determinism_spec.md](docs/10_architecture/determinism_spec.md)
 - Policy semantics: [docs/10_architecture/policy_spec.md](docs/10_architecture/policy_spec.md)
 - Component contracts: [docs/10_architecture/component_contract_matrix.md](docs/10_architecture/component_contract_matrix.md)
 - Glossary: [docs/00_overview/glossary_platform.md](docs/00_overview/glossary_platform.md)
 - Governance: [docs/20_development/documentation_governance.md](docs/20_development/documentation_governance.md)
+
+## Planning And Tracking
+- Backlog (canonical): [docs/20_development/phase1_backlog.md](docs/20_development/phase1_backlog.md)
+- Milestones: [docs/20_development/phase1_milestones.md](docs/20_development/phase1_milestones.md)
+- Weekly checkpoints: [docs/20_development/weekly_checkpoints.md](docs/20_development/weekly_checkpoints.md)
+- IDE runbook: [docs/20_development/runbook_ide_sidecar.md](docs/20_development/runbook_ide_sidecar.md)
+- Runtime runbook: [docs/20_development/runbook_runtime_adapter.md](docs/20_development/runbook_runtime_adapter.md)
+- CI runbook: [docs/20_development/runbook_ci_gate_template.md](docs/20_development/runbook_ci_gate_template.md)
 
 ## Non-Goals (Current)
 - Not an agent framework or orchestrator.

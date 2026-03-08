@@ -27,27 +27,53 @@ Provide decision-complete integration blueprints for consumers using Krynix in I
 
 ## Interfaces / Contracts
 
+### Observable-Only Contract For Closed Assistants
+Applicable to Copilot/Claude/Codex-style integrations:
+- capture observable host signals only,
+- no claim on private hidden reasoning internals,
+- classify uncertainty as risk/approval signal rather than inferred internal thought.
+
 ### Common Runtime Enforcement Profiles
-- `dev`: monitor-only (fail-open for tracing/guard errors unless explicitly configured otherwise).
-- `staging`: require-approval on medium/high risk.
-- `prod`: deny deterministic critical violations only; require-approval for uncertain signals.
+| Profile | Default posture | Sidecar unavailable | Approval timeout |
+|---|---|---|---|
+| `dev` | Monitor-only | Fail-open + warning evidence | Continue by policy with warning evidence |
+| `staging` | Require approval on medium/high risk | Fail-closed for protected controls | Block |
+| `prod` | Deny deterministic critical violations | Fail-closed for protected controls | Block |
+
+### Default Critical Deny Baseline (Profile: prod)
+Categories:
+- exfiltration prevention
+- destructive file/command prevention
+
+Examples:
+- outbound transmission of secret-like values to unapproved endpoints,
+- destructive workspace commands without explicit approval,
+- unauthorized writes outside approved workspace boundary.
+
+### Approval Path (Local + CI)
+1. Pre-check emits `require-approval` decision with `rule_id` and `evidence_refs`.
+2. Local user interaction records approval outcome and rationale.
+3. Approval event appended to trace.
+4. CI trust gate evaluates completed trace.
+5. Unresolved or denied approvals remain blocking in staging/prod.
 
 ### Blueprint A: IDE Sidecar (VSCode/Codex-style)
 
 Where it runs:
-- Local developer workstation.
-- Remote dev container.
+- local developer workstation,
+- remote dev container.
 
-Hook points:
-- Session start/end around each agent task.
-- Before/after tool invocation interception.
-- Model input/output taps if available from host tooling.
+Control boundaries:
+- prompt ingress,
+- tool pre-check,
+- tool post-check,
+- output egress (when host allows output tap).
 
 Capture contract:
-- Context: actor, workspace path, repo slug, branch/SHA, environment.
-- Input signals: intent score, prompt guard outcomes, system-context checks.
-- Runtime signals: tool call envelopes, scan outcomes, approvals.
-- Output signals: response mapping + provenance reference.
+- context: actor, workspace path, repo slug, branch/SHA, environment,
+- input signals: intent score, prompt guard outcomes, system-context checks,
+- runtime signals: tool call envelopes, scan outcomes, approvals,
+- output signals: response mapping + provenance reference.
 
 Artifact flow:
 1. `startSession({ agentId, replaySeed?, outputPath, metadata, environment })`
@@ -59,17 +85,17 @@ Artifact flow:
 5. CI gate on PR with same commands.
 
 Failure behavior:
-- Tracing failure:
-  - `dev`: fail-open + emit `error` trace event if possible.
+- tracing failure:
+  - `dev`: fail-open + emit `error` trace event when possible,
   - `staging/prod`: fail-closed for required controls.
-- Guard uncertainty:
-  - route to `require-approval` decision.
+- guard uncertainty:
+  - route to `require-approval` with evidence references.
 
 ### Blueprint B: Framework Adapter (OpenClaw/custom)
 
 Where it runs:
-- Agent runtime process.
-- Worker/service process running framework callbacks.
+- agent runtime process,
+- worker/service process running framework callbacks.
 
 Hook points:
 - `session_start`
@@ -80,9 +106,9 @@ Hook points:
 - `llm_output`
 
 Contract:
-- Adapter emits canonical trace-event shape only.
-- Core assigns sequence/event IDs and hash chain values.
-- Write queue is required to preserve ordering under concurrent hooks.
+- adapter emits canonical trace-event shape only,
+- core assigns sequence/event IDs and hash chain values,
+- write queue preserves ordering under concurrent hooks.
 
 Artifact flow:
 1. Initialize adapter/plugin.
