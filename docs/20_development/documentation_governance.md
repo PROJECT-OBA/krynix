@@ -8,7 +8,8 @@ Define documentation authority, review requirements, and change control for arch
 2. Domain specifications under `docs/10_architecture/*` (must not conflict with canonical spec)
 3. `README.md` and `wiki/*` (entry/onboarding surfaces; must defer to canonical spec)
 4. Agent rule docs (`AGENTS.md`, `CLAUDE.md`, `.agents/*`) (must follow canonical claims)
-5. ADRs (`docs/30_decisions/*`) for irreversible decisions and tradeoffs only
+5. Backlog docs under `docs/20_development/phase1_backlog.md` and `phase1_milestones.md` (canonical planning source)
+6. ADRs (`docs/30_decisions/*`) for irreversible decisions and tradeoffs only
 
 ## Required Reviewers For Trust/Architecture Claims
 - Product owner (scope and roadmap alignment)
@@ -25,6 +26,22 @@ Any PR that changes guarantees or enforcement semantics requires all three sign-
 - [ ] Wiki pages either match canonical claims or explicitly defer to canonical docs.
 - [ ] Agent rule files prevent unsupported guarantee statements.
 
+## Backlog -> GitHub Issue Sync Rules
+- Every task in `phase1_backlog.md` must have a stable task ID (`PH1-E{n}-M{n}.{n}-T{n}.{n}`).
+- GitHub issue titles must start with the task ID.
+- GitHub issue body must link to the canonical backlog row.
+- PRs must reference their issue and include acceptance criteria checklist.
+- Task status in backlog must be updated when issue/PR status changes.
+
+## Weekly Checkpoint Requirement
+- Weekly updates are mandatory in `docs/20_development/weekly_checkpoints.md`.
+- Each update must include:
+  - completed tasks,
+  - blockers,
+  - risk changes,
+  - scope changes,
+  - next week focus.
+
 ## CI Documentation Checks
 - Broken link check across `README.md`, `docs/`, and `wiki/`.
 - Terminology check against `docs/00_overview/glossary_platform.md`.
@@ -35,4 +52,5 @@ Any PR that changes guarantees or enforcement semantics requires all three sign-
 ## Change Control Rules
 - No architecture guarantee change without updating both canonical spec and at least one evidence reference.
 - No runtime security claim may be stated as `CURRENT` unless backed by code paths and tests in this repository.
+- Backlog model changes require update of both backlog docs and governance rules.
 - Use ADRs only after a decision is final and difficult to reverse.

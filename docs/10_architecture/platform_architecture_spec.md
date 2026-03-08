@@ -21,6 +21,8 @@ Define the canonical, decision-making architecture for the Krynix platform direc
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
 - [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event generation (when seed is provided).  
   Evidence: `packages/core/src/canonical-json.ts`, `packages/core/src/session.ts`, `packages/core/src/trace-writer.ts`
+- [CURRENT] Closed-assistant integrations (Copilot/Claude/Codex style) follow an observable-only contract and do not claim hidden internal reasoning access.  
+  Evidence: `docs/10_architecture/integration_blueprints.md`, `docs/10_architecture/determinism_spec.md`
 - [PARTIAL] `krynix replay --verify --trace <current> --baseline <golden>` detects behavior drift by comparing trace events.
 - [PARTIAL] Replay behavior assurance is comparison-based and does not execute live agent logic.
 - [CURRENT] Redaction is field-name-pattern based and deterministic, but scoped to matched keys only.  
@@ -61,6 +63,56 @@ Determinism remains a core design principle.
 
 Current replay guarantee is integrity + baseline diff.
 Execution replay is planned and tracked.
+
+### Closed-Assistant Observability Limits
+For Copilot/Claude/Codex-style integrations, Krynix captures only observable signals from host integration points.
+
+Krynix captures:
+- prompt/context metadata,
+- tool calls/results and timings,
+- guard and policy decisions,
+- output mapping/provenance signals when exposed,
+- CI trust gate outcomes.
+
+Krynix does not claim:
+- hidden model reasoning streams,
+- private provider-side internal chain data.
+
+### Sidecar Control Point Behavior
+Trusted interception boundaries for sidecar/wrapper model:
+
+| Boundary | Trigger | Control Action | Trace Evidence |
+|---|---|---|---|
+| Prompt ingress | user sends prompt/task | classify/guard/check policy context | `observation` + `metadata.intent.*` |
+| Tool pre-check | candidate command/tool call | allow/deny/require-approval | `decision` + `metadata.guard.*` |
+| Tool post-check | command/tool completed | scan output, evaluate follow-up risk | `tool_result` + `metadata.runtime.*` |
+| Output egress | assistant response ready | map delivery action, apply redaction/hold | `decision` + `metadata.output.*` |
+
+### Runtime Profile Semantics (Truth Table)
+| Condition | dev | staging | prod |
+|---|---|---|---|
+| Sidecar unavailable | Fail-open + warning evidence | Fail-closed for protected controls | Fail-closed for protected controls |
+| Medium/high uncertain risk | Monitor + annotate | Require approval | Require approval |
+| Deterministic critical violation | Monitor + annotate | Require approval or deny by rule | Deny |
+| Approval timeout | Continue with warning by profile rule | Block | Block |
+
+### Default Critical Deny Baseline (Profile: prod)
+Categories:
+1. Exfiltration-risk actions.
+2. Destructive file/command actions.
+
+Examples:
+- transmit secret-like values to non-approved destination,
+- write credential-like content to outbound channel,
+- destructive workspace command without approval,
+- unauthorized writes outside approved project boundary.
+
+### Approval Path (Local + CI)
+1. Runtime/local trust control emits `require-approval` with evidence refs.
+2. Local user approval captures rationale (who/why/when).
+3. Approval event is persisted in trace metadata.
+4. CI evaluates final trace with policy + replay checks.
+5. Merge gate enforces unresolved or denied approvals as blocking outcomes.
 
 ### Input -> Runtime -> Output Sequence (Krynix as Spine)
 ```mermaid

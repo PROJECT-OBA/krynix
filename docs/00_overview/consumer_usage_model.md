@@ -11,6 +11,8 @@ Explain how different consumer teams adopt and operate Krynix in real workflows.
 ## Guarantees (Current)
 - [CURRENT] Consumers can produce trace artifacts and run policy/replay verification in CI today.  
   Evidence: `packages/core/src/session.ts`, `packages/cli/src/evaluate.ts`, `packages/cli/src/replay.ts`
+- [CURRENT] Observable-only capture model supports closed-assistant workflows without requiring private assistant internals.  
+  Evidence: `docs/10_architecture/integration_blueprints.md`
 - [PARTIAL] Runtime enforcement outcomes depend on integration profile and host capabilities.
 
 ## Planned Guarantees (Future)
@@ -25,11 +27,19 @@ Explain how different consumer teams adopt and operate Krynix in real workflows.
 
 ## Interfaces / Contracts
 
+### Cross-Persona Profile Semantics
+| Profile | Primary intent | Blocking default | Approval behavior |
+|---|---|---|---|
+| `dev` | observability and tuning | no hard block for most cases | optional, records rationale |
+| `staging` | safe rehearsal | block on unresolved approvals | required on medium/high uncertain risk |
+| `prod` | protection-first | deny deterministic critical violations | required for uncertain non-critical cases |
+
 ### Persona 1: Platform/Security Team
 Onboarding checklist:
 - Define policy baseline and severity mappings.
 - Define environment profile defaults (`dev/staging/prod`).
 - Define trace storage and retention conventions.
+- Define approved destinations and destructive-operation policy boundaries.
 
 Minimum commands:
 ```bash
@@ -59,6 +69,7 @@ Onboarding checklist:
 - Integrate adapter/plugin hooks.
 - Emit context + tool + output mapping metadata.
 - Add CI trust gate job.
+- Validate write-order guarantees under concurrent runtime callbacks.
 
 Minimum commands:
 ```bash
@@ -87,7 +98,8 @@ Rollout:
 Onboarding checklist:
 - install sidecar integration,
 - configure per-workspace trace path,
-- configure lightweight local policy checks.
+- configure lightweight local policy checks,
+- configure approval workflow UX for local interventions.
 
 Minimum commands:
 ```bash
@@ -98,7 +110,8 @@ krynix replay --verify --trace traces/local.trace.jsonl --baseline test/golden/t
 Required artifacts:
 - local task trace,
 - baseline scenario traces,
-- output mapping/provenance metadata fields.
+- output mapping/provenance metadata fields,
+- approval decisions with rationale when applicable.
 
 Incident/triage workflow:
 1. review task session trace,
@@ -116,6 +129,7 @@ Common deployment progression:
 1. Local evidence capture.
 2. Policy/replay checks in PR CI.
 3. Profiled runtime enforcement adoption by environment.
+4. Weekly trust checkpoint updates for blockers/risk trends.
 
 ## Known Gaps And Roadmap
 - [PARTIAL] Cross-platform host integration quality varies.
