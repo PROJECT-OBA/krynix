@@ -86,13 +86,15 @@ jobs:
           ISSUE_TITLE=$(cat "$ISSUE_DIR/issue-title.txt")
           echo "Issue title: $ISSUE_TITLE"
 
+          TASK_PREFIX_REGEX='^(TASK-[0-9]+[a-z]*|PH1-E[0-9]+-M[0-9]+\.[0-9]+-T[0-9]+\.[0-9]+)'
+
           if [ -n "$TASK_ID" ]; then
             # Check that the issue title starts with the task_id
-            TITLE_PREFIX=$(echo "$ISSUE_TITLE" | grep -oE '^TASK-[0-9]+[a-z]*' || true)
+            TITLE_PREFIX=$(echo "$ISSUE_TITLE" | grep -oE "$TASK_PREFIX_REGEX" || true)
             EXPECTED=$(echo "$TASK_ID" | tr '[:lower:]' '[:upper:]')
 
             if [ -z "$TITLE_PREFIX" ]; then
-              echo "::error::Issue #$ISSUE_NUMBER title does not start with a TASK-XXX prefix."
+              echo "::error::Issue #$ISSUE_NUMBER title does not start with a supported task prefix."
               echo "  Title: $ISSUE_TITLE"
               echo "  Expected prefix: $EXPECTED"
               exit 1
@@ -106,7 +108,7 @@ jobs:
             echo "task_id validated: $TASK_ID matches issue title prefix."
           else
             # Auto-detect task_id from title
-            TASK_ID=$(echo "$ISSUE_TITLE" | grep -oE '^TASK-[0-9]+[a-z]*' || echo "TASK-UNKNOWN")
+            TASK_ID=$(echo "$ISSUE_TITLE" | grep -oE "$TASK_PREFIX_REGEX" || echo "TASK-UNKNOWN")
             echo "Auto-detected task_id: $TASK_ID"
             echo "TASK_ID=$TASK_ID" >> "$GITHUB_ENV"
           fi

@@ -9,9 +9,15 @@ const requiredFiles = [
   "docs/20_development/runbook_ide_sidecar.md",
   "docs/20_development/runbook_runtime_adapter.md",
   "docs/20_development/runbook_ci_gate_template.md",
+  "docs/20_development/github_orchestration.md",
   "docs/20_development/phase1_backlog.md",
   "docs/20_development/phase1_milestones.md",
   "docs/20_development/weekly_checkpoints.md",
+  "scripts/planning/orchestrator.mjs",
+  "scripts/planning/README.md",
+  ".github/workflows/planning-sync.yml",
+  ".github/workflows/planning-delegate.yml",
+  ".github/workflows/planning-weekly-checkpoint.yml",
 ];
 
 const errors = [];

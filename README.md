@@ -89,6 +89,7 @@ packages/
 - Backlog (canonical): [docs/20_development/phase1_backlog.md](docs/20_development/phase1_backlog.md)
 - Milestones: [docs/20_development/phase1_milestones.md](docs/20_development/phase1_milestones.md)
 - Weekly checkpoints: [docs/20_development/weekly_checkpoints.md](docs/20_development/weekly_checkpoints.md)
+- GitHub orchestration: [docs/20_development/github_orchestration.md](docs/20_development/github_orchestration.md)
 - IDE runbook: [docs/20_development/runbook_ide_sidecar.md](docs/20_development/runbook_ide_sidecar.md)
 - Runtime runbook: [docs/20_development/runbook_runtime_adapter.md](docs/20_development/runbook_runtime_adapter.md)
 - CI runbook: [docs/20_development/runbook_ci_gate_template.md](docs/20_development/runbook_ci_gate_template.md)

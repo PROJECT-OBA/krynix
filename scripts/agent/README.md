@@ -87,7 +87,7 @@ Creates a feature branch, commits all staged changes, pushes to origin, and open
 
 **Inputs:**
 - `issue_number` — GitHub issue number
-- `task_id` — task identifier (e.g., `TASK-001`)
+- `task_id` — task identifier (e.g., `PH1-E1-M1.1-T1.1` or legacy `TASK-001`)
 - `issue_dir` — directory with `issue-title.txt`
 - `logs_dir` — directory with `check-results.txt`
 
@@ -107,7 +107,7 @@ Creates a feature branch, commits all staged changes, pushes to origin, and open
 2. Click **Run workflow**
 3. Fill in:
    - `issue_number`: the GitHub issue to implement (required)
-   - `task_id`: e.g., `TASK-001` (optional; auto-detected from issue title)
+   - `task_id`: e.g., `PH1-E1-M1.1-T1.1` (optional; auto-detected from issue title)
    - `dry_run`: `true` to build prompt + run checks without creating a PR
 
 ### Manual Trigger (CLI)
@@ -116,13 +116,13 @@ Creates a feature branch, commits all staged changes, pushes to origin, and open
 # Dry run — build prompt and run checks only
 gh workflow run agent-task.yml \
   -f issue_number=7 \
-  -f task_id=TASK-001 \
+  -f task_id=PH1-E1-M1.1-T1.1 \
   -f dry_run=true
 
 # Full run — create PR if checks pass
 gh workflow run agent-task.yml \
   -f issue_number=7 \
-  -f task_id=TASK-001 \
+  -f task_id=PH1-E1-M1.1-T1.1 \
   -f dry_run=false
 ```
 

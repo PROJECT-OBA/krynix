@@ -33,6 +33,42 @@ Any PR that changes guarantees or enforcement semantics requires all three sign-
 - PRs must reference their issue and include acceptance criteria checklist.
 - Task status in backlog must be updated when issue/PR status changes.
 
+## Orchestration Ownership And On-Call
+- Primary owner: platform engineering (workflow reliability and automation incidents).
+- Secondary owner: security engineering (governance and trust-claim integrity).
+- Escalation policy:
+  - broken sync/delegation/checkpoint workflows are triaged within one business day,
+  - automation-caused incorrect issue state changes are reverted and documented in the weekly checkpoint.
+
+## Normative Label Taxonomy
+- Type:
+  - `type:epic`
+  - `type:task`
+- Status:
+  - `status:todo`
+  - `status:in_progress`
+  - `status:blocked`
+  - `status:done`
+- Assignment:
+  - `epic:E1` ... `epic:E5`
+  - `milestone:Mx.y`
+- Agent lifecycle:
+  - `agent:ready`
+  - `agent:in-progress`
+  - `agent:failed`
+  - `agent:done`
+
+Labels above are required for orchestration and must not be renamed without updating automation scripts and this document.
+
+## Sync Precedence Rules
+- Docs canonical wins for:
+  - task identity, scope, and acceptance criteria (`phase1_backlog.md`).
+- GitHub canonical wins for:
+  - execution status and lifecycle labels during active delivery.
+- Reconciliation mechanism:
+  - orchestration updates docs from GitHub execution state via bot-authored PRs,
+  - human reviewers verify status changes before merge.
+
 ## Weekly Checkpoint Requirement
 - Weekly updates are mandatory in `docs/20_development/weekly_checkpoints.md`.
 - Each update must include:
@@ -41,6 +77,7 @@ Any PR that changes guarantees or enforcement semantics requires all three sign-
   - risk changes,
   - scope changes,
   - next week focus.
+- Weekly checkpoint PRs require platform + security review.
 
 ## CI Documentation Checks
 - Broken link check across `README.md`, `docs/`, and `wiki/`.
@@ -53,4 +90,8 @@ Any PR that changes guarantees or enforcement semantics requires all three sign-
 - No architecture guarantee change without updating both canonical spec and at least one evidence reference.
 - No runtime security claim may be stated as `CURRENT` unless backed by code paths and tests in this repository.
 - Backlog model changes require update of both backlog docs and governance rules.
+- Orchestration behavior changes require updates to:
+  - `docs/20_development/github_orchestration.md`,
+  - `.github/workflows/planning-*.yml`,
+  - `scripts/planning/orchestrator.mjs` command docs/usage.
 - Use ADRs only after a decision is final and difficult to reverse.
