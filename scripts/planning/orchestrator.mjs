@@ -116,7 +116,9 @@ function ensureGh() {
   run("gh", ["--version"]);
   const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
   if (token) {
-    run("gh", ["api", "user"]);
+    // In GitHub Actions, GITHUB_TOKEN often cannot access the global /user endpoint.
+    // Validate auth against the current repository instead of the account profile.
+    run("gh", ["repo", "view", "--json", "nameWithOwner"]);
     return;
   }
   run("gh", ["auth", "status"], { allowFailure: false });
