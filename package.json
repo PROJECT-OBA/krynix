@@ -26,6 +26,11 @@
     "docs:check:claims": "node scripts/docs/check-claim-tags.mjs",
     "docs:check:readme": "node scripts/docs/check-readme-consistency.mjs",
     "docs:check:phase1": "node scripts/docs/check-phase1-backlog.mjs",
+    "planning:sync": "node scripts/planning/orchestrator.mjs sync --apply",
+    "planning:sync:dry": "node scripts/planning/orchestrator.mjs sync --dry-run",
+    "planning:audit": "node scripts/planning/orchestrator.mjs audit",
+    "planning:delegate": "node scripts/planning/orchestrator.mjs delegate --dry-run",
+    "planning:checkpoint": "node scripts/planning/orchestrator.mjs checkpoint --dry-run",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {

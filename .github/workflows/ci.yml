@@ -60,3 +60,4 @@ jobs:
           node packages/cli/dist/main.js export --format otlp-json --trace test/golden/minimal.trace.jsonl
           node packages/cli/dist/main.js policy test --policy packages/adapter-openclaw/policies/openclaw-default.policy.yaml --trace test/golden/openclaw-minimal.trace.jsonl --expect-verdict fail
           node packages/cli/dist/main.js policy diff --old packages/adapter-openclaw/policies/openclaw-default.policy.yaml --new packages/adapter-openclaw/policies/openclaw-default.policy.yaml
+          node scripts/planning/orchestrator.mjs --help
