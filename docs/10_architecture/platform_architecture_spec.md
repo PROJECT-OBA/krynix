@@ -11,50 +11,131 @@ Define the canonical, decision-making architecture for the Krynix platform direc
 - Consumer integration design for IDE-sidecar and framework-runtime deployments.
 
 ## Guarantees (Current)
-- [CURRENT] Krynix OSS is the trust spine, not the full agent platform.  
+- [CURRENT] Krynix OSS is the trust spine, not the full agent platform.
   Evidence: `docs/10_architecture/architecture.md`, `packages/core/src/index.ts`
-- [CURRENT] Krynix provides trace integrity (hash chain), policy evaluation, and CI/post-run verification workflows.  
+- [CURRENT] Krynix provides trace integrity (hash chain), policy evaluation, and CI/post-run verification workflows.
   Evidence: `packages/core/src/hash-chain.ts`, `packages/cli/src/evaluate.ts`, `packages/replay/src/replay-runner.ts`
-- [CURRENT] `krynix evaluate` enforces policy outcomes via exit codes in CI.  
+- [CURRENT] `krynix evaluate` enforces policy outcomes via exit codes in CI.
   Evidence: `packages/cli/src/evaluate.ts`, `packages/cli/src/help.ts`
-- [CURRENT] `krynix replay --verify` validates trace structure/integrity and hash determinism.  
+- [CURRENT] `krynix replay --verify` validates trace structure/integrity and hash determinism, and may compare current traces against baseline traces where supported.
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
-- [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event generation (when seed is provided).  
+- [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event generation (when seed is provided).
   Evidence: `packages/core/src/canonical-json.ts`, `packages/core/src/session.ts`, `packages/core/src/trace-writer.ts`
-- [CURRENT] Closed-assistant integrations (Copilot/Claude/Codex style) follow an observable-only contract and do not claim hidden internal reasoning access.  
+- [CURRENT] Closed-assistant integrations (Copilot/Claude/Codex style) follow an observable-only contract and do not claim hidden internal reasoning access.
   Evidence: `docs/10_architecture/integration_blueprints.md`, `docs/10_architecture/determinism_spec.md`
-- [PARTIAL] `krynix replay --verify --trace <current> --baseline <golden>` detects behavior drift by comparing trace events.
-- [PARTIAL] Replay behavior assurance is comparison-based and does not execute live agent logic.
-- [CURRENT] Redaction is field-name-pattern based and deterministic, but scoped to matched keys only.  
+- [PARTIAL] Replay behavior assurance is comparison-based and does not execute live agent logic today.
+- [CURRENT] Redaction is field-name-pattern based and deterministic, but scoped to matched keys only.
   Evidence: `packages/core/src/redaction.ts`, `packages/core/src/redaction.test.ts`
-- [CURRENT] Runtime blocking is external to Krynix OSS today; Krynix is primarily CI/post-run enforcement.  
+- [CURRENT] Runtime blocking is external to Krynix OSS today; Krynix is primarily CI/post-run enforcement unless integrated into a deployment-specific control surface.
   Evidence: `docs/10_architecture/policy_spec.md`, `packages/cli/src/evaluate.ts`
+- [CURRENT] Krynix does not universally receive user input first. Request-ingress ownership depends on deployment mode.
+  Evidence: `docs/10_architecture/integration_contracts.md`, `docs/00_overview/non_goals.md`
 
 ## Planned Guarantees (Future)
 - [PLANNED] Execution-mode replay that re-runs deterministic agent decision/tool paths via a replay executor interface.
 - [PLANNED] Richer input/runtime/output layer guards integrated as first-class runtime controls.
 - [PLANNED] Broader redaction defaults and configurable organization policy profiles.
-- [PLANNED] Stronger provenance mapping from input intent signals through output delivery decisions.
+- [PLANNED] Stronger provenance mapping from input signals through runtime and output delivery decisions.
+- [PLANNED] Profile-based enforcement modes (`dev`, `staging`, `prod`) for sidecar and hybrid deployments.
 
 ## Non-Goals
-- [CURRENT] Krynix does not replace agent frameworks or orchestration runtimes.  
+- [CURRENT] Krynix does not replace agent frameworks or orchestration runtimes.
   Evidence: `docs/10_architecture/integration_contracts.md`
-- [CURRENT] Krynix does not host LLM inference.  
+- [CURRENT] Krynix does not host LLM inference.
   Evidence: `docs/00_overview/non_goals.md`
-- [CURRENT] Krynix does not guarantee perfect malicious-intent detection.  
+- [CURRENT] Krynix does not guarantee perfect malicious-intent detection.
   Evidence: `docs/00_overview/non_goals.md`
-- [CURRENT] Krynix does not claim deterministic execution replay as implemented behavior today.  
+- [CURRENT] Krynix does not claim deterministic execution replay as implemented behavior today.
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/cli/src/replay.ts`
+- [CURRENT] Krynix does not universally own the request ingress point.
+  Evidence: `docs/10_architecture/integration_contracts.md`
+- [CURRENT] Krynix does not treat inferred intent alone as the primary trust control. Observable actions and delivery decisions are stronger enforcement points.
+  Evidence: `docs/10_architecture/threat_model.md`, `docs/10_architecture/policy_spec.md`
 
 ## Interfaces / Contracts
 
 ### Layer Model
-- Input Layer: context ingestion, intent/risk assessment, prompt/system guards.
-- Runtime Layer: tool mediation, scanning and anti-poisoning checks, policy decisions.
-- Output Layer: response mapping, provenance, output guard checks.
-- Krynix Role: cross-layer trust spine for traceability, policy evidence, replay/drift verification, and compliance packaging.
+- Input Layer: request intake, context normalization, prompt/context guards, and optional advisory risk assessment.
+- Runtime Layer: tool mediation, pre/post execution checks, approval decisions, and runtime evidence capture.
+- Output Layer: response classification, delivery control, provenance, and output guard checks.
+- Krynix Role: cross-layer trust spine for traceability, policy evidence, replay/drift verification, compliance packaging, and control-plane synchronization.
+
+### Deployment Modes
+
+Krynix supports multiple deployment modes. These modes must not be conflated.
+
+#### Passive / Post-Run Mode
+
+```mermaid
+flowchart LR
+    U[User] --> A[Agent / Framework] --> K[Krynix captures traces] --> C[Policy / Replay / Compliance]
+```
+
+**Meaning:**
+Krynix does not receive user input first. It observes execution artifacts exposed by the host integration and enforces trust primarily in CI/post-run workflows.
+
+#### Inline Sidecar / Gateway Mode
+
+```mermaid
+flowchart LR
+    U[User] --> I[Input Controls] --> R[Runtime Mediation] --> O[Output Controls] --> U
+    I -. evidence .-> K[Krynix Trust Spine]
+    R -. evidence .-> K
+    O -. evidence .-> K
+```
+
+**Meaning:**
+A deployment-specific control surface may receive the request before agent execution. Krynix records evidence across all layers but remains the trust spine, not the entire platform.
+
+#### Hybrid Mode
+
+```mermaid
+flowchart LR
+    U[User] --> I[Partial Intake / Guards] --> A[Agent Runtime] --> O[Optional Output Controls] --> U
+    A -. trace/events .-> K[Krynix Trust Spine] --> C[CI / Compliance]
+```
+
+**Meaning:**
+Some controls occur before execution, some during runtime, and some after execution. Krynix remains the canonical evidence, policy, replay, and compliance layer.
+
+### Deployment Modes Overview
+
+```mermaid
+flowchart TB
+    subgraph Passive["Passive / Post-Run Mode"]
+        U1[User]
+        A1[Agent / Framework]
+        K1[Krynix Trust Spine]
+        C1[Policy / Replay / Compliance]
+        U1 --> A1 --> K1 --> C1
+    end
+
+    subgraph Inline["Inline Sidecar / Gateway Mode"]
+        U2[User]
+        I2[Input Controls]
+        R2[Runtime Mediation]
+        O2[Output Controls]
+        K2[Krynix Trust Spine]
+        U2 --> I2 --> R2 --> O2 --> U2
+        I2 -. evidence .-> K2
+        R2 -. evidence .-> K2
+        O2 -. evidence .-> K2
+    end
+
+    subgraph Hybrid["Hybrid Mode"]
+        U3[User]
+        I3[Partial Intake / Guards]
+        A3[Agent / Framework]
+        O3[Optional Output Controls]
+        K3[Krynix Trust Spine]
+        C3[Policy / Replay / Compliance]
+        U3 --> I3 --> A3 --> O3 --> U3
+        A3 -. trace/events .-> K3 --> C3
+    end
+```
 
 ### Determinism Layering
+
 Determinism remains a core design principle.
 
 - `CURRENT`: deterministic trace artifact generation and integrity verification.
@@ -65,10 +146,11 @@ Current replay guarantee is integrity + baseline diff.
 Execution replay is planned and tracked.
 
 ### Closed-Assistant Observability Limits
+
 For Copilot/Claude/Codex-style integrations, Krynix captures only observable signals from host integration points.
 
 Krynix captures:
-- prompt/context metadata,
+- prompt/context metadata when exposed,
 - tool calls/results and timings,
 - guard and policy decisions,
 - output mapping/provenance signals when exposed,
@@ -76,19 +158,55 @@ Krynix captures:
 
 Krynix does not claim:
 - hidden model reasoning streams,
-- private provider-side internal chain data.
+- private provider-side internal chain data,
+- provider-internal chain-of-thought access.
+
+### Responsibility Boundary
+
+```mermaid
+flowchart TB
+    subgraph Control["Krynix-Integrated Control Surface"]
+        INP[Input Intake / Guards]
+        RUN[Runtime Mediation]
+        OUT[Output Delivery Control]
+        APP[Approval Workflows]
+        RISK[Optional Advisory Risk Intelligence]
+    end
+
+    subgraph Core["Krynix OSS Core"]
+        TRACE[Canonical Traces]
+        HASH[Hash Chain Integrity]
+        POLICY[Policy Evaluation]
+        REPLAY[Replay / Drift Verification]
+        BUNDLE[Compliance / CP Sync]
+    end
+
+    INP -. emits evidence .-> TRACE
+    RUN -. emits evidence .-> TRACE
+    OUT -. emits evidence .-> TRACE
+    APP -. emits evidence .-> TRACE
+    RISK -. advisory evidence .-> TRACE
+
+    TRACE --> HASH --> POLICY --> REPLAY --> BUNDLE
+```
 
 ### Sidecar Control Point Behavior
+
 Trusted interception boundaries for sidecar/wrapper model:
 
 | Boundary | Trigger | Control Action | Trace Evidence |
 |---|---|---|---|
-| Prompt ingress | user sends prompt/task | classify/guard/check policy context | `observation` + `metadata.intent.*` |
+| Request intake | user sends prompt/task | normalize request, bind source/repo/environment context | `observation` + request metadata |
+| Prompt/context guard | inbound request/context prepared | deterministic or heuristic guard checks | `observation` + `metadata.guard.*` |
+| Optional advisory assessment | uncertain or high-risk request | intent assessment / LLM-judge labels, escalation suggestion | `observation` + `metadata.intent.*` |
 | Tool pre-check | candidate command/tool call | allow/deny/require-approval | `decision` + `metadata.guard.*` |
 | Tool post-check | command/tool completed | scan output, evaluate follow-up risk | `tool_result` + `metadata.runtime.*` |
-| Output egress | assistant response ready | map delivery action, apply redaction/hold | `decision` + `metadata.output.*` |
+| Output egress | assistant response ready | classify, redact/hold/block/deliver | `decision` + `metadata.output.*` |
 
 ### Runtime Profile Semantics (Truth Table)
+
+The following table describes platform-side deployment profile behavior, not current universal OSS behavior.
+
 | Condition | dev | staging | prod |
 |---|---|---|---|
 | Sidecar unavailable | Fail-open + warning evidence | Fail-closed for protected controls | Fail-closed for protected controls |
@@ -96,7 +214,31 @@ Trusted interception boundaries for sidecar/wrapper model:
 | Deterministic critical violation | Monitor + annotate | Require approval or deny by rule | Deny |
 | Approval timeout | Continue with warning by profile rule | Block | Block |
 
+### Enforcement Hierarchy
+
+Krynix-integrated control systems apply controls in the following order:
+
+1. **Deterministic Hard Controls**
+   Action/path/network/output rules directly enforceable from observable behavior.
+2. **Policy-Based Controls**
+   Declarative allow/deny/require-approval rules over runtime evidence and traces.
+3. **Advisory Intelligence**
+   Intent assessment, prompt classification, LLM-as-judge, and heuristic scoring used to annotate, escalate, or require approval.
+
+Rule:
+Advisory intelligence must not be the sole basis for critical denial unless explicitly configured by a deployment profile.
+
+```mermaid
+flowchart TB
+    L2[Level 2 — Advisory Intelligence<br/>Intent Assessment / LLM Judge / Risk Scoring]
+    L1[Level 1 — Policy-Based Controls<br/>Allow / Deny / Require-Approval over evidence]
+    L0[Level 0 — Deterministic Hard Controls<br/>Observable, enforceable, may block immediately]
+
+    L2 --> L1 --> L0
+```
+
 ### Default Critical Deny Baseline (Profile: prod)
+
 Categories:
 1. Exfiltration-risk actions.
 2. Destructive file/command actions.
@@ -115,33 +257,69 @@ Examples:
 5. Merge gate enforces unresolved or denied approvals as blocking outcomes.
 
 ### Input -> Runtime -> Output Sequence (Krynix as Spine)
-```mermaid
-sequenceDiagram
-  participant U as User/Trigger
-  participant I as Input Layer Guards
-  participant R as Runtime Layer Mediation
-  participant O as Output Layer Mapping
-  participant K as Krynix Spine
 
-  U->>I: Prompt + context ingress
-  I->>K: Intent + guard observations (metadata.intent.*, metadata.guard.*)
-  I->>R: Guard decision (allow/deny/require-approval)
-  R->>K: Tool pre/post events + runtime evidence (metadata.runtime.*)
-  R->>O: Candidate response + execution outcomes
-  O->>K: Output mapping + provenance (metadata.output.*)
-  K-->>U: Trace artifacts + policy/replay/compliance evidence path
+```mermaid
+flowchart LR
+    U[User / Trigger]
+
+    subgraph Input["Input Layer — Intake & Advisory Signals"]
+        RI[Request Intake]
+        PG[Prompt / Context Guards]
+        IA[Intent Assessment / LLM Judge<br/>Optional Advisory]
+        RI --> PG --> IA
+    end
+
+    subgraph Runtime["Runtime Layer — Action Mediation"]
+        TM[Tool Mediation]
+        PRE[Pre-Execution Checks]
+        POST[Post-Execution Checks]
+        AP[Approval Gate]
+        TM --> PRE --> POST --> AP
+    end
+
+    subgraph Output["Output Layer — Delivery Control"]
+        RC[Response Classification]
+        DD[Delivery Decision]
+        ACT[Redact / Hold / Block / Deliver]
+        RC --> DD --> ACT
+    end
+
+    subgraph Spine["Krynix Trust Spine"]
+        TR[Trace Integrity]
+        PO[Policy Evaluation]
+        RE[Replay / Drift Verification]
+        CO[Compliance / CP Sync]
+        TR --> PO --> RE --> CO
+    end
+
+    U --> RI
+    IA --> TM
+    AP --> RC
+    ACT --> RESP[Output Response]
+
+    RI -. evidence .-> TR
+    PG -. evidence .-> TR
+    IA -. advisory signals .-> TR
+    PRE -. runtime evidence .-> TR
+    POST -. runtime evidence .-> TR
+    AP -. guard decisions .-> TR
+    RC -. output evidence .-> TR
+    DD -. provenance / delivery decisions .-> TR
 ```
 
 ### Integration Insertion Points
+
 | Insertion Point | Layer | Required Capture | Trace Mapping |
 |---|---|---|---|
-| Prompt ingress | Input | actor, workspace, repo SHA/branch, request source, intent signals | `observation` + metadata namespaces |
+| Request intake | Input | actor, workspace, repo SHA/branch, request source, environment/profile | `observation` + metadata namespaces |
+| Prompt/context guard | Input | guard result, suspicious signals, context boundary facts | `observation` + `metadata.guard.*` |
+| Optional advisory assessment | Input | risk labels, confidence, signals, escalation suggestion | `observation` + `metadata.intent.*` |
 | Tool pre-check | Runtime | guard decision, rule id, approval state, arguments hash | `decision` + `tool_call` metadata |
 | Tool post-check | Runtime | duration, output scan, policy impact, violations | `tool_result` + `observation` |
 | Response egress | Output | classification, policy flags, provenance ref, delivery action | `decision` + `observation` |
 
 ### Mandatory Metadata Namespace Rules
-- `metadata.intent.*`: intent model/judge signals and confidence.
+- `metadata.intent.*`: advisory intent/judge signals and confidence.
 - `metadata.guard.*`: guard rule ids, severities, decision rationale.
 - `metadata.runtime.*`: runtime scan outcomes, tool mediation facts.
 - `metadata.output.*`: response mapping, delivery decision, provenance references.
@@ -150,10 +328,14 @@ Rules:
 - Namespace keys must be stable and lowercase.
 - Reserved internal keys prefixed with `_krynix_` must not be overridden by adapters.
 - Metadata values must be JSON-serializable.
+- Advisory metadata must not be treated as authoritative blocking evidence unless explicitly elevated by deployment profile.
 
 ### Contract Draft: `IntentAssessment`
-Producer: Input layer classifiers and optional judge adapters.  
-Consumer: Runtime policy engine and provenance builder.
+
+Producer: optional input-layer classifiers and optional judge adapters.
+Consumer: runtime policy engine, routing layer, provenance builder, or approval workflow.
+
+Status: Draft / Optional / Advisory
 
 Fields:
 - `id: string`
@@ -169,7 +351,7 @@ Invariants:
 
 Insertion event type mapping to current trace schema:
 - `observation` payload for captured signals.
-- `decision` payload for routing outcome.
+- optional `decision` payload for routing/escalation outcome.
 - metadata namespaces: `metadata.intent.*`, `metadata.guard.*`.
 
 Example:
@@ -185,8 +367,11 @@ Example:
 ```
 
 ### Contract Draft: `GuardDecision`
-Producer: Input/runtime/output guard components.  
-Consumer: Runtime policy engine, trace bridge, output mapper.
+
+Producer: input/runtime/output guard components.
+Consumer: runtime policy engine, trace bridge, output mapper.
+
+Status: Near-Canonical
 
 Fields:
 - `component: string`
@@ -218,8 +403,11 @@ Example:
 ```
 
 ### Contract Draft: `ToolExecutionEnvelope`
-Producer: Runtime tool mediation proxy.  
-Consumer: Trace bridge, policy engine, observability pipeline.
+
+Producer: runtime tool mediation proxy.
+Consumer: trace bridge, policy engine, observability pipeline.
+
+Status: Near-Canonical
 
 Fields:
 - `tool_name: string`
@@ -258,8 +446,11 @@ Example:
 ```
 
 ### Contract Draft: `OutputMapping`
-Producer: Output layer mapper and provenance builder.  
-Consumer: Delivery channel, audit/compliance export, analytics.
+
+Producer: output layer mapper and provenance builder.
+Consumer: delivery channel, audit/compliance export, analytics.
+
+Status: Near-Canonical
 
 Fields:
 - `classification: "safe" | "needs-review" | "blocked" | "incomplete"`
@@ -287,6 +478,7 @@ Example:
 ```
 
 ### Consumer Deployment Topologies
+
 | Topology | Placement | Typical Consumer | Tradeoff |
 |---|---|---|---|
 | Local sidecar | Developer machine / dev container | VSCode/Codex-style workflows | Lowest adoption friction, weaker centralized runtime control |
@@ -306,6 +498,8 @@ Consistency marker statements (used by CI docs checks):
 - `REPLAY_CURRENT_MODE=integrity_plus_baseline_diff`
 - `KRYNIX_ROLE=trust_spine_not_full_platform`
 - `KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss`
+- `KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal`
+- `KRYNIX_ENFORCEMENT_PRINCIPLE=block_on_actions_not_inferred_intent`
 
 ## Known Gaps And Roadmap
 - [PARTIAL] Replay assurance: integrity + drift comparison exists; deterministic execution replay is not implemented.
@@ -313,3 +507,4 @@ Consistency marker statements (used by CI docs checks):
 - [PARTIAL] Runtime enforcement blueprint exists, but implementation remains mostly external/integration-driven.
 - [PLANNED] Execution replay mode with deterministic executor contract.
 - [PLANNED] Input/runtime/output enforcement profile rollout (`dev`, `staging`, `prod`).
+- [PLANNED] Stronger standardization of input advisory contracts once deployment patterns stabilize.
