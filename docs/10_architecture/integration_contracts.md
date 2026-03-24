@@ -8,6 +8,8 @@ See [glossary](../00_overview/glossary.md) for term definitions. See [trace_spec
 
 Krynix does not run agents. External agent frameworks (LangChain, OpenClaw, custom implementations) run agents and produce framework-specific events. Krynix provides a **Trace Adapter** interface that converts these events into canonical TraceEvents for evaluation and replay.
 
+> **Note:** The ingress pattern (who receives the user request first) varies by deployment mode. In passive mode, Krynix observes after the fact. In sidecar or hybrid modes, a control surface may intercept before agent execution. See [platform_architecture_spec.md](platform_architecture_spec.md) for deployment mode definitions.
+
 ```
 Agent Framework → Trace Adapter → Krynix Pipeline
 ```
@@ -108,6 +110,7 @@ Adapters must satisfy these constraints:
 - Adapters must NOT compute hash chain values
 - Adapters must NOT apply redaction (Krynix core handles this)
 - Adapters must NOT modify the `metadata` field reserved keys (prefix `_krynix_`)
+- Adapters should use mandatory metadata namespace prefixes (`intent.*`, `guard.*`, `runtime.*`, `output.*`) for keys inside the `metadata` object. The `metadata.intent.*` notation in the [canonical spec](platform_architecture_spec.md) denotes the parent object path, not a literal key prefix.
 
 ## Policy Gate Integration
 
@@ -249,7 +252,7 @@ export class OpenClawAdapter implements TraceAdapter {
       redacted: false,
       prev_hash: "",       // Computed by Krynix core
       event_hash: "",      // Computed by Krynix core
-      metadata: { _adapter: "openclaw" },
+      metadata: { "runtime.adapter": "openclaw" },
       schema_version: "1.0.0",
     };
   }
@@ -265,7 +268,7 @@ export class OpenClawAdapter implements TraceAdapter {
       sequence_num: 0,
       timestamp: event.timestamp as string,
       event_type: "tool_result",
-      parent_id: null,     // Core resolves via _adapter_tool_id if needed
+      parent_id: null,     // Core resolves via runtime.openclaw.tool_id if needed
       agent_id: this.agentId,
       payload: {
         tool_name: event.toolName as string,
@@ -275,7 +278,7 @@ export class OpenClawAdapter implements TraceAdapter {
       redacted: false,
       prev_hash: "",
       event_hash: "",
-      metadata: { _adapter: "openclaw", _adapter_tool_id: event.toolId as string },
+      metadata: { "runtime.adapter": "openclaw", "runtime.openclaw.tool_id": event.toolId as string },
       schema_version: "1.0.0",
     };
   }
@@ -298,7 +301,7 @@ export class OpenClawAdapter implements TraceAdapter {
       redacted: false,
       prev_hash: "",
       event_hash: "",
-      metadata: { _adapter: "openclaw" },
+      metadata: { "runtime.adapter": "openclaw" },
       schema_version: "1.0.0",
     };
   }
@@ -325,7 +328,7 @@ export class OpenClawAdapter implements TraceAdapter {
       redacted: false,
       prev_hash: "",
       event_hash: "",
-      metadata: { _adapter: "openclaw" },
+      metadata: { "runtime.adapter": "openclaw" },
       schema_version: "1.0.0",
     };
   }
@@ -477,6 +480,7 @@ To add support for a new agent framework:
 | Adapter | Framework | Status | Package |
 |---|---|---|---|
 | `openclaw` | OpenClaw | Reference implementation | `packages/adapter-openclaw/` |
+| `langchain` | LangChain | Reference implementation | `packages/adapter-langchain/` |
 
 Additional adapters will be added as community contributions following the process above.
 

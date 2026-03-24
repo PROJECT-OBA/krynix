@@ -1,23 +1,23 @@
-# ADR-0001: Define ARTL Scope
+# ADR-001: Define Krynix Scope
 
 ## Status
 Accepted
 
 ## Context
 
-We need to clearly define the boundaries of ARTL
+We need to clearly define the boundaries of Krynix
 to avoid scope creep and architectural drift.
 
 ## Decision
 
-ARTL will focus on:
+Krynix will focus on:
 
 - Trace standardization
 - Policy enforcement
-- Deterministic replay
+- Deterministic replay ([CURRENT] integrity + baseline diff; [PLANNED] execution replay)
 - CI evaluation
 
-ARTL will NOT:
+Krynix will NOT:
 
 - Implement agent frameworks
 - Provide UI dashboards

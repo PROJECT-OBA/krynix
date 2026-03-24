@@ -5,6 +5,7 @@
     { "path": "packages/policy" },
     { "path": "packages/replay" },
     { "path": "packages/cli" },
-    { "path": "packages/adapter-openclaw" }
+    { "path": "packages/adapter-openclaw" },
+    { "path": "packages/adapter-langchain" }
   ]
 }

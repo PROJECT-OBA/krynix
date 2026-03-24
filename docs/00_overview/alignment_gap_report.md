@@ -3,6 +3,9 @@
 ## Purpose
 Document contradictions and ambiguity across repository docs and agent rules before canonical rewrites.
 
+## Status
+**Resolved.** The contradictions identified in this report (CR-1 through CR-5) have been addressed by the canonical spec introduction (`platform_architecture_spec.md`) and subsequent documentation alignment. This report is retained as historical context.
+
 ## Scope Reviewed
 - `README.md`
 - `docs/00_overview/*`

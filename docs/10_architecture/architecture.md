@@ -22,22 +22,27 @@ Describe how Krynix functions as the trust spine in a layered agent platform and
 - [PLANNED] Execution replay mode for deterministic re-run contracts.
 - [PLANNED] Deeper runtime preventative controls via input/runtime/output guard integrations.
 - [PLANNED] Expanded provenance and response mapping contracts.
+- [PLANNED] Profile-based enforcement modes (`dev`, `staging`, `prod`) for sidecar and hybrid deployments.
 
 ## Non-Goals
 - [CURRENT] Krynix does not execute agents.  
   Evidence: `docs/10_architecture/integration_contracts.md`
 - [CURRENT] Krynix does not host LLM inference.  
   Evidence: `docs/00_overview/non_goals.md`
-- [CURRENT] Krynix does not replace CI platforms.  
+- [CURRENT] Krynix does not replace CI platforms.
   Evidence: `docs/20_development/ci_cd.md`
+- [CURRENT] Krynix does not universally own the request ingress point.
+  Evidence: `docs/10_architecture/platform_architecture_spec.md`
+- [CURRENT] Krynix does not treat inferred intent alone as the primary trust control.
+  Evidence: `docs/10_architecture/platform_architecture_spec.md`
 
 ## Interfaces / Contracts
 
 ### Layered Platform Model
-- Input Layer: intent/context guards.
-- Runtime Layer: tool mediation and guard decisions.
-- Output Layer: response mapping and provenance.
-- Krynix: evidence/policy/replay spine across all layers.
+- Input Layer: request intake, context normalization, prompt/context guards, and optional advisory risk assessment.
+- Runtime Layer: tool mediation, pre/post execution checks, approval decisions, and runtime evidence capture.
+- Output Layer: response classification, delivery control, provenance, and output guard checks.
+- Krynix: cross-layer trust spine for traceability, policy evidence, replay/drift verification, compliance packaging, and control-plane synchronization.
 
 ### OSS Component Topology
 ```text

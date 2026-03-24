@@ -83,6 +83,43 @@ describe("validateTraceEvent", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
   });
+
+  // ---------------------------------------------------------------------------
+  // Timestamp format validation (ISO 8601 / RFC 3339)
+  // ---------------------------------------------------------------------------
+
+  test("valid ISO 8601 timestamp passes", () => {
+    const event = { ...makeToolCall(0), timestamp: "2026-03-15T09:30:00.000Z" };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("ISO 8601 with offset rejected (UTC-only required)", () => {
+    const event = { ...makeToolCall(0), timestamp: "2026-03-15T09:30:00+05:30" };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("garbage timestamp → error", () => {
+    const event = { ...makeToolCall(0), timestamp: "not-a-date" };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("format");
+  });
+
+  test("epoch numeric timestamp → error", () => {
+    const event = { ...makeToolCall(0), timestamp: "1710000000" };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("format");
+  });
+
+  test("date-only timestamp without time → error", () => {
+    const event = { ...makeToolCall(0), timestamp: "2026-03-15" };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("format");
+  });
 });
 
 // ---------------------------------------------------------------------------

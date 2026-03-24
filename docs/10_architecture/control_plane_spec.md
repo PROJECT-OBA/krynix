@@ -38,7 +38,7 @@ The Control Plane is an **artifact aggregation and governance layer**. It receiv
 
 - Capture traces (the OSS engine does this locally)
 - Evaluate policies at runtime (the OSS engine does this in CI or locally)
-- Execute replay (the OSS engine does this locally; hosted replay is deferred to v2)
+- Execute replay (the OSS engine performs integrity and drift verification locally; hosted replay execution is deferred to v2)
 - Perform any inline agent interception or blocking
 - Store pre-redaction data (redaction happens at the source, before upload)
 - Require network connectivity for any OSS engine operation
@@ -438,7 +438,7 @@ When Ed25519 signing is implemented in trace schema v2.0:
 | Policy parsing and evaluation | Yes (local files) | No (stores and distributes) | OSS only |
 | Policy inheritance resolution | Yes (file-based resolver) | Yes (remote resolver) | OSS only |
 | Policy diff | Yes | No | OSS only |
-| Deterministic replay | Yes (local execution) | Yes (v2: hosted execution) | OSS only |
+| Deterministic replay verification | Yes (integrity + drift, locally) | Yes (v2: hosted execution) | OSS only |
 | Golden trace verification | Yes (CI, local files) | Yes (org-wide registry) | OSS only |
 | OTLP export | Yes (pure function) | Yes (in evidence bundles) | OSS only |
 | Trace statistics | Yes (pure function) | Yes (in dashboards) | OSS only |
@@ -596,18 +596,19 @@ The following capabilities are free and open-source, MIT licensed, permanently:
 8. **Policy matcher** — `matchRule()` with all 7 operators (eq, neq, in, not_in, matches, contains, exists)
 9. **Policy inheritance** — `resolvePolicy()` and `mergePolicy()` with chain resolution
 10. **Policy diff** — `diffPolicies()` with severity downgrade and action weakening detection
-11. **Deterministic replay engine** — Full Determinism Envelope (seed, time freeze, network stub, filesystem snapshot, dependency pin)
-12. **Golden trace verification** — Local golden trace testing in CI
-13. **OTLP export** — `convertToOtlp()` producing OpenTelemetry protobuf-JSON
-14. **Trace statistics** — `computeTraceStats()` for per-session analytics
-15. **Session management** — `startSession()`, `recordEvent()`, `endSession()` with hash chain on-the-fly
-16. **Trace writer** — `TraceWriter` for append-only JSONL output with incremental hashing
-17. **Trace reader** — `readTrace()` for loading and parsing `.trace.jsonl` files
-18. **Schema validation** — `validateTraceEvent()`, `validatePolicy()`, `validateReport()`
-19. **Seeded random** — `SeededRandom` for deterministic UUID generation
-20. **Adapter framework** — `TraceAdapter` interface and `AdapterConfig` type
-21. **OpenClaw adapter** — Reference adapter implementation
-22. **CLI** — All commands: `evaluate`, `replay`, `export`, `stats`, `validate`, `policy test`, `policy diff`
+11. **Deterministic replay verification** — Integrity verification, hash chain recomputation, baseline drift comparison
+12. **[PLANNED] Deterministic execution replay** — Full Determinism Envelope (seed, time freeze, network stub, filesystem snapshot, dependency pin)
+13. **Golden trace verification** — Local golden trace testing in CI
+14. **OTLP export** — `convertToOtlp()` producing OpenTelemetry protobuf-JSON
+15. **Trace statistics** — `computeTraceStats()` for per-session analytics
+16. **Session management** — `startSession()`, `recordEvent()`, `endSession()` with hash chain on-the-fly
+17. **Trace writer** — `TraceWriter` for append-only JSONL output with incremental hashing
+18. **Trace reader** — `readTrace()` for loading and parsing `.trace.jsonl` files
+19. **Schema validation** — `validateTraceEvent()`, `validatePolicy()`, `validateReport()`
+20. **Seeded random** — `SeededRandom` for deterministic UUID generation
+21. **Adapter framework** — `TraceAdapter` interface and `AdapterConfig` type
+22. **OpenClaw adapter** — Reference adapter implementation
+23. **CLI** — All commands: `evaluate`, `replay`, `export`, `stats`, `validate`, `policy test`, `policy diff`
 
 The OSS engine is the complete, self-contained trust verification pipeline. The Control Plane adds centralized governance around it but does not gate or restrict any OSS functionality.
 

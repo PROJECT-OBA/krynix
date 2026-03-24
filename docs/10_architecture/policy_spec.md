@@ -20,6 +20,8 @@ Define policy contract semantics and enforcement boundaries for Krynix OSS.
 - [CURRENT] Primary enforced path in OSS is CI/post-run evaluation against trace artifacts.  
   Evidence: `packages/cli/src/evaluate.ts`, `docs/20_development/ci_cd.md`
 - [PARTIAL] Runtime evaluation can be integrated externally but is not a built-in mandatory inline OSS gate.
+- [CURRENT] Enforcement hierarchy: deterministic hard controls > policy-based controls > advisory intelligence. Advisory signals alone must not be sole basis for critical denial unless configured by deployment profile.
+  Evidence: `docs/10_architecture/platform_architecture_spec.md` §Enforcement Hierarchy
 
 ## Planned Guarantees (Future)
 - [PLANNED] First-class runtime policy execution profile integration with input/runtime/output guards.
@@ -95,3 +97,4 @@ krynix policy test --policy policies/no-shell.policy.yaml --trace traces/session
 - [PARTIAL] Runtime enforcement semantics are integration-specific today.
 - [PARTIAL] Some metadata typing strictness still requires hardening across policy tooling.
 - [PLANNED] Policy bundles for layered runtime enforcement profiles.
+- [PLANNED] Deployment-mode-aware policy semantics (behavior varies across passive, sidecar, hybrid modes).

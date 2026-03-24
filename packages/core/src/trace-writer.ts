@@ -13,13 +13,27 @@ import { open } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import type { TraceEvent } from "./types.js";
 import { canonicalize } from "./canonical-json.js";
+import { validateTraceEvent } from "./schema-validator.js";
+import { KrynixError } from "./errors.js";
+
+/** Options accepted by TraceWriter. */
+export interface TraceWriterOptions {
+  /**
+   * When `true`, each event is validated against the TraceEvent JSON schema
+   * before being written. Invalid events cause a `KrynixError("INVALID_EVENT")`
+   * to be thrown, preventing malformed data from being persisted.
+   *
+   * @default false
+   */
+  validateOnWrite?: boolean;
+}
 
 /**
  * Incremental JSONL writer that computes the hash chain on the fly.
  *
  * Usage:
  * ```ts
- * const writer = new TraceWriter();
+ * const writer = new TraceWriter({ validateOnWrite: true });
  * await writer.open("/path/to/trace.jsonl");
  * await writer.write(event1);
  * await writer.write(event2);
@@ -29,6 +43,11 @@ import { canonicalize } from "./canonical-json.js";
 export class TraceWriter {
   private fileHandle: FileHandle | null = null;
   private lastEventHash = "";
+  private readonly validateOnWrite: boolean;
+
+  constructor(options?: TraceWriterOptions) {
+    this.validateOnWrite = options?.validateOnWrite ?? false;
+  }
 
   /**
    * Open a file for writing trace events.
@@ -62,6 +81,17 @@ export class TraceWriter {
       prev_hash: this.lastEventHash,
       event_hash: "",
     } as unknown as TraceEvent;
+
+    // Validate against schema before computing hash, so we never persist invalid events.
+    if (this.validateOnWrite) {
+      const result = validateTraceEvent(withPrev);
+      if (!result.valid) {
+        throw new KrynixError(
+          "INVALID_EVENT",
+          `Schema validation failed for event seq=${event.sequence_num}: ${result.error}`,
+        );
+      }
+    }
 
     // Compute event_hash
     const canonical = canonicalize(withPrev);

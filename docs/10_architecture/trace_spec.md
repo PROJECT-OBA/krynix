@@ -13,7 +13,7 @@ A **Trace** is an ordered, immutable sequence of **TraceEvents** representing on
 Traces serve three purposes:
 1. **Audit** — complete record of what an agent did and why
 2. **Policy evaluation** — structured data against which [Policies](policy_spec.md) are evaluated
-3. **Replay** — input to [deterministic replay](determinism_spec.md) for reproducibility verification
+3. **Replay** — input to replay verification ([CURRENT] integrity + baseline drift; [PLANNED] deterministic execution replay). See [determinism_spec](determinism_spec.md).
 
 ## TraceEvent Schema
 
@@ -34,6 +34,8 @@ Every TraceEvent contains the following fields:
 | `event_hash` | string | yes | SHA-256 of canonical JSON of this event (see Hash Chain) |
 | `metadata` | object | no | Optional extensible key-value pairs |
 | `schema_version` | string | yes | Semver string. Must be `"1.0.0"` for this spec version |
+
+**Metadata Namespace Rules:** Keys inside the `metadata` object must follow mandatory namespace prefixes: `intent.*` (advisory signals), `guard.*` (guard decisions), `runtime.*` (runtime scan outcomes), `output.*` (delivery decisions). For example: `"intent.source": "user_prompt"`. The `metadata.intent.*` notation in the [platform_architecture_spec.md](platform_architecture_spec.md) denotes the parent object path, not a literal key prefix. Reserved keys prefixed with `_krynix_` must not be overridden by adapters.
 
 ## Event Types
 

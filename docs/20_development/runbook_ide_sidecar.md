@@ -1,5 +1,7 @@
 # Runbook: IDE Sidecar Onboarding
 
+> **Status:** The sidecar deployment mode described in this runbook is [PLANNED]. See [platform_architecture_spec.md](../10_architecture/platform_architecture_spec.md) for current deployment mode status.
+
 ## Purpose
 Provide a step-by-step onboarding guide for IDE-centric sidecar integration.
 

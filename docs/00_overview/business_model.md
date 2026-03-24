@@ -41,8 +41,8 @@ Revenue hypotheses (not validated):
 ## Competitive Positioning
 
 - **Primary wedge:** "Agent Evals + Guardrails in CI"
-- **Differentiation:** Deterministic replay (provable reproducibility), hash-chain tamper evidence, CI-first enforcement
-- **What Krynix is NOT:** A runtime gateway, agent firewall, SOC dashboard, or execution sandbox. Krynix provides post-hoc verification and CI enforcement — not inline blocking.
+- **Differentiation:** [PLANNED] Deterministic execution replay (provable reproducibility), [CURRENT] hash-chain tamper evidence, [CURRENT] CI-first enforcement
+- **What Krynix is NOT (OSS default):** A universal runtime gateway, SOC dashboard, or execution sandbox. OSS default is post-hoc verification and CI enforcement. In sidecar/hybrid deployments, a control surface may provide inline enforcement, but this is deployment-specific and not the OSS default posture.
 
 ---
 

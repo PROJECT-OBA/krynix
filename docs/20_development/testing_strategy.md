@@ -20,5 +20,5 @@ If trace schema changes:
 
 ## Determinism
 
-Replay must produce identical outputs across runs.
+Replay verification must produce identical outputs across runs ([CURRENT] integrity + baseline diff; [PLANNED] execution replay).
 No time-based or random behavior without seeding.

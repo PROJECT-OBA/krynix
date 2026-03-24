@@ -10,3 +10,5 @@
 - Do not claim unsupported guarantees.
 - Tag major capability claims as `CURRENT`, `PARTIAL`, or `PLANNED`.
 - Canonical docs source precedence must be respected (`platform_architecture_spec.md` first).
+- Enforcement hierarchy: deterministic hard controls > policy-based > advisory intelligence. Advisory alone must not be sole basis for critical denial.
+- Deployment modes (passive, sidecar, hybrid) must not be conflated in docs or implementation.
