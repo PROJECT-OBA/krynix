@@ -6,7 +6,7 @@ See [glossary](../00_overview/glossary.md) for term definitions. See [architectu
 
 ## Scope
 
-This threat model covers attacks against the Krynix trust layer itself and attacks by autonomous agents that Krynix is designed to detect or prevent. It does not cover threats to the underlying infrastructure (OS, network, hardware) — those are addressed by standard infrastructure security practices.
+This threat model covers attacks against the Krynix trust spine itself and attacks by autonomous agents that Krynix is designed to detect or prevent. It does not cover threats to the underlying infrastructure (OS, network, hardware) — those are addressed by standard infrastructure security practices.
 
 ## Threat Summary
 
@@ -128,7 +128,7 @@ An agent attempts to bypass policy constraints or access resources outside its T
      message: "Writing to policy or golden trace directories is not permitted"
    ```
 
-4. **CI-time enforcement** — Policy evaluation and replay verification happen in CI after the agent session completes. The agent cannot influence the CI environment. Note: CI enforcement blocks merge of the resulting changes, but does **not** prevent the actions from having occurred during the session. Real-time pre-action gating is a future capability (see [policy_spec future work](policy_spec.md#future-work)).
+4. **CI-time enforcement** — Policy evaluation and replay verification happen in CI after the agent session completes. The agent cannot influence the CI environment. Note: CI enforcement blocks merge of the resulting changes, but does **not** prevent the actions from having occurred during the session. Real-time pre-action gating is available in sidecar/hybrid deployment modes via deployment-specific control surfaces and is [PARTIAL] today. See [platform_architecture_spec.md](platform_architecture_spec.md) for sidecar control point behavior.
 
 ### Residual Risk
 
@@ -161,7 +161,7 @@ Secrets (API keys, credentials, tokens) are leaked through agent tool outputs, L
 
 2. **Redaction before hashing** — Redaction occurs before `event_hash` computation, ensuring that the unredacted value is never part of the committed trace data.
 
-3. **Network stubbing in replay** — During deterministic replay, all network I/O is stubbed. This prevents replay from repeating any exfiltration, but does **not** prevent the original live execution from making network calls. Live exfiltration must be mitigated at the runtime level (sandboxing, firewall rules) or caught post-hoc via trace audit. See [determinism_spec](determinism_spec.md#3-network-stubbing).
+3. **Network stubbing in replay** — [PLANNED] When deterministic execution replay is implemented, all network I/O will be stubbed, preventing replay from repeating any exfiltration. Note: current replay is artifact-based and does not execute agent code. This mitigation applies to the planned execution replay mode. Live exfiltration must be mitigated at the runtime level (sandboxing, firewall rules) or caught post-hoc via trace audit. See [determinism_spec](determinism_spec.md#3-network-stubbing).
 
 4. **Policy rules on network-capable tools** — Policies can deny or require-approval for tools that make network requests (e.g., `http_request`, `shell_exec` with `curl`/`wget` arguments).
 

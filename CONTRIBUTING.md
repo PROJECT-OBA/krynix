@@ -10,7 +10,7 @@ All contributors must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Be respe
 
 1. **Set up your development environment** — follow [dev_env.md](docs/20_development/dev_env.md)
 2. **Read the coding conventions** — follow [STYLE.md](.agents/STYLE.md)
-3. **Understand the architecture** — read [architecture.md](docs/10_architecture/architecture.md)
+3. **Understand the architecture** — read [platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md) (canonical) and [architecture.md](docs/10_architecture/architecture.md)
 
 ## Making Changes
 

@@ -234,9 +234,9 @@ describe("OpenClaw Integration", () => {
     const adapterEvents = events.slice(1, -1);
     for (const event of adapterEvents) {
       expect(event.metadata).toMatchObject({
-        _adapter: "openclaw",
+        "runtime.adapter": "openclaw",
       });
-      expect(event.metadata).toHaveProperty("_openclaw_hook");
+      expect(event.metadata).toHaveProperty("runtime.openclaw.hook");
     }
   });
 });

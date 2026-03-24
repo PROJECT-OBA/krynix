@@ -23,7 +23,7 @@
  * @module
  */
 
-import { SCHEMA_VERSION } from "@krynix/core";
+import { SCHEMA_VERSION, KrynixError } from "@krynix/core";
 import type { TraceAdapter, AdapterConfig, TraceEvent } from "@krynix/core";
 import type { OpenClawHookEvent } from "./openclaw-types.js";
 
@@ -47,32 +47,44 @@ export class OpenClawAdapter implements TraceAdapter {
   readonly version = "1.0.0";
 
   private config: AdapterConfig | null = null;
+  onSkippedEvent?: (reason: string, externalEvent: unknown) => void;
 
   async initialize(config: AdapterConfig): Promise<void> {
+    if (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0) {
+      throw new KrynixError(
+        "INVALID_SEED",
+        `replaySeed must be a positive safe integer, got ${String(config.replaySeed)}`,
+      );
+    }
     this.config = config;
   }
 
   onEvent(externalEvent: unknown): TraceEvent | null {
     if (externalEvent === null || externalEvent === undefined) {
+      this.onSkippedEvent?.("null or undefined event", externalEvent);
       return null;
     }
 
     if (typeof externalEvent !== "object") {
+      this.onSkippedEvent?.("event is not an object", externalEvent);
       return null;
     }
 
     // Guard: adapter must be initialized before processing events
     if (this.config === null) {
+      this.onSkippedEvent?.("adapter not initialized", externalEvent);
       return null;
     }
 
     const raw = externalEvent as Record<string, unknown>;
 
     if (typeof raw["_hook"] !== "string") {
+      this.onSkippedEvent?.("missing or non-string _hook field", externalEvent);
       return null;
     }
 
     if (!KNOWN_HOOKS.has(raw["_hook"])) {
+      this.onSkippedEvent?.(`unknown hook type: ${raw["_hook"]}`, externalEvent);
       return null;
     }
 
@@ -85,7 +97,7 @@ export class OpenClawAdapter implements TraceAdapter {
   }
 
   async shutdown(): Promise<void> {
-    // No resources to release
+    this.config = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -118,7 +130,7 @@ export class OpenClawAdapter implements TraceAdapter {
           },
           metadata: {
             ...base.metadata,
-            ...(hookEvent.event.error ? { _openclaw_error: true } : {}),
+            ...(hookEvent.event.error ? { "runtime.openclaw.error": true } : {}),
           },
         } as unknown as TraceEvent;
 
@@ -218,8 +230,8 @@ export class OpenClawAdapter implements TraceAdapter {
       event_hash: "",
       agent_id: agentId,
       metadata: {
-        _adapter: "openclaw",
-        _openclaw_hook: hookName,
+        "runtime.adapter": "openclaw",
+        "runtime.openclaw.hook": hookName,
       },
       schema_version: SCHEMA_VERSION,
     };

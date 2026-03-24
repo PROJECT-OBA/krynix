@@ -64,7 +64,7 @@ Where it runs:
 - remote dev container.
 
 Control boundaries:
-- prompt ingress,
+- prompt ingress (note: ingress ownership is deployment-specific, not universal),
 - tool pre-check,
 - tool post-check,
 - output egress (when host allows output tap).

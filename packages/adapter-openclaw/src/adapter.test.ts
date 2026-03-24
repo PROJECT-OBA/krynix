@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach } from "vitest";
 import { OpenClawAdapter } from "./adapter.js";
 import type { OpenClawHookEvent } from "./openclaw-types.js";
 import type { TraceEvent } from "@krynix/core";
+import { KrynixError } from "@krynix/core";
 
 let adapter: OpenClawAdapter;
 
@@ -57,7 +58,7 @@ describe("OpenClawAdapter.onEvent", () => {
     expect(payload["duration_ms"]).toBe(15);
   });
 
-  test("after_tool_call with error → output contains error, _openclaw_error in metadata", () => {
+  test("after_tool_call with error → output contains error, runtime.openclaw.error in metadata", () => {
     const hookEvent: OpenClawHookEvent = {
       _hook: "after_tool_call",
       event: {
@@ -74,7 +75,7 @@ describe("OpenClawAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["output"]).toBe("blocked by policy");
-    expect(result?.metadata).toMatchObject({ _openclaw_error: true });
+    expect(result?.metadata).toMatchObject({ "runtime.openclaw.error": true });
   });
 
   test("llm_input → llm_request with correct model, messages, parameters", () => {
@@ -220,7 +221,7 @@ describe("OpenClawAdapter.onEvent", () => {
     await expect(adapter.shutdown()).resolves.toBeUndefined();
   });
 
-  test("all events have _adapter and _openclaw_hook in metadata", () => {
+  test("all events have runtime.adapter and runtime.openclaw.hook in metadata", () => {
     const hooks: OpenClawHookEvent[] = [
       {
         _hook: "before_tool_call",
@@ -272,8 +273,8 @@ describe("OpenClawAdapter.onEvent", () => {
       const result = adapter.onEvent(hook);
       expect(result).not.toBeNull();
       expect(result?.metadata).toMatchObject({
-        _adapter: "openclaw",
-        _openclaw_hook: hook._hook,
+        "runtime.adapter": "openclaw",
+        "runtime.openclaw.hook": hook._hook,
       });
     }
   });
@@ -339,5 +340,145 @@ describe("OpenClawAdapter.onEvent", () => {
     const context = payload["context"] as Record<string, unknown>;
     expect(context["messageCount"]).toBe(5);
     expect(context).not.toHaveProperty("durationMs");
+  });
+
+  // ---------------------------------------------------------------------------
+  // onSkippedEvent callback tests
+  // ---------------------------------------------------------------------------
+
+  test("onSkippedEvent called with reason when null input is received", () => {
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    adapter.onEvent(null);
+    adapter.onEvent(undefined);
+
+    expect(skipped).toHaveLength(2);
+    expect(skipped[0]?.reason).toBe("null or undefined event");
+    expect(skipped[1]?.reason).toBe("null or undefined event");
+  });
+
+  test("onSkippedEvent called for non-object input", () => {
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    adapter.onEvent("a string");
+    adapter.onEvent(42);
+
+    expect(skipped).toHaveLength(2);
+    expect(skipped[0]?.reason).toBe("event is not an object");
+    expect(skipped[1]?.reason).toBe("event is not an object");
+  });
+
+  test("onSkippedEvent called for missing _hook field", () => {
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    adapter.onEvent({ someField: "value" });
+
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]?.reason).toBe("missing or non-string _hook field");
+  });
+
+  test("onSkippedEvent called for unknown hook type", () => {
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    adapter.onEvent({ _hook: "unknown_hook", event: {}, context: {} });
+
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]?.reason).toBe("unknown hook type: unknown_hook");
+  });
+
+  test("onSkippedEvent called when adapter not initialized", () => {
+    const uninitAdapter = new OpenClawAdapter();
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    uninitAdapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    uninitAdapter.onEvent({
+      _hook: "before_tool_call",
+      event: { toolName: "test", params: {} },
+      context: {},
+    });
+
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]?.reason).toBe("adapter not initialized");
+  });
+
+  test("onSkippedEvent not called for valid events", () => {
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    const hookEvent: OpenClawHookEvent = {
+      _hook: "before_tool_call",
+      event: { toolName: "file_read", params: { path: "/test" } },
+      context: { toolName: "file_read" },
+    };
+
+    const result = adapter.onEvent(hookEvent);
+    expect(result).not.toBeNull();
+    expect(skipped).toHaveLength(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // initialize() validation
+  // ---------------------------------------------------------------------------
+
+  test("initialize rejects NaN replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(a.initialize({ agentId: "a", sessionId: "s", replaySeed: NaN })).rejects.toThrow(
+      KrynixError,
+    );
+  });
+
+  test("initialize rejects zero replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(a.initialize({ agentId: "a", sessionId: "s", replaySeed: 0 })).rejects.toThrow(
+      KrynixError,
+    );
+  });
+
+  test("initialize rejects negative replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(a.initialize({ agentId: "a", sessionId: "s", replaySeed: -1 })).rejects.toThrow(
+      KrynixError,
+    );
+  });
+
+  test("initialize rejects non-integer replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(a.initialize({ agentId: "a", sessionId: "s", replaySeed: 3.14 })).rejects.toThrow(
+      KrynixError,
+    );
+  });
+
+  test("initialize rejects unsafe integer replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(
+      a.initialize({ agentId: "a", sessionId: "s", replaySeed: Number.MAX_SAFE_INTEGER + 1 }),
+    ).rejects.toThrow(KrynixError);
+  });
+
+  test("initialize accepts valid positive integer replaySeed", async () => {
+    const a = new OpenClawAdapter();
+    await expect(
+      a.initialize({ agentId: "a", sessionId: "s", replaySeed: 1 }),
+    ).resolves.toBeUndefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // shutdown() lifecycle
+  // ---------------------------------------------------------------------------
+
+  test("onEvent after shutdown returns null (adapter not initialized)", async () => {
+    await adapter.shutdown();
+
+    const result = adapter.onEvent({
+      _hook: "before_tool_call",
+      event: { toolName: "file_read", params: {} },
+      context: { toolName: "file_read" },
+    });
+
+    expect(result).toBeNull();
   });
 });

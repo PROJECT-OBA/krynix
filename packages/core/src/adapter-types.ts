@@ -84,4 +84,14 @@ export interface TraceAdapter {
    * Called once after all events are processed.
    */
   shutdown(): Promise<void>;
+
+  /**
+   * Optional callback invoked when an event is skipped by `onEvent`.
+   *
+   * Implementations should call this to report why an event was dropped,
+   * enabling diagnostics for silent data loss in adapter pipelines.
+   *
+   * If not set, skipped events are unreported.
+   */
+  onSkippedEvent?: (reason: string, externalEvent: unknown) => void;
 }

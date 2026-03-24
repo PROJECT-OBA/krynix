@@ -1,5 +1,5 @@
 {
-  "name": "@krynix/core",
+  "name": "@krynix/adapter-langchain",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,15 +13,12 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
+    "@krynix/core": "workspace:*"
   }
 }

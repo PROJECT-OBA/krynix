@@ -62,6 +62,10 @@ Unsupported claim examples:
 - Correct: "Current replay guarantee is integrity + baseline diff."
 - Incorrect: "Krynix OSS blocks runtime actions by default."
 - Correct: "Runtime blocking is integration-specific in OSS today."
+- Incorrect: "Krynix receives all user requests before the agent."
+- Correct: "Request ingress ownership depends on deployment mode."
+- Incorrect: "Krynix blocks requests based on inferred intent."
+- Correct: "Advisory intelligence informs; observable actions enforce."
 
 ## 5. Definition Of Done
 A change is complete when:
@@ -74,4 +78,4 @@ A change is complete when:
 ## 6. Current Product Contract
 - `CURRENT`: trace integrity, policy evaluation, replay integrity checks.
 - `PARTIAL`: replay baseline drift comparison and runtime integrations.
-- `PLANNED`: deterministic execution replay and full layered guard platform behavior.
+- `PLANNED`: deterministic execution replay, full layered guard platform behavior, and profile-based enforcement modes.

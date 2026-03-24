@@ -94,4 +94,51 @@ describe("golden trace verification", () => {
     expect(result.status).toBe("pass");
     expect(result.report!.totalEvents).toBeGreaterThanOrEqual(30);
   });
+
+  // ---------------------------------------------------------------------------
+  // Realistic golden trace (Phase A2 — real-world-scale validation)
+  // ---------------------------------------------------------------------------
+
+  test("realistic-coding-session.trace.jsonl passes verifyTrace with 26 events", async () => {
+    const result = await verifyTrace(resolve(GOLDEN_DIR, "realistic-coding-session.trace.jsonl"));
+
+    expect(result.status).toBe("pass");
+    expect(result.report!.totalEvents).toBe(26);
+  });
+
+  test("realistic-coding-session.trace.jsonl covers all major event types", async () => {
+    const events = await readTrace(resolve(GOLDEN_DIR, "realistic-coding-session.trace.jsonl"));
+    const eventTypes = new Set(events.map((e) => e.event_type));
+
+    // Must have all 7 commonly-used event types (error is not present in a successful session)
+    expect(eventTypes.has("lifecycle")).toBe(true);
+    expect(eventTypes.has("observation")).toBe(true);
+    expect(eventTypes.has("llm_request")).toBe(true);
+    expect(eventTypes.has("llm_response")).toBe(true);
+    expect(eventTypes.has("tool_call")).toBe(true);
+    expect(eventTypes.has("tool_result")).toBe(true);
+    expect(eventTypes.has("decision")).toBe(true);
+  });
+
+  test("realistic-coding-session.trace.jsonl has redacted events and metadata namespaces", async () => {
+    const events = await readTrace(resolve(GOLDEN_DIR, "realistic-coding-session.trace.jsonl"));
+
+    // At least one event should be redacted (the .env read)
+    const redacted = events.filter((e) => e.redacted);
+    expect(redacted.length).toBeGreaterThanOrEqual(1);
+
+    // Metadata should use platform-standard namespaces
+    const namespaces = new Set<string>();
+    for (const e of events) {
+      if (e.metadata) {
+        for (const k of Object.keys(e.metadata)) {
+          namespaces.add(k.split(".")[0]);
+        }
+      }
+    }
+    expect(namespaces.has("guard")).toBe(true);
+    expect(namespaces.has("intent")).toBe(true);
+    expect(namespaces.has("runtime")).toBe(true);
+    expect(namespaces.has("output")).toBe(true);
+  });
 });

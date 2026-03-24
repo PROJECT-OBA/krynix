@@ -20,6 +20,8 @@ Execution replay is planned and tracked.
 REPLAY_CURRENT_MODE=integrity_plus_baseline_diff
 KRYNIX_ROLE=trust_spine_not_full_platform
 KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss
+KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal
+KRYNIX_ENFORCEMENT_PRINCIPLE=block_on_actions_not_inferred_intent
 
 For authoritative architecture and guarantee boundaries, read:
 - [Platform Architecture Specification](docs/10_architecture/platform_architecture_spec.md)
@@ -97,6 +99,8 @@ packages/
 ## Non-Goals (Current)
 - Not an agent framework or orchestrator.
 - Not an LLM host/provider.
-- Not a full runtime firewall in OSS today.
+- Not a full runtime firewall in OSS today. Runtime enforcement scope varies by deployment mode (passive, sidecar, hybrid).
+- Does not universally own the request ingress point.
+- Does not treat inferred intent alone as the primary trust control.
 
 See [docs/00_overview/non_goals.md](docs/00_overview/non_goals.md) for boundaries.
