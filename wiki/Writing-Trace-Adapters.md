@@ -251,5 +251,5 @@ The OpenClaw adapter (`packages/adapter-openclaw/`) is the reference implementat
 
 - [[Trace]] -- TraceEvent format and hash chain
 - [[TraceEvent Schema]] -- Complete field reference
-- [Integration Contracts](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/integration_contracts.md) -- Adapter interface specification
-- [OpenClaw Adapter Source](https://github.com/artificialvirus/krynix/tree/main/packages/adapter-openclaw/src) -- Reference implementation
+- [Integration Contracts](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/integration_contracts.md) -- Adapter interface specification
+- [OpenClaw Adapter Source](https://github.com/PROJECT-OBA/krynix/tree/main/packages/adapter-openclaw/src) -- Reference implementation

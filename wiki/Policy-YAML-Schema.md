@@ -1,6 +1,6 @@
 # Policy YAML Schema
 
-Complete reference for Krynix policy YAML files. See the [Policy Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/policy_spec.md) for the authoritative source.
+Complete reference for Krynix policy YAML files. See the [Policy Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/policy_spec.md) for the authoritative source.
 
 ## Full Schema
 
@@ -140,6 +140,6 @@ metadata:
 
 ## See Also
 
-- [Policy Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Authoritative spec document
+- [Policy Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Authoritative spec document
 - [[Writing Policies]] -- Practical guide with examples
 - [[Policy]] -- Policy concepts overview

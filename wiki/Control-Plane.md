@@ -2,7 +2,7 @@
 
 The **Krynix Control Plane** is a planned centralized governance layer that operates around the same artifacts the OSS engine produces. It provides organizational-scale trace storage, policy management, and compliance tooling.
 
-> **Status:** Design phase. The Control Plane is not yet implemented. The full specification is at [control_plane_spec.md](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/control_plane_spec.md).
+> **Status:** Design phase. The Control Plane is not yet implemented. The full specification is at [control_plane_spec.md](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/control_plane_spec.md).
 
 ## Relationship to the OSS Engine
 
@@ -124,6 +124,6 @@ All OSS engine commands work without a Control Plane. The engine never requires 
 
 ## See Also
 
-- [Control Plane Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/control_plane_spec.md) -- Full architecture document
-- [Product Model](https://github.com/artificialvirus/krynix/blob/main/docs/00_overview/product_model.md) -- Two-layer product overview
+- [Control Plane Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/control_plane_spec.md) -- Full architecture document
+- [Product Model](https://github.com/PROJECT-OBA/krynix/blob/main/docs/00_overview/product_model.md) -- Two-layer product overview
 - [[Architecture Overview]] -- System-level design

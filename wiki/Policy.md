@@ -168,7 +168,7 @@ krynix policy push --file my.policy.yaml --changelog "Added shell_exec deny rule
 
 ## See Also
 
-- [Policy Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Full YAML schema reference
+- [Policy Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Full YAML schema reference
 - [[Trace]] -- What policies evaluate against
 - [[Trust Pipeline]] -- How policy evaluation fits into the trust loop
 - [[Writing Policies]] -- Step-by-step guide to writing policies

@@ -1,6 +1,6 @@
 # TraceEvent Schema
 
-Complete field reference for all Krynix TraceEvent types. See the [Trace Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/trace_spec.md) for the authoritative source.
+Complete field reference for all Krynix TraceEvent types. See the [Trace Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/trace_spec.md) for the authoritative source.
 
 ## Common Fields
 
@@ -222,6 +222,6 @@ Built-in patterns match: `api_key`, `password`, `secret`, `token`, `authorizatio
 
 ## See Also
 
-- [Trace Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/trace_spec.md) -- Authoritative spec document
+- [Trace Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/trace_spec.md) -- Authoritative spec document
 - [[Trace]] -- Trace concepts overview
 - [[Writing Trace Adapters]] -- How to produce TraceEvents
