@@ -4,43 +4,50 @@
 </p>
 
 <p align="center">
-  <a href="docs/10_architecture/platform_architecture_spec.md">Canonical Platform Spec</a> &middot;
+  <a href="https://github.com/PROJECT-OBA/krynix/actions/workflows/ci.yml">
+    <img src="https://github.com/PROJECT-OBA/krynix/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node ≥20">
+  <img src="https://img.shields.io/badge/pnpm-%3E%3D8-orange" alt="pnpm ≥8">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+</p>
+
+<p align="center">
+  <a href="docs/10_architecture/platform_architecture_spec.md">Platform Spec</a> &middot;
   <a href="#quickstart">Quickstart</a> &middot;
   <a href="docs/10_architecture/architecture.md">Architecture</a> &middot;
   <a href="wiki/Home.md">Wiki</a>
 </p>
 
+---
+
 ## What Krynix Is
+
 Krynix is the OSS trust spine for agentic systems. It standardizes trace evidence, evaluates policy decisions, and supports replay-based verification workflows in CI and post-run analysis.
 
-Determinism remains a core design principle.
-Current replay guarantee is integrity + baseline diff.
-Execution replay is planned and tracked.
+Determinism is a core design principle. Current replay guarantee is **integrity + baseline diff**. Execution replay is planned.
 
-REPLAY_CURRENT_MODE=integrity_plus_baseline_diff
-KRYNIX_ROLE=trust_spine_not_full_platform
-KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss
-KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal
-KRYNIX_ENFORCEMENT_PRINCIPLE=block_on_actions_not_inferred_intent
+For authoritative architecture and guarantee boundaries see the [Platform Architecture Specification](docs/10_architecture/platform_architecture_spec.md).
 
-For authoritative architecture and guarantee boundaries, read:
-- [Platform Architecture Specification](docs/10_architecture/platform_architecture_spec.md)
-- [Integration Blueprints](docs/10_architecture/integration_blueprints.md)
-- [Consumer Usage Model](docs/00_overview/consumer_usage_model.md)
+---
 
-## Current Capability Snapshot
-- `CURRENT`: Trace integrity (`@krynix/core` hash-chain + schema/lifecycle checks)
-- `CURRENT`: Policy parsing/evaluation with CI exit-code enforcement (`krynix evaluate`)
-- `CURRENT`: Replay integrity verification (`krynix replay --verify`)
-- `PARTIAL`: Behavioral drift checks via baseline comparison (`krynix replay --verify --trace ... --baseline ...`)
-- `PARTIAL`: Redaction coverage is key-pattern based and not universal
-- `PLANNED`: Deterministic execution replay of live agent logic
+## Current Capabilities
+
+| Status | Capability |
+|--------|-----------|
+| `CURRENT` | Trace integrity — `@krynix/core` hash-chain + schema and lifecycle validation |
+| `CURRENT` | Policy parsing and evaluation with CI exit-code enforcement (`krynix evaluate`) |
+| `CURRENT` | Replay integrity verification (`krynix replay --verify`) |
+| `PARTIAL` | Behavioral drift checks via baseline comparison (`--baseline`) |
+| `PARTIAL` | Redaction — key-pattern based, not universal |
+| `PLANNED` | Deterministic execution replay of live agent logic |
+
+---
 
 ## Quickstart
-> Packages are source-first in this repository.
 
 ```bash
-git clone https://github.com/artificialvirus/krynix.git
+git clone https://github.com/PROJECT-OBA/krynix.git
 cd krynix
 pnpm install
 pnpm build
@@ -49,58 +56,86 @@ pnpm build
 Run core trust checks:
 
 ```bash
-# Policy gate
-pnpm krynix evaluate --trace traces/session.trace.jsonl --policy policies/
+# Policy gate — exits non-zero on violations
+krynix evaluate --trace traces/session.trace.jsonl --policy policies/
 
 # Replay integrity check
-pnpm krynix replay --verify --trace traces/session.trace.jsonl
+krynix replay --verify --trace traces/session.trace.jsonl
 
-# Replay drift check against baseline
-pnpm krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
+# Replay drift check against a golden baseline
+krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
 ```
+
+---
 
 ## How Teams Use It
-- CI gate: block merges on policy violations and replay verification failures.
-- Post-run trust analysis: inspect traces, drift, and evidence bundles.
-- Runtime integration: choose sidecar or framework-adapter blueprint and apply profiled rollout (`dev`/`staging`/`prod`).
+
+- **CI gate** — block merges on policy violations and replay verification failures
+- **Post-run trust analysis** — inspect traces, drift, and compliance evidence bundles
+- **Runtime integration** — choose a sidecar or framework-adapter blueprint and roll out per environment (`dev` / `staging` / `prod`)
+
+---
 
 ## Repo Layout
+
 ```text
 packages/
-  core/               @krynix/core
-  policy/             @krynix/policy
-  replay/             @krynix/replay
-  adapter-openclaw/   @krynix/adapter-openclaw
-  cli/                @krynix/cli
+  core/               @krynix/core          — trace types, hash chain, redaction
+  policy/             @krynix/policy        — policy parsing, evaluation, inheritance
+  replay/             @krynix/replay        — integrity verification, baseline diff
+  adapter-openclaw/   @krynix/adapter-openclaw   — OpenClaw framework adapter
+  adapter-langchain/  @krynix/adapter-langchain  — LangChain framework adapter
+  cli/                @krynix/cli           — krynix command-line tool
 ```
 
-## Docs Map
-- Canonical: [docs/10_architecture/platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md)
-- Integration: [docs/10_architecture/integration_blueprints.md](docs/10_architecture/integration_blueprints.md)
-- Consumer model: [docs/00_overview/consumer_usage_model.md](docs/00_overview/consumer_usage_model.md)
-- Phase 1 contract draft: [docs/10_architecture/phase1_implementation_contract.md](docs/10_architecture/phase1_implementation_contract.md)
-- Phase 1 policy baseline: [docs/10_architecture/policy_baseline_phase1.md](docs/10_architecture/policy_baseline_phase1.md)
-- Architecture: [docs/10_architecture/architecture.md](docs/10_architecture/architecture.md)
-- Determinism/replay: [docs/10_architecture/determinism_spec.md](docs/10_architecture/determinism_spec.md)
-- Policy semantics: [docs/10_architecture/policy_spec.md](docs/10_architecture/policy_spec.md)
-- Component contracts: [docs/10_architecture/component_contract_matrix.md](docs/10_architecture/component_contract_matrix.md)
-- Glossary: [docs/00_overview/glossary_platform.md](docs/00_overview/glossary_platform.md)
-- Governance: [docs/20_development/documentation_governance.md](docs/20_development/documentation_governance.md)
+---
 
-## Planning And Tracking
-- Backlog (canonical): [docs/20_development/phase1_backlog.md](docs/20_development/phase1_backlog.md)
-- Milestones: [docs/20_development/phase1_milestones.md](docs/20_development/phase1_milestones.md)
-- Weekly checkpoints: [docs/20_development/weekly_checkpoints.md](docs/20_development/weekly_checkpoints.md)
-- GitHub orchestration: [docs/20_development/github_orchestration.md](docs/20_development/github_orchestration.md)
-- IDE runbook: [docs/20_development/runbook_ide_sidecar.md](docs/20_development/runbook_ide_sidecar.md)
-- Runtime runbook: [docs/20_development/runbook_runtime_adapter.md](docs/20_development/runbook_runtime_adapter.md)
-- CI runbook: [docs/20_development/runbook_ci_gate_template.md](docs/20_development/runbook_ci_gate_template.md)
+## Docs
 
-## Non-Goals (Current)
-- Not an agent framework or orchestrator.
-- Not an LLM host/provider.
-- Not a full runtime firewall in OSS today. Runtime enforcement scope varies by deployment mode (passive, sidecar, hybrid).
-- Does not universally own the request ingress point.
-- Does not treat inferred intent alone as the primary trust control.
+| Topic | Link |
+|-------|------|
+| Platform architecture (canonical) | [platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md) |
+| Architecture overview | [architecture.md](docs/10_architecture/architecture.md) |
+| Integration blueprints | [integration_blueprints.md](docs/10_architecture/integration_blueprints.md) |
+| Consumer usage model | [consumer_usage_model.md](docs/00_overview/consumer_usage_model.md) |
+| Trace specification | [trace_spec.md](docs/10_architecture/trace_spec.md) |
+| Policy specification | [policy_spec.md](docs/10_architecture/policy_spec.md) |
+| Determinism and replay | [determinism_spec.md](docs/10_architecture/determinism_spec.md) |
+| Component contracts | [component_contract_matrix.md](docs/10_architecture/component_contract_matrix.md) |
+| Glossary | [glossary_platform.md](docs/00_overview/glossary_platform.md) |
+| Non-goals | [non_goals.md](docs/00_overview/non_goals.md) |
 
-See [docs/00_overview/non_goals.md](docs/00_overview/non_goals.md) for boundaries.
+<details>
+<summary>Planning and tracking</summary>
+
+| Topic | Link |
+|-------|------|
+| Phase 1 backlog (canonical) | [phase1_backlog.md](docs/20_development/phase1_backlog.md) |
+| Phase 1 milestones | [phase1_milestones.md](docs/20_development/phase1_milestones.md) |
+| Weekly checkpoints | [weekly_checkpoints.md](docs/20_development/weekly_checkpoints.md) |
+| GitHub orchestration | [github_orchestration.md](docs/20_development/github_orchestration.md) |
+| IDE sidecar runbook | [runbook_ide_sidecar.md](docs/20_development/runbook_ide_sidecar.md) |
+| Runtime adapter runbook | [runbook_runtime_adapter.md](docs/20_development/runbook_runtime_adapter.md) |
+| CI gate runbook | [runbook_ci_gate_template.md](docs/20_development/runbook_ci_gate_template.md) |
+
+</details>
+
+---
+
+## Non-Goals
+
+- Not an agent framework or orchestrator
+- Not an LLM host or provider
+- Not a full runtime firewall in OSS — runtime enforcement scope varies by deployment mode (passive, sidecar, hybrid)
+- Does not universally own the request ingress point
+- Does not treat inferred intent alone as a trust control
+
+See [non_goals.md](docs/00_overview/non_goals.md) for full boundaries.
+
+<!-- machine-readable consistency markers (checked by docs:check:readme)
+REPLAY_CURRENT_MODE=integrity_plus_baseline_diff
+KRYNIX_ROLE=trust_spine_not_full_platform
+KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss
+KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal
+KRYNIX_ENFORCEMENT_PRINCIPLE=block_on_actions_not_inferred_intent
+-->
