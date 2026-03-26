@@ -194,5 +194,5 @@ The test step must pass (zero failures) for a PR to merge. There is no test skip
 ## See Also
 
 - [[Development Guide]] -- Full development setup
-- [Testing Strategy Document](https://github.com/artificialvirus/krynix/blob/main/docs/20_development/testing_strategy.md) -- Detailed testing approach
+- [Testing Strategy Document](https://github.com/PROJECT-OBA/krynix/blob/main/docs/20_development/testing_strategy.md) -- Detailed testing approach
 - [[Trust Pipeline]] -- How golden traces fit into CI enforcement

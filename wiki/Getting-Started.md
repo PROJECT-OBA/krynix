@@ -4,7 +4,7 @@ Canonical source: `docs/10_architecture/platform_architecture_spec.md`.
 
 ## Install
 ```bash
-git clone https://github.com/artificialvirus/krynix.git
+git clone https://github.com/PROJECT-OBA/krynix.git
 cd krynix
 pnpm install
 pnpm build

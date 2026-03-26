@@ -287,7 +287,7 @@ When scanning a directory, only files matching `*.policy.yaml` are evaluated.
 
 ## See Also
 
-- [Policy Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Full YAML schema reference
+- [Policy Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/policy_spec.md) -- Full YAML schema reference
 - [[Policy]] -- Policy concepts overview
 - [[Trust Pipeline]] -- How policies fit into CI enforcement
 - [[CLI Reference]] -- Command reference for policy commands

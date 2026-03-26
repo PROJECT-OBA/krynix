@@ -128,7 +128,7 @@ krynix stats --trace session.trace.jsonl --filter-type tool_call --after 2026-01
 
 ## See Also
 
-- [Trace Specification](https://github.com/artificialvirus/krynix/blob/main/docs/10_architecture/trace_spec.md) -- Full schema reference
+- [Trace Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/trace_spec.md) -- Full schema reference
 - [[Policy]] -- How traces are evaluated against rules
 - [[Replay]] -- How traces are replayed for verification
 - [[TraceEvent Schema]] -- Complete field reference for all event types
