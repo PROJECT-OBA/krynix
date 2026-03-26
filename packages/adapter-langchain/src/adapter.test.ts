@@ -62,6 +62,118 @@ describe("LangChainAdapter.onEvent", () => {
     expect(payload["finish_reason"]).toBe("stop");
   });
 
+  test("handleLLMEnd uses finish_reason from generationInfo when present", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "...", generationInfo: { finish_reason: "max_tokens" } }]],
+      },
+      runId: "run-finish-1",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("max_tokens");
+  });
+
+  test("handleLLMEnd maps tool_use finish_reason from generationInfo", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "", generationInfo: { finish_reason: "tool_use" } }]],
+      },
+      runId: "run-finish-2",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("tool_use");
+  });
+
+  test("handleLLMEnd defaults finish_reason to stop when generationInfo is absent", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "response" }]],
+      },
+      runId: "run-finish-3",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("stop");
+  });
+
+  test("handleLLMEnd defaults finish_reason to stop when generationInfo.finish_reason is non-string", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "response", generationInfo: { finish_reason: 42 } }]],
+      },
+      runId: "run-finish-4",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("stop");
+  });
+
+  test('handleLLMEnd normalizes OpenAI "length" to "max_tokens"', () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "...", generationInfo: { finish_reason: "length" } }]],
+      },
+      runId: "run-finish-5",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("max_tokens");
+  });
+
+  test('handleLLMEnd normalizes OpenAI "tool_calls" to "tool_use"', () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "", generationInfo: { finish_reason: "tool_calls" } }]],
+      },
+      runId: "run-finish-6",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("tool_use");
+  });
+
+  test('handleLLMEnd normalizes "function_call" to "tool_use"', () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "", generationInfo: { finish_reason: "function_call" } }]],
+      },
+      runId: "run-finish-7",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("tool_use");
+  });
+
+  test("handleLLMEnd defaults unknown finish_reason string to stop", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMEnd",
+      output: {
+        generations: [[{ text: "response", generationInfo: { finish_reason: "content_filter" } }]],
+      },
+      runId: "run-finish-8",
+    };
+
+    const result = adapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["finish_reason"]).toBe("stop");
+  });
+
   test("handleLLMEnd with multiple generations joins text", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleLLMEnd",

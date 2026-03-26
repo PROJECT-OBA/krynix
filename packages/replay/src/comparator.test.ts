@@ -205,6 +205,30 @@ describe("compareTraces", () => {
     expect(div.actual.eventType).toBe("tool_call");
   });
 
+  test("agent_id-only change detected as divergence", () => {
+    const expected: TraceEvent[] = [
+      makeEvent(0, "lifecycle", { action: "session_start" }),
+      makeEvent(1, "tool_call", { tool_name: "file_read", arguments: { path: "/tmp" } }),
+    ];
+    const actual: TraceEvent[] = [
+      makeEvent(0, "lifecycle", { action: "session_start" }, { agent_id: "other-agent" }),
+      makeEvent(1, "tool_call", { tool_name: "file_read", arguments: { path: "/tmp" } }),
+    ];
+
+    const result = compareTraces(expected, actual);
+    const div = defined<DivergencePoint>(result.firstDivergence);
+
+    expect(result.status).toBe("diverged");
+    expect(div.sequenceNum).toBe(0);
+    expect(div.diffs).toContainEqual(
+      expect.objectContaining({
+        field: "agent_id",
+        expected: "test-agent",
+        actual: "other-agent",
+      }),
+    );
+  });
+
   test("divergence at last event → eventsBeforeDivergence correct", () => {
     const expected: TraceEvent[] = [
       makeEvent(0, "lifecycle", { action: "session_start" }),
