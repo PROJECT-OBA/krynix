@@ -87,6 +87,21 @@ describe("computeHashChain", () => {
     expect(at(chain1, 0).event_hash).toBe(at(chain2, 0).event_hash);
     expect(at(chain1, 1).event_hash).toBe(at(chain2, 1).event_hash);
   });
+
+  test("throws when event payload contains NaN", () => {
+    const events = [makeSessionStart(), makeToolCall(1, { arguments: { value: NaN } })];
+    expect(() => computeHashChain(events)).toThrow("non-finite");
+  });
+
+  test("throws when event payload contains Infinity", () => {
+    const events = [makeSessionStart(), makeToolCall(1, { arguments: { value: Infinity } })];
+    expect(() => computeHashChain(events)).toThrow("non-finite");
+  });
+
+  test("throws when event payload contains -Infinity", () => {
+    const events = [makeSessionStart(), makeToolCall(1, { arguments: { value: -Infinity } })];
+    expect(() => computeHashChain(events)).toThrow("non-finite");
+  });
 });
 
 describe("validateHashChain", () => {

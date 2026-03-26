@@ -24,9 +24,25 @@
  */
 
 import { SCHEMA_VERSION, KrynixError } from "@krynix/core";
-import type { TraceAdapter, AdapterConfig, TraceEvent } from "@krynix/core";
+import type { TraceAdapter, AdapterConfig, TraceEvent, FinishReason } from "@krynix/core";
 import { KNOWN_CALLBACKS } from "./langchain-types.js";
 import type { LangChainCallbackEvent } from "./langchain-types.js";
+
+/**
+ * Maps a raw LangChain finish_reason string to the canonical FinishReason type.
+ *
+ * LangChain / provider values that differ from the Krynix schema:
+ *   "length"                     → "max_tokens"  (OpenAI token-limit stop)
+ *   "tool_calls" | "function_call" → "tool_use"  (OpenAI tool-call stop)
+ *
+ * Any unknown string or non-string value falls back to "stop".
+ */
+function normalizeFinishReason(raw: unknown): FinishReason {
+  if (raw === "stop" || raw === "max_tokens" || raw === "tool_use") return raw;
+  if (raw === "length") return "max_tokens";
+  if (raw === "tool_calls" || raw === "function_call") return "tool_use";
+  return "stop";
+}
 
 /**
  * TraceAdapter implementation for LangChain agent framework.
@@ -137,6 +153,8 @@ export class LangChainAdapter implements TraceAdapter {
       case "handleLLMEnd": {
         const texts = (event.output?.generations ?? []).flat().map((g) => g.text);
         const tokenUsage = event.output?.llmOutput?.tokenUsage;
+        const firstGen = (event.output?.generations ?? [])[0]?.[0];
+        const finishReason = normalizeFinishReason(firstGen?.generationInfo?.["finish_reason"]);
         return {
           ...base,
           event_type: "llm_response",
@@ -147,7 +165,7 @@ export class LangChainAdapter implements TraceAdapter {
               prompt_tokens: tokenUsage?.promptTokens ?? 0,
               completion_tokens: tokenUsage?.completionTokens ?? 0,
             },
-            finish_reason: "stop",
+            finish_reason: finishReason,
           },
         } as unknown as TraceEvent;
       }
