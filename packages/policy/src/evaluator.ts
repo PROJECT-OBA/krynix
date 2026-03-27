@@ -87,7 +87,7 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
         action: "deny",
         severity,
         message: `No rule matched event; default action is deny`,
-        ciFailure: false, // unmatched_severity is always info or warning
+        ciFailure: false, // unmatched_severity is restricted to "info" | "warning" by schema
       });
     }
   }

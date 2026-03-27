@@ -27,10 +27,11 @@ export interface AdapterConfig {
 
   /**
    * Replay seed for deterministic operations.
-   * Must be a safe integer (<= Number.MAX_SAFE_INTEGER, i.e., 2^53 - 1).
+   * Must be a positive safe integer (<= Number.MAX_SAFE_INTEGER, i.e., 2^53 - 1).
    * Seeds exceeding this range must be rejected at initialization.
+   * Optional — when omitted the adapter operates without a fixed seed.
    */
-  replaySeed: number;
+  replaySeed?: number;
 
   /** Additional adapter-specific configuration. */
   options?: Record<string, unknown>;
