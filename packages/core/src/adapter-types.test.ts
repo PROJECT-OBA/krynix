@@ -16,7 +16,7 @@ describe("TraceAdapter types", () => {
     expectTypeOf(adapter).toMatchTypeOf<TraceAdapter>();
   });
 
-  test("AdapterConfig requires agentId, sessionId, replaySeed", () => {
+  test("AdapterConfig requires agentId and sessionId; replaySeed is optional", () => {
     expectTypeOf<AdapterConfig>().toHaveProperty("agentId");
     expectTypeOf<AdapterConfig>().toHaveProperty("sessionId");
     expectTypeOf<AdapterConfig>().toHaveProperty("replaySeed");

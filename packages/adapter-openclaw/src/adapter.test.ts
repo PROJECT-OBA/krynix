@@ -78,6 +78,40 @@ describe("OpenClawAdapter.onEvent", () => {
     expect(result?.metadata).toMatchObject({ "runtime.openclaw.error": true });
   });
 
+  test("after_tool_call with error → exit_code 1 in payload", () => {
+    const hookEvent: OpenClawHookEvent = {
+      _hook: "after_tool_call",
+      event: {
+        toolName: "shell_exec",
+        params: { command: "ls" },
+        error: "permission denied",
+        durationMs: 5,
+      },
+      context: { toolName: "shell_exec" },
+    };
+
+    const result = adapter.onEvent(hookEvent);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["exit_code"]).toBe(1);
+  });
+
+  test("after_tool_call success → no exit_code in payload", () => {
+    const hookEvent: OpenClawHookEvent = {
+      _hook: "after_tool_call",
+      event: {
+        toolName: "file_read",
+        params: { path: "/tmp" },
+        result: "ok",
+        durationMs: 10,
+      },
+      context: { toolName: "file_read" },
+    };
+
+    const result = adapter.onEvent(hookEvent);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload).not.toHaveProperty("exit_code");
+  });
+
   test("llm_input → llm_request with correct model, messages, parameters", () => {
     const hookEvent: OpenClawHookEvent = {
       _hook: "llm_input",
@@ -423,6 +457,11 @@ describe("OpenClawAdapter.onEvent", () => {
   // ---------------------------------------------------------------------------
   // initialize() validation
   // ---------------------------------------------------------------------------
+
+  test("initialize accepts undefined replaySeed (no seed provided)", async () => {
+    const a = new OpenClawAdapter();
+    await expect(a.initialize({ agentId: "a", sessionId: "s" })).resolves.toBeUndefined();
+  });
 
   test("initialize rejects NaN replaySeed", async () => {
     const a = new OpenClawAdapter();
