@@ -69,11 +69,17 @@ export function extractEnvelope(events: readonly TraceEvent[]): DeterminismEnvel
   }
 
   if (context.dependencies !== null && typeof context.dependencies === "object") {
-    envelope.dependencies = context.dependencies as Record<string, string>;
+    const raw = context.dependencies as Record<string, unknown>;
+    envelope.dependencies = Object.fromEntries(
+      Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"),
+    );
   }
 
   if (context.environment !== null && typeof context.environment === "object") {
-    envelope.environment = context.environment as Record<string, string>;
+    const raw = context.environment as Record<string, unknown>;
+    envelope.environment = Object.fromEntries(
+      Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string"),
+    );
   }
 
   return envelope;

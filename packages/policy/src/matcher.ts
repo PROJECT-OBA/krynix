@@ -39,15 +39,15 @@ function evaluateCondition(condition: PayloadCondition, value: unknown): boolean
       return value === condition.value;
 
     case "neq":
-      return value !== undefined && value !== condition.value;
+      // A missing field (undefined) is not equal to any condition value.
+      return value !== condition.value;
 
     case "in":
       return Array.isArray(condition.value) && condition.value.includes(value);
 
     case "not_in":
-      return (
-        value !== undefined && Array.isArray(condition.value) && !condition.value.includes(value)
-      );
+      // A missing field (undefined) is not in any list.
+      return Array.isArray(condition.value) && !condition.value.includes(value);
 
     case "matches":
       if (value === undefined || typeof condition.value !== "string") return false;

@@ -68,7 +68,10 @@ export class LangChainAdapter implements TraceAdapter {
 
   async initialize(config: AdapterConfig): Promise<void> {
     this.runIdToToolName.clear();
-    if (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0) {
+    if (
+      config.replaySeed !== undefined &&
+      (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0)
+    ) {
       throw new KrynixError(
         "INVALID_SEED",
         `replaySeed must be a positive safe integer, got ${String(config.replaySeed)}`,
