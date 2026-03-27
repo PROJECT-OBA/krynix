@@ -23,7 +23,7 @@ describe("TraceAdapter types", () => {
 
     expectTypeOf<AdapterConfig["agentId"]>().toBeString();
     expectTypeOf<AdapterConfig["sessionId"]>().toBeString();
-    expectTypeOf<AdapterConfig["replaySeed"]>().toBeNumber();
+    expectTypeOf<AdapterConfig["replaySeed"]>().toEqualTypeOf<number | undefined>();
   });
 
   test("AdapterConfig options is optional", () => {

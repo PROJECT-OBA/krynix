@@ -117,7 +117,7 @@ export function createKrynixPlugin(
     await adapter.initialize({
       agentId,
       sessionId: "",
-      replaySeed: replaySeed ?? 0,
+      replaySeed,
     });
 
     // Start the Krynix session immediately so we capture all events
