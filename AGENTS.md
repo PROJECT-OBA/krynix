@@ -9,7 +9,18 @@ Determinism remains a core design principle.
 1. `docs/10_architecture/platform_architecture_spec.md`
 2. `docs/10_architecture/*` specs
 3. `README.md` and `wiki/*`
-4. `AGENTS.md`, `CLAUDE.md`, `.agents/*`
+4. `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`
+
+## Claude Code Configuration
+
+This project uses a `.claude/` directory for Claude Code configuration:
+- `.claude/settings.json` — project-level permissions and hooks
+- `.claude/rules/` — topic-specific instruction files
+- `.claude/agents/` — custom subagent definitions
+- `.claude/skills/` — custom slash commands
+- `.claude/hooks/` — hook scripts for file protection
+
+See `CLAUDE.md` at root for the main project instructions.
 
 ## Mandatory Status Labels
 Major capability claims must include one of:
