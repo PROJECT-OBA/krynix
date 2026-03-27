@@ -278,6 +278,59 @@ describe("matchRule — event type filter", () => {
   });
 });
 
+describe("matchRule — neq and not_in on missing fields", () => {
+  test("neq: missing field returns true (absent value is not equal to any condition value)", () => {
+    const event = makeToolCall(0, { tool_name: "test", arguments: {} });
+    // approval_status is absent — it is NOT equal to "auto", so neq should match
+    const rule = makeRule({
+      match: {
+        payload: [{ field: "approval_status", operator: "neq", value: "auto" }],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(true);
+  });
+
+  test("neq: present field with different value returns true", () => {
+    const event = makeToolCall(0, { tool_name: "test", arguments: {}, approval_status: "manual" });
+    const rule = makeRule({
+      match: {
+        payload: [{ field: "approval_status", operator: "neq", value: "auto" }],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(true);
+  });
+
+  test("neq: present field matching condition value returns false", () => {
+    const event = makeToolCall(0, { tool_name: "test", arguments: {}, approval_status: "auto" });
+    const rule = makeRule({
+      match: {
+        payload: [{ field: "approval_status", operator: "neq", value: "auto" }],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(false);
+  });
+
+  test("not_in: missing field returns true (absent value is not in any list)", () => {
+    const event = makeToolCall(0, { tool_name: "test", arguments: {} });
+    const rule = makeRule({
+      match: {
+        payload: [{ field: "approval_status", operator: "not_in", value: ["auto", "approved"] }],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(true);
+  });
+
+  test("not_in: present field in the list returns false", () => {
+    const event = makeToolCall(0, { tool_name: "test", arguments: {}, approval_status: "auto" });
+    const rule = makeRule({
+      match: {
+        payload: [{ field: "approval_status", operator: "not_in", value: ["auto", "approved"] }],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(false);
+  });
+});
+
 describe("matchRule — missing fields", () => {
   test("missing field with eq returns false", () => {
     const event = makeToolCall(0, { tool_name: "test", arguments: {} });

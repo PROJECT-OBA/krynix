@@ -144,6 +144,36 @@ describe("extractEnvelope", () => {
     });
   });
 
+  test("non-string dependency values are filtered out", () => {
+    const event = makeSessionStart({
+      replay_seed: 42,
+      dependencies: { lodash: "4.17.21", bad_num: 123, bad_null: null, bad_obj: { nested: true } },
+    });
+
+    const envelope = extractEnvelope([event]);
+    expect(envelope.dependencies).toEqual({ lodash: "4.17.21" });
+  });
+
+  test("non-string environment values are filtered out", () => {
+    const event = makeSessionStart({
+      replay_seed: 42,
+      environment: { node: "20.10.0", bad_num: 42, bad_bool: true },
+    });
+
+    const envelope = extractEnvelope([event]);
+    expect(envelope.environment).toEqual({ node: "20.10.0" });
+  });
+
+  test("all-non-string dependencies results in empty object", () => {
+    const event = makeSessionStart({
+      replay_seed: 42,
+      dependencies: { a: 1, b: null, c: false },
+    });
+
+    const envelope = extractEnvelope([event]);
+    expect(envelope.dependencies).toEqual({});
+  });
+
   test("replay_seed of 0 throws INVALID_SEED", () => {
     const event = makeSessionStart({ replay_seed: 0 });
     expect(() => extractEnvelope([event])).toThrow(KrynixError);

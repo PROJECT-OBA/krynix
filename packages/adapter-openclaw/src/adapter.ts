@@ -50,7 +50,10 @@ export class OpenClawAdapter implements TraceAdapter {
   onSkippedEvent?: (reason: string, externalEvent: unknown) => void;
 
   async initialize(config: AdapterConfig): Promise<void> {
-    if (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0) {
+    if (
+      config.replaySeed !== undefined &&
+      (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0)
+    ) {
       throw new KrynixError(
         "INVALID_SEED",
         `replaySeed must be a positive safe integer, got ${String(config.replaySeed)}`,
@@ -127,6 +130,7 @@ export class OpenClawAdapter implements TraceAdapter {
             tool_name: hookEvent.event.toolName,
             output: hookEvent.event.error ?? hookEvent.event.result ?? null,
             duration_ms: hookEvent.event.durationMs ?? 0,
+            ...(hookEvent.event.error !== undefined ? { exit_code: 1 } : {}),
           },
           metadata: {
             ...base.metadata,
