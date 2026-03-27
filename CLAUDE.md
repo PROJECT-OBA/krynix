@@ -1,81 +1,79 @@
-# CLAUDE.md — Krynix Documentation + Implementation Guardrails
+# CLAUDE.md — Krynix
 
-## 0. Purpose
-Contribute to Krynix with implementation-rigorous changes and truthful architecture claims.
+Krynix is a trust and observability spine for agentic AI systems. This is a pnpm monorepo with 6 packages.
 
-Determinism remains a core design principle.
+## Quick Reference
 
-## 1. Source Priority (Authoritative Order)
+| Command | Purpose |
+|---------|---------|
+| `pnpm install` | Install dependencies |
+| `pnpm typecheck` | TypeScript compilation |
+| `pnpm lint` | ESLint |
+| `pnpm format:check` | Prettier check |
+| `pnpm docs:check` | Documentation consistency |
+| `pnpm test` | Run all tests (Vitest) |
+| `pnpm build` | Build all packages |
+
+**CI gate (run before every commit):**
+```bash
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm docs:check && pnpm test && pnpm build
+```
+
+## Packages
+
+| Package | Path | Depends On |
+|---------|------|------------|
+| `@krynix/core` | `packages/core` | — |
+| `@krynix/policy` | `packages/policy` | `core` |
+| `@krynix/replay` | `packages/replay` | `core` |
+| `@krynix/adapter-openclaw` | `packages/adapter-openclaw` | `core` |
+| `@krynix/adapter-langchain` | `packages/adapter-langchain` | `core` |
+| `@krynix/cli` | `packages/cli` | `core`, `policy`, `replay` |
+
+## Rules
+
+Detailed rules are in `.claude/rules/`:
+- `.claude/rules/architecture.md` — source priority, boundaries, dependency direction
+- `.claude/rules/code-style.md` — naming, module structure, commits
+- `.claude/rules/testing.md` — test requirements, CI gate, golden traces
+- `.claude/rules/claims.md` — truth labeling (`CURRENT`/`PARTIAL`/`PLANNED`)
+
+## Hard Rules (Always Apply)
+
+1. **Schema changes** require spec + fixture + test updates.
+2. **Every feature change** includes tests.
+3. **Determinism** must be preserved: canonical JSON + hash chain + seeded behavior.
+4. **No dependency bloat** without justification.
+5. **No unsupported claims** in docs, PR text, or generated artifacts.
+6. **Run full CI locally** before committing. No exceptions.
+
+## Source Priority
+
 1. `docs/10_architecture/platform_architecture_spec.md`
 2. `docs/10_architecture/*` specs
 3. `README.md` and `wiki/*`
-4. `AGENTS.md`, `CLAUDE.md`, `.agents/*`
+4. `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`
 
 If documents conflict, update the lower-priority source.
 
-## 2. Authoritative Documents (Read Before Coding)
-Architecture and contracts:
-- `docs/10_architecture/platform_architecture_spec.md`
-- `docs/10_architecture/architecture.md`
-- `docs/10_architecture/trace_spec.md`
-- `docs/10_architecture/policy_spec.md`
-- `docs/10_architecture/determinism_spec.md`
-- `docs/10_architecture/integration_contracts.md`
-- `docs/10_architecture/integration_blueprints.md`
+## Current Product Contract
 
-Engineering rules:
-- `docs/20_development/ci_cd.md`
-- `docs/20_development/testing_strategy.md`
-- `docs/20_development/documentation_governance.md`
-- `docs/20_development/docs_rewrite_plan.md`
-
-Agent workflow:
-- `AGENTS.md`
-- `.agents/SYSTEM.md`
-- `.agents/RULES.md`
-- `.agents/WORKFLOW.md`
-- `.agents/REVIEW.md`
-
-## 3. Hard Rules
-1. Schema-affecting changes require:
-   - spec updates,
-   - fixture updates,
-   - test updates.
-2. Every feature change includes tests.
-3. Determinism constraints for trace/session generation must hold:
-   - canonical JSON + hash chain remain deterministic,
-   - seeded session/event behavior remains deterministic when seed is provided,
-   - write order must remain stable under concurrency.
-4. No dependency bloat without explicit justification.
-5. Do not claim unsupported guarantees in docs, PR text, or generated artifacts.
-
-## 4. Claim Truth Labeling
-Use explicit status labels for major capability claims:
-- `CURRENT`
-- `PARTIAL`
-- `PLANNED`
-
-No untagged aspirational language in normative sections.
-
-Unsupported claim examples:
-- Incorrect: "Replay re-executes agent logic deterministically today."
-- Correct: "Current replay guarantee is integrity + baseline diff."
-- Incorrect: "Krynix OSS blocks runtime actions by default."
-- Correct: "Runtime blocking is integration-specific in OSS today."
-- Incorrect: "Krynix receives all user requests before the agent."
-- Correct: "Request ingress ownership depends on deployment mode."
-- Incorrect: "Krynix blocks requests based on inferred intent."
-- Correct: "Advisory intelligence informs; observable actions enforce."
-
-## 5. Definition Of Done
-A change is complete when:
-- tests pass,
-- CI passes,
-- behavior claims match implementation evidence,
-- canonical docs remain consistent,
-- replay/runtime guarantees are stated with correct status labels.
-
-## 6. Current Product Contract
 - `CURRENT`: trace integrity, policy evaluation, replay integrity checks.
 - `PARTIAL`: replay baseline drift comparison and runtime integrations.
-- `PLANNED`: deterministic execution replay, full layered guard platform behavior, and profile-based enforcement modes.
+- `PLANNED`: deterministic execution replay, full layered guard platform, profile-based enforcement.
+
+## Custom Skills
+
+| Skill | Usage | Purpose |
+|-------|-------|---------|
+| `/ci` | `/ci` | Run full CI check sequence |
+| `/pre-commit` | `/pre-commit fix: description` | Validate and commit |
+| `/new-branch` | `/new-branch feat/name` | Create branch from main |
+| `/review-pr` | `/review-pr 42` | Review a PR |
+
+## Agents
+
+| Agent | Purpose |
+|-------|---------|
+| `code-reviewer` | Review code changes against project standards |
+| `ci-checker` | Run CI checks and report results |
