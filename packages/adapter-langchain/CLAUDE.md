@@ -4,7 +4,7 @@ Translates LangChain callback events into Krynix TraceEvents. Depends on `@kryni
 
 ## Callbacks Handled
 
-`on_llm_start`, `on_llm_end`, `on_tool_start`, `on_tool_end`, `on_chain_start`, `on_chain_end`
+`handleLLMStart`, `handleLLMEnd`, `handleToolStart`, `handleToolEnd`, `handleChainStart`, `handleChainEnd`
 
 ## Key Behavior
 
