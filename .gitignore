@@ -44,3 +44,7 @@ policies.local/
 
 # one-time generation artifacts
 github-issues.json
+
+# Claude Code local settings and agent memory (personal, not shared)
+.claude/settings.local.json
+.claude/agent-memory-local/
