@@ -1,3 +1,8 @@
+---
+paths:
+  - "packages/*/src/**/*.ts"
+---
+
 # Code Style
 
 ## Naming

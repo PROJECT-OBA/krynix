@@ -1,4 +1,5 @@
 {
+  "autoMemoryEnabled": true,
   "permissions": {
     "allow": [
       "Read",
@@ -35,6 +36,9 @@
       "Bash(git reset --hard)"
     ]
   },
+  "env": {
+    "NODE_ENV": "development"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -43,6 +47,17 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-format.sh"
           }
         ]
       }
