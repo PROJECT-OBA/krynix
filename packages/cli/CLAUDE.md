@@ -4,9 +4,9 @@ Command-line interface. Depends on `@krynix/core`, `@krynix/policy`, `@krynix/re
 
 ## Commands
 
-- `krynix evaluate` — evaluate a trace against a policy
-- `krynix replay` — verify trace integrity and run baseline comparison
-- `krynix validate` — validate trace file format
+- `krynix evaluate --trace <file> --policy <file-or-dir>` — evaluate a trace against policies
+- `krynix replay --trace <file>` — verify trace integrity and run baseline comparison
+- `krynix validate --policy <file-or-dir>` — validate policy file syntax
 
 ## Key Behavior
 

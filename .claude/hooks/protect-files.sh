@@ -3,7 +3,12 @@
 # Exit 0 = allow, Exit 2 = block (stderr sent as feedback to Claude).
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+
+if [[ -z "$FILE_PATH" ]]; then
+  echo "Blocked: unable to determine target file path from tool_input (expected file_path or filePath)." >&2
+  exit 2
+fi
 
 # Patterns that should never be edited by Claude
 PROTECTED_PATTERNS=(
