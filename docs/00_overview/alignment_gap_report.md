@@ -55,7 +55,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 - Severity: `major`
 - Contradiction: some docs frame Krynix as runtime trust layer itself; strategic direction requires Krynix as trust spine across input/runtime/output platform layers.
 - Evidence:
-  - Claim side: `README.md`, `CLAUDE.md`, `.agents/SYSTEM.md`, `wiki/Home.md`
+  - Claim side: `README.md`, `CLAUDE.md`, `.claude/rules/architecture.md`, `wiki/Home.md`
   - Direction target: docs plan and platform architecture objective.
 
 ### CR-4: Runtime enforcement ambiguity
