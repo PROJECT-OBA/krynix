@@ -6,7 +6,6 @@ metadata:
   description: >
     Sandbox file access: deny deletion, require approval for writes, allow reads.
     Demonstrates first-match-wins rule ordering with all three actions.
-terms: []
 spec:
   scope:
     agents: ["*"]

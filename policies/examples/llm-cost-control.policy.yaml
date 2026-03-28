@@ -6,7 +6,6 @@ metadata:
   description: >
     Enforce LLM model allowlist and flag high-cost usage.
     Works with any agent framework that emits llm_request/llm_response events.
-terms: []
 spec:
   scope:
     agents: ["*"]
@@ -33,7 +32,7 @@ spec:
 
     - id: monitor-high-token-usage
       description: >
-        Advisory: flag LLM responses with high token usage.
+        Advisory: record LLM responses that include usage information for cost monitoring.
         This does not block execution — it creates an audit trail for cost monitoring.
       match:
         event_type: llm_response
