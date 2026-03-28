@@ -1,8 +1,10 @@
 ---
 name: review-pr
-description: Review a pull request against Krynix project standards
+description: Review a pull request against Krynix project standards with code-reviewer agent
 allowed-tools: Bash, Read, Grep, Glob, Agent
 user-invocable: true
+context: fork
+agent: code-reviewer
 argument-hint: [PR number]
 ---
 
@@ -16,16 +18,14 @@ Review PR #$ARGUMENTS against Krynix project standards.
 
 ## Review Checklist
 
-- [ ] Tests added or updated (or N/A explained)
+- [ ] Tests added or updated for all behavior changes
 - [ ] Behavior claims match implementation evidence
 - [ ] Capability labels (`CURRENT`/`PARTIAL`/`PLANNED`) present where required
-- [ ] `CURRENT` claims in canonical docs include `Evidence:` lines
 - [ ] Canonical docs remain source-of-truth
-- [ ] README/wiki/agent rule docs are aligned
 - [ ] CI checks pass
 - [ ] Determinism constraints preserved
 - [ ] No dependency bloat without justification
-- [ ] Package dependency direction respected
+- [ ] Package dependency direction respected (`core <- policy <- cli`)
 
 ## Output Format
 

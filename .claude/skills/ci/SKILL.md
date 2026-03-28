@@ -1,8 +1,9 @@
 ---
 name: ci
-description: Run the full CI check sequence locally (typecheck, lint, format, docs, test, build)
+description: Run the full CI check sequence locally (typecheck, lint, format, docs, test, build). Use before committing.
 allowed-tools: Bash
 user-invocable: true
+model: haiku
 ---
 
 Run the full Krynix CI check sequence locally. This mirrors what GitHub Actions runs.

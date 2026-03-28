@@ -1,6 +1,6 @@
 # CLAUDE.md — Krynix
 
-Krynix is a trust and observability spine for agentic AI systems. This is a pnpm monorepo with 6 packages.
+Krynix is a trust and observability spine for agentic AI systems. pnpm monorepo with 6 packages.
 
 ## Quick Reference
 
@@ -14,7 +14,7 @@ Krynix is a trust and observability spine for agentic AI systems. This is a pnpm
 | `pnpm test` | Run all tests (Vitest) |
 | `pnpm build` | Build all packages |
 
-**CI gate (run before every commit):**
+**Full CI gate (run before every commit):**
 ```bash
 pnpm typecheck && pnpm lint && pnpm format:check && pnpm docs:check && pnpm test && pnpm build
 ```
@@ -30,13 +30,15 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm docs:check && pnpm test
 | `@krynix/adapter-langchain` | `packages/adapter-langchain` | `core` |
 | `@krynix/cli` | `packages/cli` | `core`, `policy`, `replay` |
 
+Each package has its own `CLAUDE.md` with package-specific constraints (loaded on-demand).
+
 ## Rules
 
-Detailed rules are in `.claude/rules/`:
-- `.claude/rules/architecture.md` — source priority, boundaries, dependency direction
-- `.claude/rules/code-style.md` — naming, module structure, commits
-- `.claude/rules/testing.md` — test requirements, CI gate, golden traces
-- `.claude/rules/claims.md` — truth labeling (`CURRENT`/`PARTIAL`/`PLANNED`)
+Topic-specific rules in `.claude/rules/`:
+- `architecture.md` — source priority, boundaries, dependency direction
+- `code-style.md` — naming, module structure, commits (auto-loads for `*.ts` files)
+- `testing.md` — test requirements, CI gate (auto-loads for `*.test.ts` files)
+- `claims.md` — truth labeling (`CURRENT`/`PARTIAL`/`PLANNED`)
 
 ## Hard Rules (Always Apply)
 
@@ -62,18 +64,23 @@ If documents conflict, update the lower-priority source.
 - `PARTIAL`: replay baseline drift comparison and runtime integrations.
 - `PLANNED`: deterministic execution replay, full layered guard platform, profile-based enforcement.
 
-## Custom Skills
+## Skills & Agents
 
 | Skill | Usage | Purpose |
 |-------|-------|---------|
 | `/ci` | `/ci` | Run full CI check sequence |
-| `/pre-commit` | `/pre-commit fix: description` | Validate and commit |
+| `/pre-commit` | `/pre-commit fix(core): msg` | Validate and commit |
 | `/new-branch` | `/new-branch feat/name` | Create branch from main |
-| `/review-pr` | `/review-pr 42` | Review a PR |
+| `/review-pr` | `/review-pr 42` | Review PR (forks to code-reviewer agent) |
 
-## Agents
+| Agent | Memory | Purpose |
+|-------|--------|---------|
+| `code-reviewer` | project | Read-only review against standards |
+| `ci-checker` | project | Run CI checks and report |
 
-| Agent | Purpose |
-|-------|---------|
-| `code-reviewer` | Review code changes against project standards |
-| `ci-checker` | Run CI checks and report results |
+## Hooks
+
+| Event | Hook | Purpose |
+|-------|------|---------|
+| `PreToolUse` | `protect-files.sh` | Block edits to `.env`, lockfiles, CI workflows |
+| `PostToolUse` | `auto-format.sh` | Auto-run Prettier on edited `.ts` files |

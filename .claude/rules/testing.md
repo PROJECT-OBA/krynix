@@ -1,3 +1,9 @@
+---
+paths:
+  - "packages/*/src/**/*.test.ts"
+  - "test/**/*"
+---
+
 # Testing Rules
 
 ## Framework

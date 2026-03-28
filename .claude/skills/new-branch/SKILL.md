@@ -1,6 +1,6 @@
 ---
 name: new-branch
-description: Create a new feature branch from main with proper naming
+description: Create a new feature branch from main with proper naming convention
 allowed-tools: Bash
 user-invocable: true
 argument-hint: [branch-type/description, e.g. "feat/add-metrics" or "fix/seed-validation"]
@@ -24,4 +24,4 @@ Valid types:
 - `chore/` — maintenance
 - `docs/` — documentation only
 
-If the user's input doesn't follow this convention, suggest a correction.
+If the user's input doesn't follow this convention, suggest a correction before proceeding.

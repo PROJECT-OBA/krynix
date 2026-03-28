@@ -1,9 +1,9 @@
 ---
 name: pre-commit
-description: Run pre-commit checks, stage changes, and create a well-formatted commit
-allowed-tools: Bash, Read, Grep
+description: Run pre-commit checks, stage changes, and create a well-formatted conventional commit
+allowed-tools: Bash, Read, Grep, Glob
 user-invocable: true
-argument-hint: [commit message]
+argument-hint: [commit message, e.g. "fix(core): handle optional replaySeed"]
 ---
 
 Run pre-commit validation and create a commit with the provided message.
@@ -19,6 +19,10 @@ Run pre-commit validation and create a commit with the provided message.
 
 3. If all checks pass, show `git status` and `git diff --staged` to confirm what will be committed.
 
-4. Create the commit using Conventional Commits format with the user's message: $ARGUMENTS
+4. Validate the commit message follows Conventional Commits: `type(scope): description`
+   - Valid types: `feat`, `fix`, `docs`, `test`, `refactor`, `ci`, `chore`
+   - Valid scopes: `core`, `policy`, `replay`, `cli`, `adapters`
 
-5. Use a HEREDOC for the commit message to preserve formatting.
+5. Create the commit using: $ARGUMENTS
+
+6. Use a HEREDOC for the commit message to preserve formatting.
