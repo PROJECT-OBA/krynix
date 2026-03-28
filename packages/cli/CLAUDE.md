@@ -21,12 +21,12 @@ Command-line interface. Depends on `@krynix/core`, `@krynix/policy`, `@krynix/re
 | `krynix policy pull` | Download policies from registry |
 | `krynix policy push --file <path>` | Publish policy to registry |
 | `krynix push --trace <file>` | Upload artifacts to Control Plane |
-| `krynix compliance export --trace <file>` | Generate compliance evidence bundle |
+| `krynix compliance export --trace <file> --output <dir>` | Generate compliance evidence bundle |
 | `krynix compliance verify --dir <path>` | Verify bundle integrity |
-| `krynix golden promote --trace <file>` | Register trace as golden in registry |
+| `krynix golden promote --trace <file> --name <name>` | Register trace as golden in registry |
 | `krynix golden list` | List golden traces from registry |
-| `krynix golden pull --id <id>` | Download a golden trace |
-| `krynix auth login` | Authenticate with email/password |
+| `krynix golden pull --id <id> --output <file>` | Download a golden trace |
+| `krynix auth login --email <email> --password <password>` | Authenticate with email/password |
 | `krynix auth logout` | Clear stored credentials |
 | `krynix auth status` | Show authentication status |
 | `krynix auth create-key` | Create an API key |
