@@ -1,6 +1,6 @@
 # @krynix/core
 
-Zero-dependency foundation package. All other packages depend on this.
+Minimal-dependency foundation package (no internal `@krynix/*` dependencies). All other packages depend on this.
 
 ## Key Exports
 

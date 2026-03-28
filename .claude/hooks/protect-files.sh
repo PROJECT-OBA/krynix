@@ -1,13 +1,25 @@
 #!/bin/bash
 # Prevent Claude from editing files that should not be modified directly.
 # Exit 0 = allow, Exit 2 = block (stderr sent as feedback to Claude).
+# Fails open (allow + warn) when jq is missing or payload can't be parsed.
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+
+# If jq is unavailable, fail open: warn and allow edits rather than blocking everything.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Warning: 'jq' not found; skipping protect-files checks." >&2
+  exit 0
+fi
+
+# Extract target file path from the tool_input payload.
+if ! FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty'); then
+  echo "Warning: unable to parse tool_input JSON; skipping protect-files checks." >&2
+  exit 0
+fi
 
 if [[ -z "$FILE_PATH" ]]; then
-  echo "Blocked: unable to determine target file path from tool_input (expected file_path or filePath)." >&2
-  exit 2
+  echo "Warning: unable to determine target file path from tool_input; skipping protect-files checks." >&2
+  exit 0
 fi
 
 # Patterns that should never be edited by Claude

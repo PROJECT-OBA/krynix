@@ -1,6 +1,6 @@
 # @krynix/policy
 
-Policy evaluation engine. Depends on `@krynix/core` only.
+Policy evaluation engine. Among internal packages, depends on `@krynix/core` only.
 
 ## Key Exports
 

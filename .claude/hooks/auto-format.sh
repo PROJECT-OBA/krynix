@@ -11,7 +11,7 @@ fi
 
 # Only format TypeScript files in packages (matches any depth under src/)
 if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == */packages/*/src/* ]]; then
-  npx prettier --write "$FILE_PATH" 2>/dev/null
+  npx --no-install prettier --write "$FILE_PATH"
 fi
 
 exit 0
