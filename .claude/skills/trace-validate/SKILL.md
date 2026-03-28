@@ -1,34 +1,33 @@
 ---
 name: trace-validate
-description: Validate a trace file's format and evaluate it against a policy in one step
+description: Verify a trace file's integrity and evaluate it against a policy in one step
 allowed-tools: Bash, Read, Glob
 user-invocable: true
-argument-hint: <trace-file> [policy-file]
+argument-hint: <trace-file> <policy-file>
 ---
 
-Validate and evaluate a trace file against a policy.
+Verify and evaluate a trace file against a policy.
 
 ## Arguments
 
-- `$ARGUMENTS` format: `<trace-file> [policy-file]`
-- If no policy file is provided, look for `policies/default.yaml` or the first `.yaml` file in `policies/`
+- `$ARGUMENTS` format: `<trace-file> <policy-file>`
 
 ## Steps
 
-1. Parse arguments to extract trace file path and optional policy file path
-2. Verify the trace file exists
-3. Run `pnpm --filter @krynix/cli exec krynix validate <trace-file>` to check format validity
-4. If a policy file is provided or found, run `pnpm --filter @krynix/cli exec krynix evaluate <trace-file> --policy <policy-file>`
-5. Report results clearly: validation status, policy evaluation outcome, and any violations found
+1. Parse arguments to extract trace file path and policy file path
+2. Verify both files exist
+3. Run `pnpm --filter @krynix/cli exec krynix replay --trace <trace-file>` to verify trace integrity
+4. Run `pnpm --filter @krynix/cli exec krynix evaluate --trace <trace-file> --policy <policy-file>`
+5. Report results clearly: integrity status, policy evaluation outcome, and any violations found
 
 ## Output Format
 
 ```
 Trace:  <path>
-Policy: <path or "none">
+Policy: <path>
 
-Validation: PASS / FAIL
-Evaluation: PASS (exit 0) / WARN (exit 2) / FAIL (exit 1) / skipped
+Integrity: PASS / FAIL
+Evaluation: PASS (exit 0) / ERROR (exit 1) / DENY (exit 2) / REQUIRE APPROVAL (exit 3)
 ```
 
 If evaluation fails, list the violated rules.

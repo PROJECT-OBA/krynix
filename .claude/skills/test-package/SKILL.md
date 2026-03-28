@@ -19,7 +19,7 @@ Run tests for a single package.
    - If `$ARGUMENTS` is provided, use it as the package name (prefix with `@krynix/` if not already prefixed)
    - If no argument, check if cwd is inside a `packages/*/` directory and use that package name
    - If neither works, list available packages and ask which to test
-2. Run `pnpm --filter @krynix/<package> test`
+2. From the repo root, run `pnpm vitest run "packages/<package>/**/*.test.ts"` to scope tests to the target package
 3. Report test results: pass count, fail count, and any failure details
 
 ## Available Packages

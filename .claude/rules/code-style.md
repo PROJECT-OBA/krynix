@@ -21,7 +21,8 @@ paths:
 
 - Each package has a single public entry point: `index.ts`.
 - Functions are pure by default. Side effects only in boundary modules (CLI, adapters, trace writer).
-- Soft limit: 300 lines per file. Hard limit: 500 lines.
+- Soft limit: 300 lines per file. Hard limit: 500 lines for non-test source files.
+- Test files (`*.test.ts`) may exceed these limits for large fixture or scenario definitions; prefer extracting helpers where practical.
 - Maximum 50 lines per function.
 
 ## Wire Format Types
@@ -36,6 +37,6 @@ Conventional Commits: `type(scope): description`
 
 ## Error Handling
 
-- Use typed error codes (`KrynixError` with `KrynixErrorCode`).
+- Use typed errors (`KrynixError` with `.code` property).
 - No swallowed errors — every `catch` handles or rethrows.
 - Core modules throw typed errors; boundary modules map them to exit codes.

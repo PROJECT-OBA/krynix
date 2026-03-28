@@ -4,8 +4,10 @@ Replay and integrity verification engine. Depends on `@krynix/core` only.
 
 ## Key Exports
 
+- `verifyTrace(trace, options)` — verify hash chain integrity for a single trace
+- `verifyGoldenDir(directory, options)` — verify all traces in a golden-directory tree
+- `regenerateTrace(input, options)` — regenerate hash chains in a trace file
 - `extractEnvelope(events)` — extract replay envelope from session_start event
-- `runReplay(events, options)` — verify hash chain integrity + baseline comparison
 - `compareTraces(baseline, candidate)` — diff two traces for drift detection
 
 ## Current Guarantees
