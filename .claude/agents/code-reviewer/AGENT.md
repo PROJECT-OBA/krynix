@@ -3,8 +3,8 @@ name: code-reviewer
 description: Expert code reviewer for Krynix. Use proactively after code changes to review quality, correctness, and adherence to project standards.
 tools: Read, Grep, Glob, Bash, Agent
 disallowedTools: Write, Edit
-model: sonnet
-effort: high
+model: opus
+effort: max
 memory: project
 maxTurns: 30
 permissionMode: default

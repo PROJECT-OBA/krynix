@@ -8,7 +8,7 @@ If documents conflict, update the lower-priority source per this precedence:
 1. `docs/10_architecture/platform_architecture_spec.md`
 2. `docs/10_architecture/*` specs
 3. `README.md` and `wiki/*`
-4. `AGENTS.md`, `CLAUDE.md`, `.agents/*`
+4. `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`
 
 ## Product Position
 

@@ -3,6 +3,7 @@ name: review-pr
 description: Review a pull request against Krynix project standards with code-reviewer agent
 allowed-tools: Bash, Read, Grep, Glob, Agent
 user-invocable: true
+model: opus
 context: fork
 agent: code-reviewer
 argument-hint: [PR number]
