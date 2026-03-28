@@ -1,0 +1,49 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: llm-cost-control
+  version: "1.0.0"
+  description: >
+    Enforce LLM model allowlist and flag high-cost usage.
+    Works with any agent framework that emits llm_request/llm_response events.
+terms: []
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request", "llm_response"]
+  rules:
+    - id: block-unapproved-models
+      description: >
+        Only approved models are allowed. Add your approved models to the value list.
+        Unapproved models require human approval for cost control.
+      match:
+        event_type: llm_request
+        payload:
+          - field: model
+            operator: not_in
+            value:
+              - "gpt-4o"
+              - "gpt-4o-mini"
+              - "claude-sonnet-4-20250514"
+              - "claude-haiku-4-5-20251001"
+              - "gemini-2.0-flash"
+      action: require-approval
+      severity: warning
+      message: "Model not on approved list — requires approval for cost control"
+
+    - id: monitor-high-token-usage
+      description: >
+        Advisory: flag LLM responses with high token usage.
+        This does not block execution — it creates an audit trail for cost monitoring.
+      match:
+        event_type: llm_response
+        payload:
+          - field: usage
+            operator: exists
+            value: true
+      action: allow
+      severity: info
+      message: "LLM response recorded for cost monitoring"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

@@ -1,0 +1,28 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: no-shell-execution
+  version: "1.0.0"
+  description: >
+    Block all shell/command execution tool calls.
+    Works with any agent framework — matches common shell tool naming patterns.
+terms: []
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: block-shell-tools
+      description: Deny tool calls matching shell, bash, cmd, exec, or system patterns
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(shell|bash|cmd|powershell|exec|system|run_command).*"
+      action: deny
+      severity: critical
+      message: "Shell execution is not permitted"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info
