@@ -6,7 +6,6 @@ metadata:
   description: >
     Block all shell/command execution tool calls.
     Works with any agent framework — matches common shell tool naming patterns.
-terms: []
 spec:
   scope:
     agents: ["*"]

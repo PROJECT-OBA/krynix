@@ -14,7 +14,7 @@ Command-line interface. Depends on `@krynix/core`, `@krynix/policy`, `@krynix/re
 | `krynix policy test --policy <file> --trace <file>` | Test a policy against a sample trace |
 | `krynix policy diff --old <file> --new <file>` | Compare two policies for security regressions |
 
-## Control Plane Commands (require server + auth — `PLANNED`)
+## Control Plane Commands (require configured endpoint + auth)
 
 | Command | Purpose |
 |---------|---------|
@@ -31,14 +31,14 @@ Command-line interface. Depends on `@krynix/core`, `@krynix/policy`, `@krynix/re
 | `krynix auth status` | Show authentication status |
 | `krynix auth create-key` | Create an API key |
 
-Note: Control Plane server is not yet built. These commands are forward-looking stubs.
+Note: These commands perform configuration/credential checks and contact the configured Control Plane endpoint. If no endpoint is configured, they fail with a clear error.
 
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | `0` | Success / all policies pass |
-| `1` | Runtime error |
+| `1` | Policy violation (error severity) or runtime error |
 | `2` | Policy violation (critical severity) |
 | `3` | Requires approval |
 
