@@ -9,8 +9,8 @@ if [[ -z "$FILE_PATH" ]]; then
   exit 0
 fi
 
-# Only format TypeScript files in packages
-if [[ "$FILE_PATH" == */packages/*/src/*.ts ]]; then
+# Only format TypeScript files in packages (matches any depth under src/)
+if [[ "$FILE_PATH" == *.ts && "$FILE_PATH" == */packages/*/src/* ]]; then
   npx prettier --write "$FILE_PATH" 2>/dev/null
 fi
 
