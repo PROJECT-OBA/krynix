@@ -1,0 +1,52 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: file-operations-gate
+  version: "1.0.0"
+  description: >
+    Sandbox file access: deny deletion, require approval for writes, allow reads.
+    Demonstrates first-match-wins rule ordering with all three actions.
+terms: []
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: block-file-deletion
+      description: File deletion is denied entirely
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: in
+            value: ["file_delete", "rm", "remove_file", "unlink", "delete_file"]
+      action: deny
+      severity: critical
+      message: "File deletion is not permitted"
+
+    - id: require-approval-file-write
+      description: File write operations require human approval before execution
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(file_)?(write|save|create|touch|append)"
+      action: require-approval
+      severity: warning
+      message: "File write operations require human approval"
+
+    - id: allow-file-read
+      description: File read operations are permitted
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(file_)?(read|get|cat|view|list|ls)"
+      action: allow
+      severity: info
+      message: "File read is permitted"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

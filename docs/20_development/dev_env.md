@@ -2,7 +2,7 @@
 
 This document covers setting up a local development environment for Krynix.
 
-See [STYLE.md](../../.agents/STYLE.md) for coding conventions. See [architecture](../10_architecture/architecture.md) for the module structure.
+See [code-style.md](../../.claude/rules/code-style.md) for coding conventions. See [architecture](../10_architecture/architecture.md) for the module structure.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ krynix/
 │   └── golden/            # Golden Trace files for replay testing
 ├── traces/                # Runtime trace output (gitignored)
 ├── docs/                  # Project documentation
-├── .agents/               # Agent contributor guidelines
+├── .claude/               # Claude Code configuration (rules, skills, agents, hooks)
 └── scripts/               # Build and utility scripts
 ```
 
@@ -57,7 +57,7 @@ core ← replay ← cli
 core ← adapters
 ```
 
-No circular dependencies. No package may import from `cli`. See [STYLE.md](../../.agents/STYLE.md) for module boundary rules.
+No circular dependencies. No package may import from `cli`. See [code-style.md](../../.claude/rules/code-style.md) for module boundary rules.
 
 ## Building
 

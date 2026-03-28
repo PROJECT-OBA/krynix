@@ -13,7 +13,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 - `docs/20_development/*`
 - `wiki/*`
 - `CLAUDE.md`
-- `.agents/*`
+- `.claude/rules/*`
 - CLI help semantics in `packages/cli/src/help.ts`
 
 ## Current-State Claims By File
@@ -32,8 +32,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 | `wiki/Getting-Started.md` | Onboarding path implies deterministic replay verification as implemented. | Medium |
 | `wiki/CLI-Reference.md` | Replay section omits `--baseline`; diverges from current CLI semantics. | High |
 | `CLAUDE.md` | Uses "guarantees" language that can overstate implemented behavior. | High |
-| `.agents/SYSTEM.md` | States deterministic re-execution and runtime trust-layer framing as current. | High |
-| `.agents/RULES.md` | Missing explicit truth-label requirement for docs claims. | High |
+| `.claude/rules/*` | Previously stated deterministic re-execution as current; now updated with truth labels. | Resolved |
 | `packages/cli/src/help.ts` | Correctly scopes `--verify` to integrity and `--baseline` to drift detection. | High |
 
 ## Contradictions And Ambiguities

@@ -55,10 +55,10 @@ Concatenates project context documents and issue content into a single prompt fi
 
 **Documents included (in order):**
 1. `CLAUDE.md`
-2. `.agents/SYSTEM.md`
-3. `.agents/RULES.md`
-4. `.agents/WORKFLOW.md`
-5. `.agents/STYLE.md`
+2. `.claude/rules/architecture.md`
+3. `.claude/rules/code-style.md`
+4. `.claude/rules/testing.md`
+5. `.claude/rules/claims.md`
 6. Issue content (context, scope, allowed files, criteria, tests)
 7. Strict enforcement instructions (allowed-files list, verification commands)
 

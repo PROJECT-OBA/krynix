@@ -7,7 +7,7 @@ Define documentation authority, review requirements, and change control for arch
 1. `docs/10_architecture/platform_architecture_spec.md` (authoritative narrative source)
 2. Domain specifications under `docs/10_architecture/*` (must not conflict with canonical spec)
 3. `README.md` and `wiki/*` (entry/onboarding surfaces; must defer to canonical spec)
-4. Agent rule docs (`AGENTS.md`, `CLAUDE.md`, `.agents/*`) (must follow canonical claims)
+4. Agent rule docs (`AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`) (must follow canonical claims)
 5. Backlog docs under `docs/20_development/phase1_backlog.md` and `phase1_milestones.md` (canonical planning source)
 6. ADRs (`docs/30_decisions/*`) for irreversible decisions and tradeoffs only
 

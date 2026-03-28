@@ -45,10 +45,10 @@ echo "Building agent prompt..."
 # 1. Project context documents
 echo "::group::Assembling project context"
 append_doc "CLAUDE.md — Project Instructions" "$REPO_ROOT/CLAUDE.md"
-append_doc ".agents/SYSTEM.md — System Context" "$REPO_ROOT/.agents/SYSTEM.md"
-append_doc ".agents/RULES.md — Non-Negotiable Rules" "$REPO_ROOT/.agents/RULES.md"
-append_doc ".agents/WORKFLOW.md — Workflow" "$REPO_ROOT/.agents/WORKFLOW.md"
-append_doc ".agents/STYLE.md — Code Style Guide" "$REPO_ROOT/.agents/STYLE.md"
+append_doc ".claude/rules/architecture.md — Architecture Rules" "$REPO_ROOT/.claude/rules/architecture.md"
+append_doc ".claude/rules/code-style.md — Code Style Guide" "$REPO_ROOT/.claude/rules/code-style.md"
+append_doc ".claude/rules/testing.md — Testing Rules" "$REPO_ROOT/.claude/rules/testing.md"
+append_doc ".claude/rules/claims.md — Truth Labeling" "$REPO_ROOT/.claude/rules/claims.md"
 echo "::endgroup::"
 
 # 2. Issue content

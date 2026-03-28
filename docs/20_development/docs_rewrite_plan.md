@@ -31,10 +31,10 @@ ADRs record irreversible decisions/tradeoffs only.
 | Other `wiki/*` with duplicated outdated claims | Deprecate | Add short notice directing to canonical spec if not maintained. |
 | `CLAUDE.md` | Edit | Add truth-labeling and source-precedence requirements. |
 | `AGENTS.md` | Keep (new) | Root agent instructions aligned with canonical architecture and truth-label policy. |
-| `.agents/SYSTEM.md` | Edit | Remove unsupported guarantee language; align role and enforcement boundaries. |
-| `.agents/RULES.md` | Edit | Add non-negotiable truth-label and source-precedence rules for docs/claims. |
-| `.agents/WORKFLOW.md` | Edit | Add doc-update workflow checks for `CURRENT/PARTIAL/PLANNED` tags. |
-| `.agents/REVIEW.md` | Edit | Add docs-claim verification checklist item. |
+| `.claude/rules/architecture.md` | Done | Architecture rules with truth labels and source precedence. |
+| `.claude/rules/code-style.md` | Done | Code style guide (replaces `.agents/STYLE.md`). |
+| `.claude/rules/testing.md` | Done | Testing rules with CI gate requirements. |
+| `.claude/rules/claims.md` | Done | Truth labeling rules (`CURRENT/PARTIAL/PLANNED`). |
 | `.github/workflows/ci.yml` | Edit | Add docs checks step. |
 | `scripts/docs/*` | Keep (new) | Implement link, terminology, claim-tag, and README-canonical consistency checks. |
 | `package.json` | Edit | Add docs check script commands. |
