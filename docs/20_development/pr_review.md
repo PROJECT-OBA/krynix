@@ -7,7 +7,7 @@ This document defines the pull request review requirements for Krynix.
 Every PR reviewer must verify:
 
 ### Code Quality
-- [ ] Code follows [STYLE.md](../../.agents/STYLE.md) conventions
+- [ ] Code follows [code-style.md](../../.claude/rules/code-style.md) conventions
 - [ ] No circular dependencies introduced
 - [ ] File size within limits (300-line soft, 500-line hard)
 - [ ] Functions are pure where possible

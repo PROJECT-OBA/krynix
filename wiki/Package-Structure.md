@@ -19,7 +19,7 @@ krynix/
 ├── traces/                  Runtime trace output (gitignored)
 ├── docs/                    Project documentation
 ├── wiki/                    GitHub wiki source
-├── .agents/                 Agent contributor guidelines
+├── .claude/                 Claude Code configuration (rules, skills, agents, hooks)
 └── .github/                 CI workflows
 ```
 

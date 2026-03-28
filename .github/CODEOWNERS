@@ -34,6 +34,6 @@ scripts/agent/                      @krynix/maintainers
 # Policy files (if/when policies are committed to repo)
 policies/                           @krynix/maintainers
 
-# Agent configuration
-.agents/                            @krynix/maintainers
+# Claude Code configuration
+.claude/                            @krynix/maintainers
 CLAUDE.md                           @krynix/maintainers
