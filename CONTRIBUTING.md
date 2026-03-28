@@ -9,7 +9,7 @@ All contributors must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Be respe
 ## Getting Started
 
 1. **Set up your development environment** — follow [dev_env.md](docs/20_development/dev_env.md)
-2. **Read the coding conventions** — follow [STYLE.md](.agents/STYLE.md)
+2. **Read the coding conventions** — follow [code-style.md](.claude/rules/code-style.md)
 3. **Understand the architecture** — read [platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md) (canonical) and [architecture.md](docs/10_architecture/architecture.md)
 
 ## Making Changes
@@ -17,13 +17,13 @@ All contributors must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Be respe
 ### Finding Work
 
 - Check the issue tracker for issues labeled `good first issue` or `help wanted`
-- Agent contributors: see [TASKS.md](.agents/TASKS.md) for small, scoped starter tasks
+- Check the project board for small, scoped starter tasks
 - For larger changes, open an issue first to discuss the approach
 
 ### Branch Workflow
 
 1. Create a branch from `main`: `git checkout -b feat/your-feature`
-2. Make changes, following [STYLE.md](.agents/STYLE.md)
+2. Make changes, following [code-style.md](.claude/rules/code-style.md)
 3. Write tests for all new functionality
 4. Ensure all tests pass: `pnpm test`
 5. Ensure lint passes: `pnpm lint`
@@ -77,15 +77,14 @@ For significant changes (new features, schema modifications, architectural chang
 4. Discuss in the PR
 5. Once accepted, proceed with implementation
 
-## Agent Contributors
+## AI Agent Contributors
 
-AI agents contributing to this repository should:
+AI agents (Claude Code, etc.) contributing to this repository should:
 
-1. Read [.agents/SYSTEM.md](.agents/SYSTEM.md) for system-level instructions
-2. Read [.agents/RULES.md](.agents/RULES.md) for contribution rules
-3. Read [.agents/WORKFLOW.md](.agents/WORKFLOW.md) for the expected workflow
-4. Start with tasks in [.agents/TASKS.md](.agents/TASKS.md)
-5. Follow [.agents/STYLE.md](.agents/STYLE.md) strictly
+1. Read [CLAUDE.md](CLAUDE.md) for project instructions and entry points
+2. Follow the rules in [.claude/rules/](.claude/rules/) (auto-loaded by Claude Code)
+3. Follow [code-style.md](.claude/rules/code-style.md) strictly
+4. Run full CI before committing: `pnpm typecheck && pnpm lint && pnpm format:check && pnpm docs:check && pnpm test && pnpm build`
 
 ## Questions
 
