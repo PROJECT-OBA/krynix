@@ -1,7 +1,38 @@
-# HTTP Ingest Quickstart
+# HTTP Ingest Quickstart `[PLANNED]`
 
-> **Status:** The HTTP Ingest Server (`krynix-ingest`) is under development.
-> This document shows the planned integration path for any programming language.
+> **Status: NOT YET IMPLEMENTED.** The HTTP Ingest Server (`krynix-ingest`) and
+> language-specific SDKs are under development. This document describes the planned
+> integration protocol for any programming language.
+
+## The Key Idea: You Won't Do This Manually
+
+The raw HTTP protocol below shows every field for completeness. In practice, **you will use an SDK** that automates all of it. Here's what SDKs handle for you:
+
+| What the SDK Handles | You Don't Touch |
+|----------------------|-----------------|
+| `event_id` generation (UUID) | Automatic |
+| `timestamp` generation (ISO 8601 UTC) | Automatic |
+| `schema_version` (constant "1.0.0") | Automatic |
+| `redacted` flag (default false) | Automatic |
+| Session lifecycle (start/end bookends) | Automatic |
+| Batching and retry on network failure | Automatic |
+| `sequence_num`, `prev_hash`, `event_hash` | Server computes these |
+
+**What you actually write** with the Python SDK:
+
+```python
+from krynix import KrynixTracer
+
+tracer = KrynixTracer(endpoint="https://ingest.krynix.dev", api_key="krynix_...")
+
+with tracer.session(agent_id="my-agent") as session:
+    session.tool_call("web_search", arguments={"query": "security advisory"})
+    session.tool_result("web_search", output={...}, duration_ms=230)
+    session.llm_request("claude-sonnet-4", messages=[...], parameters={})
+    session.llm_response("claude-sonnet-4", content="...", usage={...})
+```
+
+Compare that to the raw HTTP equivalent (8+ fields per event) shown below. The SDK is the intended integration path.
 
 ## How It Works
 
@@ -13,10 +44,10 @@ Your Agent (Python, Go, .NET, curl, etc.)
     │
 ┌───────────────────────┐
 │   Krynix Ingest       │
-│   • Validates schema  │
-│   • Assigns seq nums  │
-│   • Computes hashes   │
-│   • Writes .trace     │
+│ • Validates schema    │
+│ • Assigns seq nums    │
+│ • Computes hashes     │
+│ • Writes .trace       │
 └───────────────────────┘
     │
     ▼  .trace.jsonl (fully hashed, CLI-compatible)
@@ -25,6 +56,13 @@ Your Agent (Python, Go, .NET, curl, etc.)
 ```
 
 You send raw events. The server computes the hash chain. This means **any language that can POST JSON** gets full Krynix trust guarantees without implementing canonical JSON or SHA-256 chaining.
+
+## Authentication
+
+API keys follow the format `Authorization: Bearer krynix_<org>_<key>`.
+
+- **Hosted service (planned):** API keys are issued when you create a Krynix account at krynix.dev.
+- **Self-hosted deployments:** You configure your own authentication mechanism.
 
 ## Step 1: Start a Session
 
@@ -93,6 +131,9 @@ krynix replay --verify --trace traces/$SESSION_ID.trace.jsonl
 
 ## Python Example (with httpx)
 
+> **Note:** This shows the raw HTTP approach. When the Python SDK is available,
+> use `KrynixTracer` instead (shown at the top of this document).
+
 ```python
 import httpx
 import uuid
@@ -111,7 +152,7 @@ client = httpx.Client(
 client.post(f"/v1/sessions/{SESSION_ID}/events", json={
     "events": [{
         "event_id": str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": "tool_call",
         "parent_id": None,
         "agent_id": "my-agent",
@@ -142,18 +183,23 @@ client.post(f"/v1/sessions/{SESSION_ID}/close")
 | `error` | `code`, `message`, `recoverable` |
 | `lifecycle` | `action` (`session_start`, `session_end`, `checkpoint`) |
 
-## What About the Python SDK? `[PLANNED]`
+## LangChain Integration (Python) `[PLANNED]`
 
-The `krynix` Python package (not yet available) wraps this HTTP API with a typed, ergonomic interface:
+The Python SDK will include a LangChain callback handler that captures events automatically:
 
 ```python
-from krynix import KrynixTracer
+from krynix.integrations.langchain import KrynixCallbackHandler
 
-tracer = KrynixTracer(endpoint="https://ingest.krynix.dev", api_key="krynix_...")
+handler = KrynixCallbackHandler(
+    endpoint="https://ingest.krynix.dev",
+    api_key="krynix_...",
+    agent_id="my-langchain-agent",
+)
 
-with tracer.session(agent_id="my-agent") as session:
-    session.tool_call("web_search", arguments={"query": "..."})
-    session.tool_result("web_search", output={...}, duration_ms=230)
+# Pass to any LangChain chain — automatic event capture
+chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 ```
+
+This mirrors the TypeScript `createLangChainTracer()` pattern — zero per-event code.
 
 See [krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python) for status.

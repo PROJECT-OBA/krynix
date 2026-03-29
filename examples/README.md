@@ -8,44 +8,64 @@ How to use Krynix from "I have an agent" to "I have trust evidence."
 
 A Krynix trace is a `.trace.jsonl` file — a JSON Lines file where each line is a trace event with a SHA-256 hash chain. There are two ways to generate one:
 
-**Option A: TypeScript adapter (local, offline)**
+**Option A: TypeScript adapter (local, offline) `[CURRENT]`**
 
-If your agent is TypeScript-based, use a framework adapter to capture events directly:
+If your agent is TypeScript-based, use a framework adapter to capture events directly. The `createLangChainTracer()` plugin handles all session management and event recording automatically:
 
 ```typescript
-import { LangChainAdapter } from "@krynix/adapter-langchain";
-import { startSession, recordEvent, endSession } from "@krynix/core";
+import { createLangChainTracer } from "@krynix/adapter-langchain";
 
-const session = await startSession({
+const { handler, handle } = await createLangChainTracer({
   agentId: "my-agent",
   outputPath: "traces/my-session.trace.jsonl",
 });
 
-const adapter = new LangChainAdapter();
-await adapter.initialize({ agentId: "my-agent", sessionId: session.sessionId });
+// Pass handler to your LangChain chain — events are captured automatically
+await chain.invoke({ input: "..." }, { callbacks: [handler] });
 
-// In your callback handler:
-const event = adapter.onEvent({ _callback: "handleToolStart", tool: { name: "search" }, input: "query", runId: "r1" });
-if (event) await recordEvent(session, event);
-
-await endSession(session);
+// When done, shut down to finalize the trace
+await handle.shutdown();
 ```
 
 > **Note:** Create the output directory before running: `mkdir -p traces`
 
 See: [langchain-quickstart.ts](langchain-quickstart.ts)
 
-**Option B: HTTP ingest (any language)**
+**Option B: HTTP ingest (any language) `[PLANNED]`**
 
-If your agent is Python, Go, .NET, or any other language, send events via HTTP to the Krynix Ingest Server. The server computes hash chains for you.
+If your agent is Python, Go, .NET, or any other language, you will send events via HTTP to the Krynix Ingest Server. The server computes hash chains for you.
 
-```bash
-curl -X POST "https://ingest.krynix.dev/v1/sessions/$SESSION_ID/events" \
-  -H "Authorization: Bearer krynix_..." \
-  -d '{"events": [{"event_type": "tool_call", ...}]}'
+> **Status:** The HTTP Ingest Server and language-specific SDKs are under development.
+> You will NOT need to construct events manually — SDKs handle event construction,
+> session management, batching, and retry automatically.
+
+With the Python SDK (coming soon):
+
+```python
+from krynix import KrynixTracer
+
+tracer = KrynixTracer(endpoint="https://ingest.krynix.dev", api_key="krynix_...")
+
+with tracer.session(agent_id="my-agent") as session:
+    # One method call per event — SDK handles all fields automatically
+    session.tool_call("web_search", arguments={"query": "security advisory"})
+    session.tool_result("web_search", output={...}, duration_ms=230)
 ```
 
-See: [http-quickstart.md](http-quickstart.md)
+See: [http-quickstart.md](http-quickstart.md) for the raw HTTP protocol details.
+
+### What You Provide vs What Krynix Handles
+
+| Field | You Provide | Krynix Handles |
+|-------|:-----------:|:--------------:|
+| Event type + payload (what happened) | Yes | — |
+| Agent ID | Yes (once, at setup) | Stamped on every event |
+| Timestamps | — | Auto-generated |
+| Event IDs (UUIDs) | — | Auto-generated (deterministic with replay seed) |
+| Sequence numbers | — | Auto-assigned (contiguous) |
+| Hash chain (prev_hash, event_hash) | — | Auto-computed (SHA-256 over canonical JSON) |
+| Session lifecycle (start/end) | — | Auto-managed by adapters/SDKs |
+| Schema version | — | Auto-set ("1.0.0") |
 
 ### 2. Evaluate Policies
 
@@ -183,9 +203,19 @@ This detects when agent behavior drifts from the established pattern — even if
 
 **Key insight:** Krynix doesn't execute your agent or intercept its traffic. It observes the trace evidence and evaluates it. Your agent runs normally — Krynix adds trust verification as a separate step.
 
+## Integration Status
+
+| Integration Path | Status | Description |
+|------------------|--------|-------------|
+| TypeScript + LangChain | `[CURRENT]` | `createLangChainTracer()` — zero-friction plugin |
+| TypeScript + OpenClaw | `[CURRENT]` | `createKrynixPlugin()` — zero-friction plugin |
+| TypeScript + custom agent | `[CURRENT]` | `@krynix/core` session API (manual but flexible) |
+| HTTP Ingest Server | `[PLANNED]` | Any language via HTTP POST — server handles hashing |
+| Python SDK | `[PLANNED]` | Thin HTTP client + LangChain callback handler |
+
 ## Example Files
 
 | File | Description |
 |------|-------------|
-| [langchain-quickstart.ts](langchain-quickstart.ts) | TypeScript: LangChain adapter → session → trace → evaluate |
-| [http-quickstart.md](http-quickstart.md) | Any language: HTTP ingest API with curl and Python examples |
+| [langchain-quickstart.ts](langchain-quickstart.ts) | TypeScript: LangChain tracer plugin → trace → evaluate |
+| [http-quickstart.md](http-quickstart.md) | `[PLANNED]` Any language: HTTP ingest API protocol details |
