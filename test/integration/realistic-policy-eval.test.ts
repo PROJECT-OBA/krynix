@@ -62,11 +62,13 @@ describe("golden traces vs real example policies", () => {
       const writeViolations = result.violations.filter(
         (v) => v.ruleId === "require-approval-file-write",
       );
-      expect(writeViolations.length).toBeGreaterThanOrEqual(2);
+      expect(writeViolations.length).toBe(2);
+      const expectedWriteEventIndices = new Set([10, 12]);
 
       for (const v of writeViolations) {
         expect(v.action).toBe("require-approval");
         expect(v.severity).toBe("warning");
+        expect(expectedWriteEventIndices.has(v.eventIndex)).toBe(true);
       }
 
       // No deny violations — file_read and shell_exec don't match deletion patterns

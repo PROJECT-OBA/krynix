@@ -112,21 +112,21 @@ describe("LangChain adapter end-to-end integration", () => {
     const dir = await createTempDir();
     const tracePath = join(dir, "langchain-multiturn.trace.jsonl");
 
-    // 1. Initialize adapter + session
+    // 1. Initialize session + adapter
+    const session = await startSession({
+      agentId: "langchain-agent",
+      replaySeed: 42,
+      outputPath: tracePath,
+    });
+
     const adapter = new LangChainAdapter();
     const skipped: string[] = [];
     adapter.onSkippedEvent = (reason) => skipped.push(reason);
 
     await adapter.initialize({
       agentId: "langchain-agent",
-      sessionId: "lc-session-001",
+      sessionId: session.sessionId,
       replaySeed: 42,
-    });
-
-    const session = await startSession({
-      agentId: "langchain-agent",
-      replaySeed: 42,
-      outputPath: tracePath,
     });
 
     // 2. Simulate a realistic multi-turn agentic loop
@@ -337,17 +337,17 @@ describe("LangChain adapter end-to-end integration", () => {
     const dir = await createTempDir();
     const tracePath = join(dir, "langchain-error-recovery.trace.jsonl");
 
-    const adapter = new LangChainAdapter();
-    await adapter.initialize({
-      agentId: "error-recovery-agent",
-      sessionId: "err-session-001",
-      replaySeed: 77,
-    });
-
     const session = await startSession({
       agentId: "error-recovery-agent",
       replaySeed: 77,
       outputPath: tracePath,
+    });
+
+    const adapter = new LangChainAdapter();
+    await adapter.initialize({
+      agentId: "error-recovery-agent",
+      sessionId: session.sessionId,
+      replaySeed: 77,
     });
 
     // LLM call fails (rate limit)
@@ -416,17 +416,17 @@ describe("LangChain adapter end-to-end integration", () => {
     const dir = await createTempDir();
     const tracePath = join(dir, "langchain-chains.trace.jsonl");
 
-    const adapter = new LangChainAdapter();
-    await adapter.initialize({
-      agentId: "chain-agent",
-      sessionId: "chain-session-001",
-      replaySeed: 100,
-    });
-
     const session = await startSession({
       agentId: "chain-agent",
       replaySeed: 100,
       outputPath: tracePath,
+    });
+
+    const adapter = new LangChainAdapter();
+    await adapter.initialize({
+      agentId: "chain-agent",
+      sessionId: session.sessionId,
+      replaySeed: 100,
     });
 
     // RetrievalQA chain starts
