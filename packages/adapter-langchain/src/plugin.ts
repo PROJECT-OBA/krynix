@@ -143,6 +143,12 @@ export async function createLangChainTracer(
 
   // Write queue: serializes concurrent callback invocations so that
   // recordEvent calls are sequential and the hash chain stays valid.
+  //
+  // The .catch() in the queue intentionally does NOT rethrow: rethrowing would
+  // permanently reject the queue promise, causing ALL subsequent .then() callbacks
+  // to be skipped silently. By catching without rethrowing, the queue stays alive
+  // and subsequent writes can still be attempted. The captured firstWriteError is
+  // surfaced on shutdown(), where destroySession() marks the trace as incomplete.
   let writeQueue: Promise<void> = Promise.resolve();
   let firstWriteError: unknown = null;
 
