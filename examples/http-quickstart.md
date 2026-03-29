@@ -152,7 +152,7 @@ client = httpx.Client(
 client.post(f"/v1/sessions/{SESSION_ID}/events", json={
     "events": [{
         "event_id": str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "event_type": "tool_call",
         "parent_id": None,
         "agent_id": "my-agent",
