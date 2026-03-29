@@ -132,7 +132,12 @@ export async function createLangChainTracer(
 
   // Initialize adapter with the real sessionId for internal consistency
   const adapter = new LangChainAdapter();
-  await adapter.initialize({ agentId, sessionId: session.sessionId, replaySeed });
+  try {
+    await adapter.initialize({ agentId, sessionId: session.sessionId, replaySeed });
+  } catch (err) {
+    await destroySession(session);
+    throw err;
+  }
 
   let sessionEnded = false;
 
@@ -261,16 +266,21 @@ export async function createLangChainTracer(
     async shutdown(): Promise<void> {
       if (sessionEnded) return;
       sessionEnded = true;
+      let shutdownError: unknown = null;
       try {
         await writeQueue;
         if (firstWriteError !== null) {
           throw firstWriteError;
         }
         await endSession(session);
-      } catch {
+      } catch (err: unknown) {
+        shutdownError = err;
         await destroySession(session);
       }
       await adapter.shutdown();
+      if (shutdownError !== null) {
+        throw shutdownError;
+      }
     },
 
     getTracePath(): string {
