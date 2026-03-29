@@ -5,16 +5,34 @@
  * behavior, and error handling.
  */
 
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { join } from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { readTrace, validateHashChain, validateTraceEvent } from "@krynix/core";
 import { createLangChainTracer } from "./plugin.js";
 
+// ---------------------------------------------------------------------------
+// Controllable mock for @krynix/core — only recordEvent is overridable;
+// all other exports pass through to the real implementation.
+// ---------------------------------------------------------------------------
+let mockRecordEvent: ((...args: unknown[]) => Promise<unknown>) | null = null;
+
+vi.mock("@krynix/core", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    recordEvent: (...args: unknown[]) => {
+      if (mockRecordEvent) return mockRecordEvent(...args);
+      return (actual.recordEvent as (...a: unknown[]) => Promise<unknown>)(...args);
+    },
+  };
+});
+
 let tempDir: string;
 
 afterEach(async () => {
+  mockRecordEvent = null;
   if (tempDir) {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -333,5 +351,35 @@ describe("createLangChainTracer", () => {
     expect((observations.at(1)?.payload as { source: string }).source).toBe("langchain_chain_end");
 
     expect(validateHashChain(events).valid).toBe(true);
+  });
+
+  test("shutdown surfaces first write error", async () => {
+    const dir = await createTempDir();
+    const tracePath = join(dir, "error-write.jsonl");
+
+    const { handler, handle } = await createLangChainTracer({
+      outputPath: tracePath,
+      agentId: "error-agent",
+      replaySeed: 42,
+    });
+
+    // Make recordEvent fail on subsequent calls (after session_start was written)
+    mockRecordEvent = async () => {
+      throw new Error("simulated write failure");
+    };
+
+    // This callback's recordEvent call will fail — error is captured, not thrown
+    await handler.handleLLMStart({ name: "Model" }, ["prompt"], "r1", undefined, {
+      name: "gpt-4o",
+    });
+
+    // shutdown should surface the captured write error
+    await expect(handle.shutdown()).rejects.toThrow("simulated write failure");
+
+    // Trace should be incomplete (no session_end event)
+    const events = await readTrace(tracePath);
+    const lastEvent = events[events.length - 1];
+    const payload = lastEvent?.payload as Record<string, unknown> | undefined;
+    expect(lastEvent?.event_type === "lifecycle" && payload?.action === "session_end").toBe(false);
   });
 });

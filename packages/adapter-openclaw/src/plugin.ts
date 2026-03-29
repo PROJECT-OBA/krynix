@@ -116,8 +116,9 @@ export function createKrynixPlugin(
     // permanently reject the queue promise, causing ALL subsequent .then() callbacks
     // to be skipped silently. By catching without rethrowing, the queue stays alive
     // and subsequent writes can still be attempted. The captured firstWriteError is
-    // surfaced on shutdown() / session_end, where destroySession() marks the trace
-    // as incomplete.
+    // surfaced on shutdown() / session_end, where destroySession() closes the writer
+    // and removes the session — leaving the trace implicitly incomplete (missing
+    // lifecycle:session_end).
     let writeQueue: Promise<void> = Promise.resolve();
     let firstWriteError: unknown = null;
     // Captures any error from the session_end hook so shutdown() can surface it
