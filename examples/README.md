@@ -67,6 +67,11 @@ See: [http-quickstart.md](http-quickstart.md) for the raw HTTP protocol details.
 | Session lifecycle (start/end) | — | Auto-managed by adapters/SDKs |
 | Schema version | — | Auto-set ("1.0.0") |
 
+> **Note:** This table describes behavior when using adapter plugins or SDKs.
+> The low-level `@krynix/core` session API requires you to provide timestamps
+> and manage session lifecycle manually — see the
+> [Advanced section](langchain-quickstart.ts) for details.
+
 ### 2. Evaluate Policies
 
 Write a policy (YAML) that defines what your agent is and isn't allowed to do:

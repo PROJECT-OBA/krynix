@@ -122,17 +122,17 @@ export async function createLangChainTracer(
 
   const { outputPath, agentId, replaySeed, metadata } = options;
 
-  // Initialize adapter
-  const adapter = new LangChainAdapter();
-  await adapter.initialize({ agentId, sessionId: "", replaySeed });
-
-  // Start session (writes session_start lifecycle event)
+  // Start session first so we have a real sessionId for the adapter
   const session: Session = await startSession({
     agentId,
     replaySeed,
     outputPath,
     metadata,
   });
+
+  // Initialize adapter with the real sessionId for internal consistency
+  const adapter = new LangChainAdapter();
+  await adapter.initialize({ agentId, sessionId: session.sessionId, replaySeed });
 
   let sessionEnded = false;
 
@@ -151,16 +151,18 @@ export async function createLangChainTracer(
     if (traceEvent === null) return;
 
     const currentSession = session;
-    writeQueue = writeQueue.then(() =>
-      recordEvent(currentSession, {
-        event_type: traceEvent.event_type,
-        timestamp: traceEvent.timestamp,
-        parent_id: traceEvent.parent_id,
-        agent_id: traceEvent.agent_id,
-        payload: traceEvent.payload,
-        metadata: traceEvent.metadata,
-      }).then(() => undefined),
-    );
+    writeQueue = writeQueue
+      .then(() =>
+        recordEvent(currentSession, {
+          event_type: traceEvent.event_type,
+          timestamp: traceEvent.timestamp,
+          parent_id: traceEvent.parent_id,
+          agent_id: traceEvent.agent_id,
+          payload: traceEvent.payload,
+          metadata: traceEvent.metadata,
+        }).then(() => undefined),
+      )
+      .catch(() => undefined);
   }
 
   async function awaitQueue(): Promise<void> {
@@ -185,8 +187,10 @@ export async function createLangChainTracer(
         prompts,
         runId,
         parentRunId,
-        name: (extraParams as Record<string, unknown> | undefined)?.name,
-        metadata: (extraParams as Record<string, unknown> | undefined)?.metadata,
+        ...(typeof extraParams?.name === "string" ? { name: extraParams.name } : {}),
+        ...(extraParams?.metadata != null && typeof extraParams.metadata === "object"
+          ? { metadata: extraParams.metadata }
+          : {}),
       });
       await awaitQueue();
     },
