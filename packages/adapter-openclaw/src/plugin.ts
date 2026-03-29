@@ -112,6 +112,7 @@ export function createKrynixPlugin(
     // OpenClaw fires void hooks (e.g. after_tool_call) in parallel,
     // so without this queue concurrent writes would corrupt prev_hash ordering.
     let writeQueue: Promise<void> = Promise.resolve();
+    let firstWriteError: unknown = null;
 
     // Initialize adapter (sessionId will be overwritten by startSession)
     await adapter.initialize({
@@ -150,16 +151,20 @@ export function createKrynixPlugin(
 
       // Enqueue write to ensure sequential ordering
       const currentSession = session;
-      writeQueue = writeQueue.then(() =>
-        recordEvent(currentSession, {
-          event_type: traceEvent.event_type,
-          timestamp: traceEvent.timestamp,
-          parent_id: traceEvent.parent_id,
-          agent_id: traceEvent.agent_id,
-          payload: traceEvent.payload,
-          metadata: traceEvent.metadata,
-        }).then(() => undefined),
-      );
+      writeQueue = writeQueue
+        .then(() =>
+          recordEvent(currentSession, {
+            event_type: traceEvent.event_type,
+            timestamp: traceEvent.timestamp,
+            parent_id: traceEvent.parent_id,
+            agent_id: traceEvent.agent_id,
+            payload: traceEvent.payload,
+            metadata: traceEvent.metadata,
+          }).then(() => undefined),
+        )
+        .catch((err: unknown) => {
+          if (firstWriteError === null) firstWriteError = err;
+        });
       await writeQueue;
     }
 
@@ -174,9 +179,15 @@ export function createKrynixPlugin(
           await handleHook(hookName, event, context);
           if (session !== null && !sessionEnded) {
             sessionEnded = true;
-            // Wait for any in-flight writes before ending
-            await writeQueue;
-            await endSession(session);
+            try {
+              await writeQueue;
+              if (firstWriteError !== null) {
+                throw firstWriteError;
+              }
+              await endSession(session);
+            } catch {
+              await destroySession(session);
+            }
           }
         });
       } else {
@@ -194,16 +205,24 @@ export function createKrynixPlugin(
       async shutdown(): Promise<void> {
         if (session !== null && !sessionEnded) {
           sessionEnded = true;
+          let shutdownError: unknown = null;
           try {
-            // Drain in-flight writes before ending the session
             await writeQueue;
+            if (firstWriteError !== null) {
+              throw firstWriteError;
+            }
             await endSession(session);
-          } catch {
-            // If endSession fails (e.g., already closed), destroy instead
+          } catch (err: unknown) {
+            shutdownError = err;
             await destroySession(session);
           }
+          await adapter.shutdown();
+          if (shutdownError !== null) {
+            throw shutdownError;
+          }
+        } else {
+          await adapter.shutdown();
         }
-        await adapter.shutdown();
       },
 
       getTracePath(): string {

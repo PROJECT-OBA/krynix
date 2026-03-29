@@ -157,7 +157,7 @@ jobs:
 
 If `krynix evaluate` exits non-zero, the CI step fails and the PR is blocked.
 
-### 5. Detect Behavioral Drift
+### 5. Detect Behavioral Drift `[PARTIAL]`
 
 Compare a current trace against a known-good baseline:
 
@@ -197,7 +197,7 @@ This detects when agent behavior drifts from the established pattern — even if
           ▼         ▼          ▼
      ┌─────────┐ ┌──────┐ ┌──────────┐
      │ Policy  │ │Replay│ │  Stats   │
-     │  Eval   │ │Verify│ │          │
+     │  Eval   │ │Verify│ │[CURRENT] │
      └────┬────┘ └──┬───┘ └────┬─────┘
           │         │          │
           ▼         ▼          ▼

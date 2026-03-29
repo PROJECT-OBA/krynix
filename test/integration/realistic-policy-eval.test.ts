@@ -56,6 +56,10 @@ describe("golden traces vs real example policies", () => {
       const policy = loadPolicy("file-operations-gate.policy.yaml");
       const result = evaluate(events, policy);
 
+      // Overall: require-approval due to file_write matches
+      expect(result.verdict).toBe("require-approval");
+      expect(result.exitCode).toBe(3);
+
       // file_write events (10, 12) should require approval
       // file_read events (4, 6, 17) should be allowed
       // shell_exec events (14, 20) don't match any file operation rules → unmatched → allow
@@ -82,6 +86,10 @@ describe("golden traces vs real example policies", () => {
       const events = await readTrace(resolve(GOLDEN_DIR, "realistic-coding-session.trace.jsonl"));
       const policy = loadPolicy("llm-cost-control.policy.yaml");
       const result = evaluate(events, policy);
+
+      // Overall: require-approval due to unapproved model
+      expect(result.verdict).toBe("require-approval");
+      expect(result.exitCode).toBe(3);
 
       // The llm-cost-control policy has model allowlist — check if the model is approved
       // The trace uses claude-sonnet-4-6-20260315 which is NOT in the approved list
@@ -123,6 +131,9 @@ describe("golden traces vs real example policies", () => {
 
       // file_read should be allowed (no violations for allow actions)
       // shell_exec doesn't match file operation patterns → unmatched → allow
+      expect(result.verdict).toBe("pass");
+      expect(result.exitCode).toBe(0);
+
       const readViolations = result.violations.filter(
         (v) => v.ruleId === "allow-file-read",
       );
@@ -146,11 +157,8 @@ describe("golden traces vs real example policies", () => {
       ]) {
         const policy = loadPolicy(policyFile);
         const result = evaluate(events, policy);
-        // file_read should not trigger deny in any of these policies
-        expect(
-          result.violations.filter((v) => v.action === "deny").length,
-          `Unexpected deny violation in ${policyFile}`,
-        ).toBe(0);
+        expect(result.verdict, `Expected pass for ${policyFile}`).toBe("pass");
+        expect(result.exitCode, `Expected exit 0 for ${policyFile}`).toBe(0);
       }
     });
   });
@@ -164,6 +172,12 @@ describe("golden traces vs real example policies", () => {
 
       const shellResult = evaluate(events, shellPolicy);
       const fileResult = evaluate(events, filePolicy);
+
+      // Verify overall verdicts
+      expect(shellResult.verdict).toBe("fail");
+      expect(shellResult.exitCode).toBe(2);
+      expect(fileResult.verdict).toBe("require-approval");
+      expect(fileResult.exitCode).toBe(3);
 
       // Shell violations and file violations should reference different events
       const shellEventIndices = new Set(shellResult.violations.map((v) => v.eventIndex));
