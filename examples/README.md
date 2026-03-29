@@ -31,6 +31,8 @@ if (event) await recordEvent(session, event);
 await endSession(session);
 ```
 
+> **Note:** Create the output directory before running: `mkdir -p traces`
+
 See: [langchain-quickstart.ts](langchain-quickstart.ts)
 
 **Option B: HTTP ingest (any language)**

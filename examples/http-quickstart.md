@@ -111,7 +111,7 @@ client = httpx.Client(
 client.post(f"/v1/sessions/{SESSION_ID}/events", json={
     "events": [{
         "event_id": str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "event_type": "tool_call",
         "parent_id": None,
         "agent_id": "my-agent",
@@ -142,9 +142,9 @@ client.post(f"/v1/sessions/{SESSION_ID}/close")
 | `error` | `code`, `message`, `recoverable` |
 | `lifecycle` | `action` (`session_start`, `session_end`, `checkpoint`) |
 
-## What About the Python SDK?
+## What About the Python SDK? `[PLANNED]`
 
-The `krynix` Python package (coming soon) wraps this HTTP API with a typed, ergonomic interface:
+The `krynix` Python package (not yet available) wraps this HTTP API with a typed, ergonomic interface:
 
 ```python
 from krynix import KrynixTracer

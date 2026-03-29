@@ -22,12 +22,16 @@ import {
 import { evaluate, parsePolicy } from "@krynix/policy";
 import { verifyTrace } from "@krynix/replay";
 import { readFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 
 // ---------------------------------------------------------------------------
 // Step 1: Initialize a Krynix session and LangChain adapter
 // ---------------------------------------------------------------------------
 
 const TRACE_PATH = "traces/my-session.trace.jsonl";
+
+// Ensure the output directory exists
+await mkdir("traces", { recursive: true });
 
 const session = await startSession({
   agentId: "my-langchain-agent",

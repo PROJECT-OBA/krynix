@@ -121,7 +121,7 @@ describe("edge cases and stress tests", () => {
     expect(replayResult.report?.totalEvents).toBe(202);
   });
 
-  test("malformed adapter input: null, undefined, non-object, missing fields", () => {
+  test("malformed adapter input: null, undefined, non-object, missing fields", async () => {
     const adapter = new LangChainAdapter();
     const skipped: Array<{ reason: string; event: unknown }> = [];
     adapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
@@ -131,7 +131,7 @@ describe("edge cases and stress tests", () => {
     expect(skipped.at(-1)?.reason).toContain("not initialized");
 
     // Initialize adapter
-    adapter.initialize({ agentId: "test", sessionId: "s1" });
+    await adapter.initialize({ agentId: "test", sessionId: "s1" });
 
     // null input
     expect(adapter.onEvent(null)).toBeNull();
