@@ -22,6 +22,7 @@ import {
 import { evaluate, parsePolicy } from "../../packages/policy/src/index.js";
 import { verifyTrace } from "../../packages/replay/src/index.js";
 import { LangChainAdapter } from "../../packages/adapter-langchain/src/adapter.js";
+import { createLangChainTracer } from "../../packages/adapter-langchain/src/plugin.js";
 import type { LangChainCallbackEvent } from "../../packages/adapter-langchain/src/langchain-types.js";
 
 let tempDir: string;
@@ -481,5 +482,122 @@ describe("LangChain adapter end-to-end integration", () => {
     // Hash chain + replay valid
     expect(validateHashChain(events).valid).toBe(true);
     expect((await verifyTrace(tracePath)).status).toBe("pass");
+  });
+});
+
+describe("LangChain plugin (createLangChainTracer) end-to-end", () => {
+  test("zero-friction plugin: same workflow, no manual wiring", async () => {
+    const dir = await createTempDir();
+    const tracePath = join(dir, "langchain-plugin-e2e.trace.jsonl");
+
+    // One-liner setup — no manual adapter + session + feedCallback boilerplate
+    const { handler, handle } = await createLangChainTracer({
+      outputPath: tracePath,
+      agentId: "plugin-agent",
+      replaySeed: 42,
+    });
+
+    // Turn 1: LLM plans
+    await handler.handleLLMStart(
+      { name: "ChatAnthropic" },
+      ["Search for recent security advisories and update the config file."],
+      "run-llm-1",
+      undefined,
+      { name: "claude-sonnet-4-6-20260315" },
+    );
+    await handler.handleLLMEnd(
+      {
+        generations: [[{
+          text: "I'll search for recent security advisories first.",
+          generationInfo: { finish_reason: "tool_calls" },
+        }]],
+        llmOutput: {
+          tokenUsage: { promptTokens: 120, completionTokens: 45 },
+          model_name: "claude-sonnet-4-6-20260315",
+        },
+      },
+      "run-llm-1",
+    );
+
+    // Turn 2: web_search tool
+    await handler.handleToolStart({ name: "web_search" }, "node.js security advisories", "run-tool-1", "run-llm-1");
+    await handler.handleToolEnd(
+      JSON.stringify([{ title: "CVE-2026-1234", severity: "high" }]),
+      "run-tool-1",
+      "run-llm-1",
+    );
+
+    // Turn 3: LLM responds and decides to write
+    await handler.handleLLMStart(
+      { name: "ChatAnthropic" },
+      ["Based on findings, update config."],
+      "run-llm-2",
+      undefined,
+      { name: "claude-sonnet-4-6-20260315" },
+    );
+    await handler.handleLLMEnd(
+      {
+        generations: [[{
+          text: "Updating security config.",
+          generationInfo: { finish_reason: "stop" },
+        }]],
+        llmOutput: {
+          tokenUsage: { promptTokens: 300, completionTokens: 50 },
+          model_name: "claude-sonnet-4-6-20260315",
+        },
+      },
+      "run-llm-2",
+    );
+
+    // Turn 4: file_write tool
+    await handler.handleToolStart({ name: "file_write" }, '{"http2": false}', "run-tool-2", "run-llm-2");
+    await handler.handleToolEnd("File written successfully", "run-tool-2", "run-llm-2");
+
+    // Shutdown finalizes the trace
+    await handle.shutdown();
+
+    // ---- Verification (same rigor as manual test) ----
+
+    const events = await readTrace(tracePath);
+    // session_start + 2 llm_req + 2 llm_resp + 2 tool_call + 2 tool_result + session_end = 10
+    expect(events.length).toBe(10);
+
+    // All events schema-valid
+    for (const event of events) {
+      expect(validateTraceEvent(event).valid).toBe(true);
+    }
+
+    // Hash chain valid
+    expect(validateHashChain(events).valid).toBe(true);
+
+    // Event type distribution
+    const typeCounts = new Map<string, number>();
+    for (const e of events) {
+      typeCounts.set(e.event_type, (typeCounts.get(e.event_type) ?? 0) + 1);
+    }
+    expect(typeCounts.get("lifecycle")).toBe(2);
+    expect(typeCounts.get("llm_request")).toBe(2);
+    expect(typeCounts.get("llm_response")).toBe(2);
+    expect(typeCounts.get("tool_call")).toBe(2);
+    expect(typeCounts.get("tool_result")).toBe(2);
+
+    // Adapter metadata present on non-lifecycle events
+    const adapterEvents = events.filter((e) => e.event_type !== "lifecycle");
+    for (const e of adapterEvents) {
+      expect(e.metadata).toBeTruthy();
+      expect((e.metadata as Record<string, unknown>)["runtime.adapter"]).toBe("langchain");
+    }
+
+    // Policy evaluation — file_write triggers require-approval
+    const policy = parsePolicy(MULTI_RULE_POLICY_YAML);
+    const evalResult = evaluate(events, policy);
+    expect(evalResult.exitCode).toBe(3);
+    const writeViolation = evalResult.violations.find((v) => v.ruleId === "approve-file-write");
+    expect(writeViolation).toBeTruthy();
+
+    // Replay verify passes
+    const replayResult = await verifyTrace(tracePath);
+    expect(replayResult.status).toBe("pass");
+    expect(replayResult.report?.totalEvents).toBe(10);
   });
 });
