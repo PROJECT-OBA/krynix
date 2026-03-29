@@ -111,7 +111,19 @@ export function createKrynixPlugin(
     // recordEvent calls are sequential and the hash chain stays valid.
     // OpenClaw fires void hooks (e.g. after_tool_call) in parallel,
     // so without this queue concurrent writes would corrupt prev_hash ordering.
+    //
+    // The .catch() in the queue intentionally does NOT rethrow: rethrowing would
+    // permanently reject the queue promise, causing ALL subsequent .then() callbacks
+    // to be skipped silently. By catching without rethrowing, the queue stays alive
+    // and subsequent writes can still be attempted. The captured firstWriteError is
+    // surfaced on shutdown() / session_end, where destroySession() closes the writer
+    // and removes the session — leaving the trace implicitly incomplete (missing
+    // lifecycle:session_end).
     let writeQueue: Promise<void> = Promise.resolve();
+    let firstWriteError: unknown = null;
+    // Captures any error from the session_end hook so shutdown() can surface it
+    // even when sessionEnded is already true.
+    let sessionEndHookError: unknown = null;
 
     // Initialize adapter (sessionId will be overwritten by startSession)
     await adapter.initialize({
@@ -150,16 +162,20 @@ export function createKrynixPlugin(
 
       // Enqueue write to ensure sequential ordering
       const currentSession = session;
-      writeQueue = writeQueue.then(() =>
-        recordEvent(currentSession, {
-          event_type: traceEvent.event_type,
-          timestamp: traceEvent.timestamp,
-          parent_id: traceEvent.parent_id,
-          agent_id: traceEvent.agent_id,
-          payload: traceEvent.payload,
-          metadata: traceEvent.metadata,
-        }).then(() => undefined),
-      );
+      writeQueue = writeQueue
+        .then(() =>
+          recordEvent(currentSession, {
+            event_type: traceEvent.event_type,
+            timestamp: traceEvent.timestamp,
+            parent_id: traceEvent.parent_id,
+            agent_id: traceEvent.agent_id,
+            payload: traceEvent.payload,
+            metadata: traceEvent.metadata,
+          }).then(() => undefined),
+        )
+        .catch((err: unknown) => {
+          if (firstWriteError === null) firstWriteError = err;
+        });
       await writeQueue;
     }
 
@@ -174,9 +190,16 @@ export function createKrynixPlugin(
           await handleHook(hookName, event, context);
           if (session !== null && !sessionEnded) {
             sessionEnded = true;
-            // Wait for any in-flight writes before ending
-            await writeQueue;
-            await endSession(session);
+            try {
+              await writeQueue;
+              if (firstWriteError !== null) {
+                throw firstWriteError;
+              }
+              await endSession(session);
+            } catch (err: unknown) {
+              sessionEndHookError = err;
+              await destroySession(session);
+            }
           }
         });
       } else {
@@ -194,16 +217,29 @@ export function createKrynixPlugin(
       async shutdown(): Promise<void> {
         if (session !== null && !sessionEnded) {
           sessionEnded = true;
+          let shutdownError: unknown = null;
           try {
-            // Drain in-flight writes before ending the session
             await writeQueue;
+            if (firstWriteError !== null) {
+              throw firstWriteError;
+            }
             await endSession(session);
-          } catch {
-            // If endSession fails (e.g., already closed), destroy instead
+          } catch (err: unknown) {
+            shutdownError = err;
             await destroySession(session);
           }
+          await adapter.shutdown();
+          if (shutdownError !== null) {
+            throw shutdownError;
+          }
+        } else {
+          await adapter.shutdown();
+          // If session_end hook already ran and encountered an error,
+          // surface it here so the caller knows the trace is incomplete.
+          if (sessionEndHookError !== null) {
+            throw sessionEndHookError;
+          }
         }
-        await adapter.shutdown();
       },
 
       getTracePath(): string {
