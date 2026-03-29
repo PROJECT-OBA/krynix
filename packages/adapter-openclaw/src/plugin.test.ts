@@ -10,15 +10,41 @@ import {
 } from "./plugin.js";
 import { readTrace, validateHashChain } from "@krynix/core";
 
+// ---------------------------------------------------------------------------
+// Controllable mock for @krynix/core — only recordEvent and endSession are
+// overridable; all other exports pass through to the real implementation.
+// ---------------------------------------------------------------------------
+let mockRecordEvent: ((...args: unknown[]) => Promise<unknown>) | null = null;
+let mockEndSession: ((...args: unknown[]) => Promise<unknown>) | null = null;
+
+vi.mock("@krynix/core", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    recordEvent: (...args: unknown[]) => {
+      if (mockRecordEvent) return mockRecordEvent(...args);
+      return (actual.recordEvent as (...a: unknown[]) => Promise<unknown>)(...args);
+    },
+    endSession: (...args: unknown[]) => {
+      if (mockEndSession) return mockEndSession(...args);
+      return (actual.endSession as (...a: unknown[]) => Promise<unknown>)(...args);
+    },
+  };
+});
+
 let tempDir: string;
 let handle: KrynixPluginHandle | null = null;
 
 afterEach(async () => {
+  // Reset mock overrides before cleanup so shutdown() uses real implementations
+  mockRecordEvent = null;
+  mockEndSession = null;
+
   if (handle) {
     try {
       await handle.shutdown();
     } catch {
-      // May already be shut down
+      // May already be shut down or in error state
     }
     handle = null;
   }
@@ -365,6 +391,113 @@ describe("createKrynixPlugin", () => {
     await handle.shutdown();
     // Second shutdown should not throw
     await expect(handle.shutdown()).resolves.toBeUndefined();
+    handle = null;
+  });
+
+  test("shutdown surfaces write queue error via firstWriteError", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "error-write.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    const sessionStart = hooks.get("session_start");
+    const beforeToolCall = hooks.get("before_tool_call");
+
+    await sessionStart?.({ sessionId: "oc-err" }, { agentId: "test-agent", sessionId: "oc-err" });
+
+    // After session_start succeeds, make recordEvent fail on subsequent calls
+    mockRecordEvent = async () => {
+      throw new Error("simulated write failure");
+    };
+
+    // This hook's recordEvent call will fail
+    await beforeToolCall?.(
+      { toolName: "file_read", params: { path: "/test" } },
+      { agentId: "test-agent", sessionKey: "sk1", toolName: "file_read" },
+    );
+
+    // shutdown should surface the captured write error
+    if (!handle) throw new Error("handle should exist");
+    await expect(handle.shutdown()).rejects.toThrow("simulated write failure");
+    handle = null;
+
+    // Trace should be incomplete (no session_end event)
+    const events = await readTrace(outputPath);
+    const lastEvent = events[events.length - 1];
+    const payload = lastEvent?.payload as Record<string, unknown> | undefined;
+    expect(lastEvent?.event_type === "lifecycle" && payload?.action === "session_end").toBe(false);
+  });
+
+  test("session_end hook error is surfaced by subsequent shutdown", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "error-endsession.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    const sessionStart = hooks.get("session_start");
+    const sessionEnd = hooks.get("session_end");
+
+    await sessionStart?.({ sessionId: "oc-err2" }, { agentId: "test-agent", sessionId: "oc-err2" });
+
+    // Make endSession throw
+    mockEndSession = async () => {
+      throw new Error("simulated endSession failure");
+    };
+
+    // session_end hook will try endSession → fails → destroySession → error stored
+    await sessionEnd?.(
+      { sessionId: "oc-err2", messageCount: 0, durationMs: 100 },
+      { agentId: "test-agent", sessionId: "oc-err2" },
+    );
+
+    // shutdown should surface the stored sessionEndHookError
+    if (!handle) throw new Error("handle should exist");
+    await expect(handle.shutdown()).rejects.toThrow("simulated endSession failure");
+    handle = null;
+  });
+
+  test("write error followed by session_end produces incomplete trace", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "error-combined.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    const sessionStart = hooks.get("session_start");
+    const beforeToolCall = hooks.get("before_tool_call");
+    const sessionEnd = hooks.get("session_end");
+
+    await sessionStart?.({ sessionId: "oc-err3" }, { agentId: "test-agent", sessionId: "oc-err3" });
+
+    // Make recordEvent fail on subsequent calls
+    mockRecordEvent = async () => {
+      throw new Error("simulated disk full");
+    };
+
+    // This write will fail
+    await beforeToolCall?.(
+      { toolName: "file_read", params: { path: "/test" } },
+      { agentId: "test-agent", sessionKey: "sk1", toolName: "file_read" },
+    );
+
+    // Restore recordEvent so session_end hook's handleHook recordEvent doesn't
+    // fail for the wrong reason (session_end hook also records a lifecycle event)
+    mockRecordEvent = null;
+
+    // session_end should detect firstWriteError and call destroySession
+    await sessionEnd?.(
+      { sessionId: "oc-err3", messageCount: 0, durationMs: 100 },
+      { agentId: "test-agent", sessionId: "oc-err3" },
+    );
+
+    // shutdown should surface the error via sessionEndHookError
+    if (!handle) throw new Error("handle should exist");
+    await expect(handle.shutdown()).rejects.toThrow("simulated disk full");
     handle = null;
   });
 });

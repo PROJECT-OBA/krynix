@@ -1,6 +1,7 @@
 // @krynix/adapter-langchain — public API
 
 export { LangChainAdapter } from "./adapter.js";
+export { createLangChainTracer } from "./plugin.js";
 export { KNOWN_CALLBACKS } from "./langchain-types.js";
 export type {
   LangChainCallbackEvent,
@@ -14,3 +15,9 @@ export type {
   LangChainLlmErrorEvent,
   LangChainToolErrorEvent,
 } from "./langchain-types.js";
+export type {
+  LangChainTracerOptions,
+  LangChainTracerHandle,
+  LangChainTracerResult,
+  LangChainCallbackHandlerMinimal,
+} from "./plugin.js";
