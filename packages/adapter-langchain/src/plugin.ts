@@ -139,6 +139,7 @@ export async function createLangChainTracer(
   // Write queue: serializes concurrent callback invocations so that
   // recordEvent calls are sequential and the hash chain stays valid.
   let writeQueue: Promise<void> = Promise.resolve();
+  let firstWriteError: unknown = null;
 
   // -------------------------------------------------------------------------
   // Internal: feed a callback event through the adapter and record it
@@ -162,7 +163,9 @@ export async function createLangChainTracer(
           metadata: traceEvent.metadata,
         }).then(() => undefined),
       )
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        if (firstWriteError === null) firstWriteError = err;
+      });
   }
 
   async function awaitQueue(): Promise<void> {
@@ -260,6 +263,9 @@ export async function createLangChainTracer(
       sessionEnded = true;
       try {
         await writeQueue;
+        if (firstWriteError !== null) {
+          throw firstWriteError;
+        }
         await endSession(session);
       } catch {
         await destroySession(session);
