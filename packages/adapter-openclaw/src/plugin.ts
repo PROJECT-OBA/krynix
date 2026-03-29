@@ -111,8 +111,18 @@ export function createKrynixPlugin(
     // recordEvent calls are sequential and the hash chain stays valid.
     // OpenClaw fires void hooks (e.g. after_tool_call) in parallel,
     // so without this queue concurrent writes would corrupt prev_hash ordering.
+    //
+    // The .catch() in the queue intentionally does NOT rethrow: rethrowing would
+    // permanently reject the queue promise, causing ALL subsequent .then() callbacks
+    // to be skipped silently. By catching without rethrowing, the queue stays alive
+    // and subsequent writes can still be attempted. The captured firstWriteError is
+    // surfaced on shutdown() / session_end, where destroySession() marks the trace
+    // as incomplete.
     let writeQueue: Promise<void> = Promise.resolve();
     let firstWriteError: unknown = null;
+    // Captures any error from the session_end hook so shutdown() can surface it
+    // even when sessionEnded is already true.
+    let sessionEndHookError: unknown = null;
 
     // Initialize adapter (sessionId will be overwritten by startSession)
     await adapter.initialize({
@@ -185,7 +195,8 @@ export function createKrynixPlugin(
                 throw firstWriteError;
               }
               await endSession(session);
-            } catch {
+            } catch (err: unknown) {
+              sessionEndHookError = err;
               await destroySession(session);
             }
           }
@@ -222,6 +233,11 @@ export function createKrynixPlugin(
           }
         } else {
           await adapter.shutdown();
+          // If session_end hook already ran and encountered an error,
+          // surface it here so the caller knows the trace is incomplete.
+          if (sessionEndHookError !== null) {
+            throw sessionEndHookError;
+          }
         }
       },
 
