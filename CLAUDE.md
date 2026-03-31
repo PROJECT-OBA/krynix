@@ -39,6 +39,7 @@ Topic-specific rules in `.claude/rules/`:
 - `code-style.md` — naming, module structure, commits (auto-loads for `*.ts` files)
 - `testing.md` — test requirements, CI gate (auto-loads for `*.test.ts` files)
 - `claims.md` — truth labeling (`CURRENT`/`PARTIAL`/`PLANNED`)
+- `security.md` — crypto integrity, input validation, secret handling
 
 ## Hard Rules (Always Apply)
 
@@ -64,7 +65,7 @@ If documents conflict, update the lower-priority source.
 - `PARTIAL`: replay baseline drift comparison and runtime integrations.
 - `PLANNED`: deterministic execution replay, full layered guard platform, profile-based enforcement.
 
-## Skills & Agents
+## Skills
 
 | Skill | Usage | Purpose |
 |-------|-------|---------|
@@ -72,11 +73,24 @@ If documents conflict, update the lower-priority source.
 | `/pre-commit` | `/pre-commit fix(core): msg` | Validate and commit |
 | `/new-branch` | `/new-branch feat/name` | Create branch from main |
 | `/review-pr` | `/review-pr 42` | Review PR (forks to code-reviewer agent) |
+| `/security-review` | `/security-review` | Security-focused review (forks to security-reviewer) |
+| `/pick-task` | `/pick-task [label]` | Pick next task from GitHub project board |
+| `/done-task` | `/done-task 42` | Mark issue #42 as complete |
+| `/test-package` | `/test-package core` | Run tests for a single package |
+| `/trace-validate` | `/trace-validate file.jsonl` | Verify trace integrity + policy evaluation |
+| `/docs-check` | `/docs-check` | Check documentation consistency |
 
-| Agent | Memory | Purpose |
-|-------|--------|---------|
-| `code-reviewer` | project | Read-only review against standards |
-| `ci-checker` | project | Run CI checks and report |
+## Agents
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| `code-reviewer` | opus | Read-only review against project standards |
+| `ci-checker` | haiku | Run CI checks and report pass/fail |
+| `security-reviewer` | sonnet | Security: crypto integrity, input validation, secrets |
+| `architecture-guardian` | sonnet | Enforce dependency direction and package contracts |
+| `test-writer` | sonnet | Write deterministic Vitest tests following project patterns |
+| `policy-author` | sonnet | Author YAML policy files with schema validation |
+| `docs-writer` | sonnet | Write docs with mandatory truth labeling |
 
 ## Hooks
 
@@ -84,3 +98,13 @@ If documents conflict, update the lower-priority source.
 |-------|------|---------|
 | `PreToolUse` | `protect-files.sh` | Block edits to `.env`, lockfiles, CI workflows |
 | `PostToolUse` | `auto-format.sh` | Auto-run Prettier on edited `.ts` files |
+| `PostToolUse` | `check-dependencies.sh` | Warn about new dependencies in package.json |
+| `PostToolUse` | `validate-commit-msg.sh` | Validate Conventional Commits format |
+
+## Cross-Repo Development
+
+All PROJECT-OBA repos share the same `.claude/` structure. When working across repos:
+- Same skills (`/pick-task`, `/pre-commit`, `/ci`, etc.) work in every repo
+- Same rules (claims, security) are enforced everywhere
+- Same hooks (protect-files, auto-format, commit validation) run everywhere
+- Use the [Krynix Roadmap](https://github.com/orgs/PROJECT-OBA/projects/1) to coordinate work
