@@ -76,6 +76,20 @@ describe("TraceEvent type definitions", () => {
     expectTypeOf<LlmUsage["prompt_tokens"]>().toBeNumber();
   });
 
+  test("LlmUsage has optional total_tokens and estimated_cost", () => {
+    expectTypeOf<LlmUsage["total_tokens"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<LlmUsage["estimated_cost"]>().toEqualTypeOf<number | undefined>();
+  });
+
+  test("ToolCallPayload has optional approved_by and approval_reason", () => {
+    expectTypeOf<ToolCallPayload["approved_by"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ToolCallPayload["approval_reason"]>().toEqualTypeOf<string | undefined>();
+  });
+
+  test("LlmResponsePayload has optional is_streaming", () => {
+    expectTypeOf<LlmResponsePayload["is_streaming"]>().toEqualTypeOf<boolean | undefined>();
+  });
+
   test("PayloadMap maps each EventType to its payload", () => {
     expectTypeOf<PayloadMap["tool_call"]>().toEqualTypeOf<ToolCallPayload>();
     expectTypeOf<PayloadMap["tool_result"]>().toEqualTypeOf<ToolResultPayload>();

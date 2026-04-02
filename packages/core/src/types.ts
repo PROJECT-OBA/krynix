@@ -43,6 +43,10 @@ export interface ToolCallPayload {
   tool_name: string;
   arguments: Record<string, unknown>;
   approval_status?: ApprovalStatus;
+  /** Identifier of the human or system that approved this tool call. */
+  approved_by?: string;
+  /** Reason the approval decision was made. */
+  approval_reason?: string;
 }
 
 /** Payload for `tool_result` events — records the result of a tool invocation. */
@@ -64,6 +68,9 @@ export interface LlmRequestPayload {
 export interface LlmUsage {
   prompt_tokens: number;
   completion_tokens: number;
+  total_tokens?: number;
+  /** Estimated cost in USD for this LLM call. */
+  estimated_cost?: number;
 }
 
 /** Payload for `llm_response` events — records a response from an LLM provider. */
@@ -72,6 +79,8 @@ export interface LlmResponsePayload {
   content: string;
   usage: LlmUsage;
   finish_reason: FinishReason;
+  /** Whether this response was generated via streaming. */
+  is_streaming?: boolean;
 }
 
 /** Payload for `decision` events — records an agent's internal decision. */
