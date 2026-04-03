@@ -69,6 +69,9 @@ metadata:
   version: "1.0"
   description: Block shell command execution by any agent
 spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
   rules:
     - id: block-shell
       description: Deny shell-like tool calls

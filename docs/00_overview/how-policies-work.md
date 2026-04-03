@@ -106,7 +106,6 @@ spec:
 | `allow` | Event passes | `0` |
 | `deny` | Event is a violation | `1` (error severity) or `2` (critical severity) |
 | `require-approval` | Event needs human review | `3` (only when no CI-failing violations exist) |
-| `log` | Event is recorded but not blocked | `0` |
 
 ## Write Once, Apply Everywhere
 
@@ -114,6 +113,7 @@ Here's why universality matters. This single policy blocks shell commands from *
 
 ```yaml
 - id: no-shell
+  description: Block shell command execution
   match:
     event_type: tool_call
     payload:
@@ -121,6 +121,8 @@ Here's why universality matters. This single policy blocks shell commands from *
         operator: matches
         value: "^(shell|bash|exec|system).*"
   action: deny
+  severity: critical
+  message: "Shell command execution is not permitted"
 ```
 
 It works because:

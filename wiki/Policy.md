@@ -92,7 +92,7 @@ After evaluating all events against all rules, a **Policy Verdict** is computed:
 | Verdict | Meaning | Exit Code |
 |---------|---------|-----------|
 | `pass` | Zero violations with `ci_failure: true` | 0 |
-| `fail` | One or more violations with `ci_failure: true` | 2 |
+| `fail` | One or more CI-failing violations | `1` (error severity) or `2` (critical severity) |
 | `require-approval` | At least one `require-approval` action, zero fail-level violations | 3 |
 
 ### Severity and CI Mapping

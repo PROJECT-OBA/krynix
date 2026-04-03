@@ -177,6 +177,24 @@ describe("validateTraceEvent", () => {
     const result = validateTraceEvent(event);
     expect(result.valid).toBe(true);
   });
+
+  test("llm_response with negative usage values rejected", () => {
+    const baseEvent = makeLlmResponse(0);
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        usage: {
+          prompt_tokens: -1,
+          completion_tokens: -1,
+          total_tokens: -1,
+          estimated_cost: -0.001,
+        },
+      },
+    };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
