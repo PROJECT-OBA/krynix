@@ -488,7 +488,7 @@ Example:
 ## Operational Usage
 - CI Gate (primary):
   - `krynix evaluate --trace <trace.jsonl> --policy <policy-or-dir>`
-  - `krynix replay --verify --trace <current.trace.jsonl> --baseline <golden.trace.jsonl>`
+  - `krynix replay --verify --trace <current.trace.jsonl> --golden-dir test/golden/`
 - Integrity checks for golden sets:
   - `krynix replay --verify --golden-dir test/golden/`
 - Compliance evidence packaging:

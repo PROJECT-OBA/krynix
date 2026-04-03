@@ -62,7 +62,7 @@ core  <- adapters
 Primary CI trust gate:
 ```bash
 krynix evaluate --trace <trace.jsonl> --policy <policy-or-dir>
-krynix replay --verify --trace <current.trace.jsonl> --baseline <golden.trace.jsonl>
+krynix replay --verify --trace <current.trace.jsonl> --golden-dir test/golden/
 ```
 
 Integrity verification for golden trace sets:
