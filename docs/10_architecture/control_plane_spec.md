@@ -287,7 +287,7 @@ Step 6: Bundle generation event recorded in audit log
 
 **API keys** are scoped to a single organization and issued via `krynix auth create-key`. Keys do not expire by default but:
 
-- Can be revoked at any time
+- Support revocation (`PLANNED` — no CLI command yet)
 - Support optional expiration (planned: `--expires-in 90d`)
 - Have a `last_used_at` timestamp for staleness detection
 - Are stored as salted bcrypt hashes (plaintext shown only at creation time)
@@ -296,17 +296,16 @@ Step 6: Bundle generation event recorded in audit log
 
 ```
 1. krynix auth login --email <email> --password <password>
-2. CLI opens browser to Control Plane login endpoint
-3. User authenticates (email + password for v1)
-4. Control Plane issues short-lived JWT to CLI
-5. CLI stores JWT in OS keychain or ~/.krynix/credentials (mode 0600)
+2. CLI POSTs credentials to Control Plane /api/v1/auth/token
+3. Control Plane validates credentials and issues a short-lived JWT
+4. CLI stores JWT in ~/.krynix/credentials (mode 0600)
 ```
 
 **SSO/OIDC integration:** Deferred to v2. v1 supports email-based authentication with password. OIDC provider integration (for enterprise SSO) is planned for v2 and will support standard providers (Okta, Azure AD, Google Workspace).
 
 **Service accounts** are API keys with a `service_account: true` flag. They:
 
-- Are created with `krynix auth create-key --name "CI pipeline"`
+- Are created server-side (UI or API); the CLI creates generic API keys via `krynix auth create-key --name "CI pipeline"` — server-side designation as service account is `PARTIAL` and not yet exposed via CLI flag
 - Have permissions equivalent to `member` role (push traces, pull policies)
 - Cannot access the Dashboard API or manage users
 - Are the recommended authentication method for CI pipelines
