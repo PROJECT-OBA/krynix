@@ -73,17 +73,16 @@ Checks:
 
 ### Baseline Drift Detection (`PARTIAL`)
 
+The `@krynix/replay` package exports a `compareTraces` function that performs structural comparison between two trace event arrays — detecting new or missing events, changed event types, and payload differences. This function is unit-tested and available as a library API.
+
+However, `compareTraces` is **not yet integrated into the CLI**. The `--golden-dir` flag on `krynix replay` verifies the integrity of all `*.trace.jsonl` files in a directory (hash chain, lifecycle, structure) — it does not compare them against a `--trace` input.
+
 ```bash
-krynix replay --verify --trace current.trace.jsonl --golden-dir test/golden/
+# Verify integrity of golden traces in a directory
+krynix replay --verify --golden-dir test/golden/
 ```
 
-Compares today's trace against a known-good baseline and reports:
-- New tool calls that weren't in the baseline
-- Missing tool calls that were in the baseline
-- Changed LLM models or parameters
-- Structural differences in the event sequence
-
-This is `PARTIAL` because it performs structural comparison, not semantic analysis. It catches obvious drift (new tools, different models) but not subtle behavioral changes within the same structure.
+CLI integration for drift comparison is planned.
 
 ### Execution Replay (`PLANNED`)
 

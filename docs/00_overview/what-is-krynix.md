@@ -22,7 +22,7 @@ Four capabilities, each solving one of the problems above:
 | **Trace** | Records every action your agent takes — tool calls, LLM requests, decisions, errors — into a structured, tamper-evident log | A flight recorder for your AI agent |
 | **Evaluate** | Checks that log against rules you define in YAML: "never call shell commands," "only use approved models," "require approval for database writes" | ESLint for agent behavior, not code |
 | **Verify** | Proves the log hasn't been altered. Each event is cryptographically chained to the previous one using SHA-256 hashes. Break one link, and verification fails instantly | A wax seal on every page of a ledger |
-| **Replay** | Compares today's agent behavior against a known-good baseline to detect drift — did the agent start calling new tools or making different decisions? | Snapshot testing for agent behavior |
+| **Replay** | Verifies trace integrity — proves the log hasn't been altered or reordered. A library-level comparator (`PARTIAL`) can detect structural drift between two traces | Integrity seal + snapshot testing (planned for CLI) |
 
 ## How It Works
 
@@ -96,7 +96,7 @@ For current integrations, use a pre-built adapter or the SDK. HTTP ingest is `PL
 | Trace capture and storage | Yes | Yes |
 | Policy evaluation in CI | Yes | Yes |
 | Hash chain integrity verification | Yes | Yes |
-| Baseline drift detection | `PARTIAL` | Full |
+| Baseline drift detection | `PARTIAL` (library only, not in CLI) | Full |
 | CLI tooling (evaluate, replay, export) | Yes | Yes |
 | Centralized policy registry | No | Yes |
 | Team dashboards and compliance reports | No | Yes |
@@ -109,7 +109,7 @@ The OSS engine is production-ready for CI-based trust workflows. The Control Pla
 Be explicit about what works today and what's planned:
 
 - **`CURRENT`**: Trace integrity, policy CI evaluation, replay integrity checks, CLI workflows — production-ready.
-- **`PARTIAL`**: Behavioral drift detection via baseline comparison — works but limited to structural diff.
+- **`PARTIAL`**: Behavioral drift comparison exists as a library function (`compareTraces` in `@krynix/replay`), but is not yet integrated into the CLI.
 - **`PLANNED`**: Deterministic execution replay, runtime blocking (sidecar mode), centralized governance.
 
 ## Quick Start
@@ -125,8 +125,8 @@ krynix evaluate --trace traces/session.trace.jsonl --policy policies/
 # Verify trace integrity
 krynix replay --verify --trace traces/session.trace.jsonl
 
-# Compare against known-good golden traces
-krynix replay --verify --trace traces/current.trace.jsonl --golden-dir test/golden/
+# Verify integrity of golden traces
+krynix replay --verify --golden-dir test/golden/
 ```
 
 Exit codes: `0` = pass, `1` = error-severity violation or runtime error, `2` = critical-severity violation, `3` = requires approval (no CI-failing violations). Wire these into your CI pipeline.

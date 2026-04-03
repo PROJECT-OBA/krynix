@@ -100,14 +100,14 @@ krynix replay --verify --trace traces/session.trace.jsonl
 # Walks the SHA-256 hash chain — detects any modification, deletion, or reordering
 ```
 
-### Detect Drift
+### Verify Golden Traces
 
 ```bash
-krynix replay --verify \
-  --trace traces/current.trace.jsonl \
-  --golden-dir test/golden/
-# Compares against known-good golden traces — flags new tools, changed models, structural changes
+krynix replay --verify --golden-dir test/golden/
+# Verifies integrity of all golden traces in the directory — hash chain, lifecycle, structure
 ```
+
+> **Note:** The `@krynix/replay` package exports a `compareTraces` function for structural drift comparison (`PARTIAL`), but it is not yet integrated into the CLI. CLI-level drift detection is planned.
 
 ---
 
@@ -137,13 +137,13 @@ See [How Policies Work](docs/00_overview/how-policies-work.md) for details.
 | `CURRENT` | Policy evaluation — 7 operators, first-match-wins, deterministic CI exit codes |
 | `CURRENT` | Replay verification — chain integrity, event ordering, session bookends |
 | `CURRENT` | Framework-agnostic policies — write once, apply to any agent |
-| `PARTIAL` | Behavioral drift detection via baseline comparison |
+| `PARTIAL` | Behavioral drift comparison (library function, not yet CLI-integrated) |
 | `PARTIAL` | Redaction — key-pattern based |
 | `PLANNED` | Deterministic execution replay |
 | `PLANNED` | Runtime blocking via sidecar proxy |
 | `PLANNED` | Centralized governance (Control Plane) |
 
-Current replay guarantee is **integrity + baseline diff**. Execution replay is planned.
+Current replay guarantee is **integrity verification** via CLI. Baseline drift comparison exists as a library function (`compareTraces`) but is not yet CLI-integrated. Execution replay is planned.
 
 ---
 
@@ -153,7 +153,7 @@ Current replay guarantee is **integrity + baseline diff**. Execution replay is p
 packages/
   core/               @krynix/core               — trace types, hash chain, redaction
   policy/             @krynix/policy             — policy parsing, evaluation, inheritance
-  replay/             @krynix/replay             — integrity verification, baseline diff
+  replay/             @krynix/replay             — integrity verification, drift comparison (library)
   adapter-langchain/  @krynix/adapter-langchain  — LangChain framework adapter
   adapter-openclaw/   @krynix/adapter-openclaw   — OpenClaw framework adapter
   cli/                @krynix/cli                — krynix command-line tool
@@ -200,7 +200,7 @@ packages/
 See [non_goals.md](docs/00_overview/non_goals.md) for full boundaries.
 
 <!-- machine-readable consistency markers (checked by docs:check:readme)
-REPLAY_CURRENT_MODE=integrity_plus_baseline_diff
+REPLAY_CURRENT_MODE=integrity_verification
 KRYNIX_ROLE=trust_spine_not_full_platform
 KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss
 KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal

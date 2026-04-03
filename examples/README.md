@@ -157,19 +157,21 @@ jobs:
 
 If `krynix evaluate` exits non-zero, the CI step fails and the PR is blocked.
 
-### 5. Detect Behavioral Drift `[PARTIAL]`
+### 5. Verify Golden Trace Integrity `[CURRENT]`
 
-Compare a current trace against a known-good baseline:
+Maintain a set of golden traces and verify their integrity:
 
 ```bash
 # Save a golden trace
 cp traces/my-session.trace.jsonl test/golden/my-baseline.trace.jsonl
 
-# Later, compare new runs against golden traces
-krynix replay --verify --trace traces/new-run.trace.jsonl --golden-dir test/golden/
+# Verify integrity of all golden traces
+krynix replay --verify --golden-dir test/golden/
 ```
 
-This detects when agent behavior drifts from the established pattern — even if no individual policy rule is violated.
+This verifies that golden traces haven't been tampered with — hash chain, lifecycle events, and structure are all checked.
+
+> **Note:** The `@krynix/replay` package exports a `compareTraces` function for structural drift comparison between two traces (`PARTIAL`), but it is not yet integrated into the CLI. CLI-level drift detection is planned.
 
 ## Where Krynix Sits in Your Workflow
 
