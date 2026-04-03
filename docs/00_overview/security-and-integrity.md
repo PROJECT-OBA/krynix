@@ -40,8 +40,8 @@ Policy evaluation is **deterministic**: the same trace + the same policy = the s
 
 **Properties:**
 
-- **No false negatives** — if a rule's match condition is satisfied by an event, the rule fires. There is no sampling, probabilistic matching, or skip logic.
-- **First-match-wins** — rules are evaluated in order. The first matching rule determines the action for that event.
+- **Deterministic matching** — for in-scope events, rules are evaluated in declared order with no sampling or probabilistic matching. The outcome is fully determined by the trace and policy.
+- **First-match-wins** — the first matching rule determines the action for an in-scope event; later matching rules do not fire for that event.
 - **Seven operators** — `eq`, `neq`, `in`, `not_in`, `matches` (regex), `contains`, `exists`. These cover exact matching, set membership, pattern matching, and field presence.
 - **CI exit codes** — evaluation results map to deterministic exit codes:
 
