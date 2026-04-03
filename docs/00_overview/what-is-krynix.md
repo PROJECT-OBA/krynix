@@ -126,7 +126,7 @@ krynix replay --verify --trace traces/session.trace.jsonl
 krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
 ```
 
-Exit codes: `0` = pass, `1` = error, `2` = violation, `3` = needs approval. Wire these into your CI pipeline.
+Exit codes: `0` = pass, `1` = error-severity violation or runtime error, `2` = critical-severity violation, `3` = requires approval (no CI-failing violations). Wire these into your CI pipeline.
 
 ## Learn More
 

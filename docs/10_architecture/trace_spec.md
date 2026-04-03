@@ -364,6 +364,7 @@ Use `parent_id` to link events across agents in a multi-agent system. Additional
 
 ```json
 {
+  "parent_id": "evt-from-orchestrator-001",
   "metadata": {
     "runtime.agent_role": "planner",
     "runtime.parent_agent_id": "orchestrator-001"

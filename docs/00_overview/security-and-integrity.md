@@ -11,7 +11,7 @@ Every event in a Krynix trace is cryptographically chained to the previous one u
 3. The result is stored as `event_hash` on the event itself.
 
 ```
-Event 1: hash = SHA-256(canonical(event1) + "0000...0000")
+Event 1: hash = SHA-256(canonical(event1) + "")    ← empty string as initial prev_hash
 Event 2: hash = SHA-256(canonical(event2) + event1.hash)
 Event 3: hash = SHA-256(canonical(event3) + event2.hash)
 ...
@@ -48,9 +48,9 @@ Policy evaluation is **deterministic**: the same trace + the same policy = the s
 | Exit Code | Meaning | CI Effect |
 |-----------|---------|-----------|
 | `0` | All events pass | Pipeline continues |
-| `1` | Evaluation error (bad policy, missing trace) | Pipeline fails |
-| `2` | Policy violation detected | Pipeline fails |
-| `3` | Events require human approval | Pipeline pauses (if CI supports it) |
+| `1` | CI-failing `error` severity violation, or runtime error | Pipeline fails |
+| `2` | CI-failing `critical` severity violation | Pipeline fails |
+| `3` | Requires approval (no CI-failing violations) | Pipeline pauses (if CI supports it) |
 
 **What this means in practice:** Add `krynix evaluate` to your CI pipeline. If an agent violates a policy, the pipeline fails with a non-zero exit code. No human has to review every trace manually — violations are caught automatically.
 
@@ -109,7 +109,7 @@ Traces are stored **locally by default** as `.trace.jsonl` files. No data leaves
 Krynix supports key-pattern-based redaction to strip sensitive fields from traces before storage:
 
 - Common patterns: API keys, tokens, passwords, secrets
-- Redaction happens **after** hash computation — the hash chain remains valid even after redaction
+- Redaction happens **before** hash computation — the hash chain covers the redacted form, not the original plaintext
 - Redacted fields are replaced with a marker, not deleted, so the trace structure is preserved
 
 ### Network Behavior
