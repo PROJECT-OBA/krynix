@@ -22,7 +22,8 @@
         "labels": {
           "type": "object",
           "additionalProperties": { "type": "string" }
-        }
+        },
+        "extends": { "type": "string" }
       },
       "required": ["name", "version", "description"],
       "additionalProperties": false

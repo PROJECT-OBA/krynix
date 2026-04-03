@@ -74,7 +74,7 @@ spec:
             operator: matches
             value: "^/(etc|usr|var|tmp)/"
       action: deny
-      severity: high
+      severity: critical
       message: "File writes outside workspace are not permitted"
 
   defaults:
