@@ -85,10 +85,10 @@ The Control Plane adds centralized governance for teams and organizations. It bu
 | Pre-built adapter | TypeScript | OSS only | Free |
 | TypeScript SDK | TypeScript | OSS only | Free |
 | Python SDK | Python | OSS only | Free |
-| HTTP Ingest | Any | Control Plane | Paid |
+| HTTP Ingest (`PLANNED`) | Any | Control Plane | Paid |
 | Custom adapter | TypeScript | OSS only | Free |
 
-The HTTP ingest path is the universal, zero-adapter integration for any language. It is the first paid component because it requires a running server.
+The HTTP ingest path (`PLANNED`) will be the universal, zero-adapter integration for any language. It is the first paid component because it requires a running server.
 
 ## Non-Goals
 

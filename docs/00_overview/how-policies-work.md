@@ -15,7 +15,7 @@ Krynix solves this with a normalization layer:
 ```
 LangChain Agent  → LangChainAdapter  → canonical TraceEvent ─┐
 OpenClaw Agent   → OpenClawAdapter   → canonical TraceEvent  ├→ Same Policy Engine
-Python Agent     → HTTP Ingest       → canonical TraceEvent  │
+Python Agent     → Python SDK        → canonical TraceEvent  │
 Custom Agent     → Custom Adapter    → canonical TraceEvent ─┘
 ```
 
@@ -130,7 +130,7 @@ Here's why universality matters. This single policy blocks shell commands from *
 It works because:
 
 1. **LangChain agent** calls `ShellTool` → LangChain adapter normalizes it to `{ event_type: "tool_call", payload: { tool_name: "shell_exec", ... } }` → policy matches → **denied**
-2. **Python agent** POSTs `{ tool_name: "bash_exec", ... }` via HTTP ingest → normalized to canonical event → policy matches → **denied**
+2. **Python agent** uses the Python SDK to emit `{ tool_name: "bash_exec", ... }` → normalized to canonical event → policy matches → **denied**
 3. **Custom Go agent** uses the SDK to emit `{ tool_name: "system_cmd", ... }` → policy matches → **denied**
 
 Zero policy modification. The adapter handles the translation; the policy stays the same.
@@ -202,27 +202,17 @@ interface TraceAdapter {
 
 This is approximately 200-300 lines of code that translates your framework's events into canonical TraceEvents. Once written, all existing policies work with your framework unchanged.
 
-**When to use this vs HTTP ingest:** Use HTTP ingest for quick integration. Use a custom adapter for zero-instrumentation auto-capture in a framework you use heavily.
+**When to use this vs HTTP ingest:** HTTP ingest (`PLANNED`) will provide quick integration for any language. Use a custom adapter today for zero-instrumentation auto-capture in a framework you use heavily.
 
 ## Policy Composition
 
-Policies are composable — you can apply multiple policies to the same trace:
-
-```bash
-krynix evaluate \
-  --trace session.trace.jsonl \
-  --policy policies/security.policy.yaml \
-  --policy policies/compliance.policy.yaml \
-  --policy policies/cost-control.policy.yaml
-```
-
-Or point to a directory and all `.policy.yaml` files are loaded:
+Policies are composable — place multiple `.policy.yaml` files in a directory and evaluate them together:
 
 ```bash
 krynix evaluate --trace session.trace.jsonl --policy policies/
 ```
 
-This lets teams maintain separate policies for security, compliance, cost control, and operational rules, composed together at evaluation time.
+All `.policy.yaml` files in the directory are loaded and evaluated against every trace event. This lets teams maintain separate policies for security, compliance, cost control, and operational rules, composed together at evaluation time.
 
 ## Learn More
 
