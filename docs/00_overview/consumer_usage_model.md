@@ -44,7 +44,7 @@ Onboarding checklist:
 Minimum commands:
 ```bash
 krynix evaluate --trace <trace> --policy policies/
-krynix replay --verify --trace <trace> --golden-dir test/golden/
+krynix replay --verify --trace <trace>
 ```
 
 Required artifacts:
@@ -56,7 +56,7 @@ Required artifacts:
 Incident/triage workflow:
 1. confirm hash integrity,
 2. inspect violating rule(s),
-3. compare against baseline drift,
+3. use `compareTraces` library function for structural drift comparison (`PARTIAL`, not yet CLI-integrated),
 4. classify as policy regression, runtime behavior drift, or allowed change.
 
 Rollout:
@@ -86,7 +86,7 @@ Required artifacts:
 Incident/triage workflow:
 1. inspect first failing event,
 2. inspect linked tool call/result,
-3. compare baseline and current traces,
+3. compare baseline and current traces (using `compareTraces` library API; CLI integration is planned),
 4. decide policy update vs behavior fix.
 
 Rollout:
@@ -104,7 +104,7 @@ Onboarding checklist:
 Minimum commands:
 ```bash
 krynix evaluate --trace traces/local.trace.jsonl --policy policies/
-krynix replay --verify --trace traces/local.trace.jsonl --golden-dir test/golden/
+krynix replay --verify --trace traces/local.trace.jsonl
 ```
 
 Required artifacts:

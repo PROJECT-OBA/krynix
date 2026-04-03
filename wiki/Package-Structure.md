@@ -67,13 +67,13 @@ Contains:
 ### `@krynix/replay`
 
 **Location:** `packages/replay/`
-**Role:** Replay integrity verification and drift-comparison utilities.
+**Role:** Replay integrity verification. Also exports `compareTraces` for structural drift comparison (`PARTIAL`, not yet CLI-integrated).
 
 Contains:
 - Replay runner (`verifyTrace`, `regenerateTrace`)
 - Golden trace directory runner (`verifyGoldenDir`, `regenerateGoldenDir`)
 - Replay envelope extraction and validation
-- Event-by-event comparison with divergence reporting
+- Event-by-event comparison with divergence reporting (`compareTraces` — library API only)
 
 **Dependencies:** `@krynix/core` (for `TraceEvent` types, hash chain, canonicalization)
 

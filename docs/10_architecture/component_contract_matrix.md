@@ -8,10 +8,10 @@
 | `@krynix/policy` parser | Parse/validate policy YAML | Deterministic policy interpretation | CURRENT | `packages/policy/src/parser.ts`, `packages/policy/src/parser.test.ts`, `docs/10_architecture/policy_spec.md` |
 | `@krynix/policy` matcher/evaluator | Match rules and compute verdicts | Policy decision correctness | CURRENT | `packages/policy/src/matcher.ts`, `packages/policy/src/evaluator.ts`, tests in same package |
 | `@krynix/replay` verify | Verify lifecycle/sequence/session/hash/envelope integrity | Evidence integrity verification | CURRENT | `packages/replay/src/replay-runner.ts`, `packages/replay/src/replay-runner.test.ts`, `docs/10_architecture/determinism_spec.md` |
-| `@krynix/replay` baseline comparator | Compare current trace to baseline trace for drift | Behavioral drift detection from artifacts | PARTIAL | `packages/cli/src/replay.ts`, `packages/replay/src/comparator.ts`, `packages/cli/src/replay.test.ts` |
+| `@krynix/replay` baseline comparator | Compare two trace event arrays for structural drift | Behavioral drift detection from artifacts | PARTIAL (library only, not CLI-integrated) | `packages/replay/src/comparator.ts`, `packages/replay/src/comparator.test.ts`, `test/integration/baseline-comparison.test.ts` |
 | Replay execution mode | Deterministic re-execution of agent logic | High-assurance behavior reproducibility | PLANNED | `docs/10_architecture/platform_architecture_spec.md`, planned RFC |
 | `@krynix/cli evaluate` | CI/post-run policy gating command | Enforce policy outcomes in pipelines | CURRENT | `packages/cli/src/evaluate.ts`, `packages/cli/src/help.ts` |
-| `@krynix/cli replay` | Replay integrity verification and drift check UX | Repeatable regression checks in CI | CURRENT | `packages/cli/src/replay.ts`, `packages/cli/src/help.ts` |
+| `@krynix/cli replay` | Replay integrity verification via CLI | Repeatable integrity checks in CI | CURRENT | `packages/cli/src/replay.ts`, `packages/cli/src/help.ts` |
 | Adapters (`@krynix/adapter-openclaw`) | Normalize framework events into TraceEvents | Upstream event consistency | CURRENT | `packages/adapter-openclaw/src/*`, `docs/10_architecture/integration_contracts.md` |
 | Input layer `IntentClassifier` | Assess request intent/risk before action | Early risk signal for policy decisions | PLANNED | `docs/10_architecture/platform_architecture_spec.md` |
 | Runtime `ToolMediationProxy` | Intercept tool calls and apply pre/post checks | Runtime control point and provenance capture | PLANNED | `docs/10_architecture/platform_architecture_spec.md` |

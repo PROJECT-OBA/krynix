@@ -15,7 +15,7 @@ If documents conflict, update the lower-priority source per this precedence:
 Krynix is the trust spine for agentic systems.
 
 - `CURRENT`: trace integrity, policy CI evaluation, replay integrity checks.
-- `PARTIAL`: baseline drift detection and integration-specific runtime controls.
+- `PARTIAL`: baseline drift comparison (library only, not CLI-integrated) and integration-specific runtime controls.
 - `PLANNED`: deterministic execution replay, richer guard integrations, profile-based enforcement modes.
 
 ## Boundary Rules

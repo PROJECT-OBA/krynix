@@ -33,13 +33,13 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 | `wiki/CLI-Reference.md` | Replay section omits `--golden-dir`; diverges from current CLI semantics. | High |
 | `CLAUDE.md` | Uses "guarantees" language that can overstate implemented behavior. | High |
 | `.claude/rules/*` | Previously stated deterministic re-execution as current; now updated with truth labels. | Resolved |
-| `packages/cli/src/help.ts` | Correctly scopes `--verify` to integrity and `--golden-dir` to drift detection. | High |
+| `packages/cli/src/help.ts` | Correctly scopes `--verify` to integrity and `--golden-dir` to golden trace integrity verification. | High |
 
 ## Contradictions And Ambiguities
 
 ### CR-1: Replay guarantee mismatch
 - Severity: `critical`
-- Contradiction: docs/wiki/agent rules describe deterministic re-execution as current; CLI/help and replay implementation perform structural/integrity checks and optional baseline trace diff.
+- Contradiction: docs/wiki/agent rules describe deterministic re-execution as current; CLI/help and replay implementation perform structural/integrity checks. Baseline drift comparison exists as a library function (`compareTraces`) but is not wired into the CLI.
 - Evidence:
   - Claim side: `README.md`, `docs/10_architecture/determinism_spec.md`, `wiki/Replay.md`
   - Actual behavior side: `packages/replay/src/replay-runner.ts`, `packages/cli/src/replay.ts`, `packages/cli/src/help.ts`
@@ -66,7 +66,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 
 ### CR-5: CLI semantics drift in wiki
 - Severity: `minor`
-- Contradiction: wiki CLI reference omits current `--golden-dir` replay mode and related behavior-drift semantics.
+- Contradiction: wiki CLI reference omits current `--golden-dir` replay mode and golden trace integrity verification semantics.
 - Evidence:
   - Outdated docs: `wiki/CLI-Reference.md`
   - Current semantics: `packages/cli/src/help.ts`, `packages/cli/src/replay.ts`
@@ -77,14 +77,14 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 | Trace schema + hash-chain integrity | Implemented | Mature and tested in `@krynix/core`. |
 | Policy parsing/evaluation + CI exit codes | Implemented | Primary enforcement contract in OSS. |
 | Replay integrity validation (`--verify`) | Implemented | Structural/lifecycle/hash checks and deterministic hash recomputation. |
-| Replay drift detection (`--golden-dir`) | Partial | Trace-vs-trace behavior comparison exists, not execution replay. |
+| Replay drift detection (`compareTraces`) | Partial | Library function exists for trace-vs-trace structural comparison; not yet integrated into CLI's `--golden-dir` flag. |
 | Deterministic execution replay of agent logic | Planned | Not implemented in OSS currently. |
 | Redaction guarantees | Partial | Built-in pattern matching + custom patterns; coverage not universal. |
 | Runtime inline blocking by Krynix OSS | Partial | Integration architecture discussed, but core OSS guarantee remains CI/post-run. |
 | Input/Runtime/Output layered platform contracts | Planned | Document contract drafts only in this phase. |
 
 ## Mandatory Findings (Explicit)
-1. Replay is currently integrity + diff (with baseline), not true deterministic execution replay.
+1. Replay CLI currently provides integrity verification. Baseline diff exists as a library function (`compareTraces`) but is not CLI-accessible. Deterministic execution replay is not implemented.
 2. Redaction guarantees are scoped to pattern-matched fields and should be documented as limited, not comprehensive.
 3. Krynix role in the layered platform is trust spine, not full platform ownership.
 4. Current enforcement is CI/post-run in OSS; runtime-preventative controls are external or planned.

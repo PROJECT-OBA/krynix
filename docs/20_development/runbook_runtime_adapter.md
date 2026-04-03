@@ -26,7 +26,7 @@ krynix replay --verify --trace traces/session.trace.jsonl
 - runtime-produced `.trace.jsonl`
 - CI policy verdict output
 - replay integrity output
-- optional baseline drift comparison output
+- optional golden trace integrity verification output
 
 ## Troubleshooting
 - Broken hash chain:

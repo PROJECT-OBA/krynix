@@ -17,7 +17,7 @@ Define the canonical, decision-making architecture for the Krynix platform direc
   Evidence: `packages/core/src/hash-chain.ts`, `packages/cli/src/evaluate.ts`, `packages/replay/src/replay-runner.ts`
 - [CURRENT] `krynix evaluate` enforces policy outcomes via exit codes in CI.
   Evidence: `packages/cli/src/evaluate.ts`, `packages/cli/src/help.ts`
-- [CURRENT] `krynix replay --verify` validates trace structure/integrity and hash determinism, and may compare current traces against baseline traces where supported.
+- [CURRENT] `krynix replay --verify` validates trace structure/integrity and hash determinism. The `--golden-dir` flag verifies integrity of all traces in a directory independently.
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
 - [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event generation (when seed is provided).
   Evidence: `packages/core/src/canonical-json.ts`, `packages/core/src/session.ts`, `packages/core/src/trace-writer.ts`
@@ -139,10 +139,10 @@ flowchart TB
 Determinism remains a core design principle.
 
 - `CURRENT`: deterministic trace artifact generation and integrity verification.
-- `PARTIAL`: deterministic drift comparison against baseline traces.
+- `PARTIAL`: baseline drift comparison exists as a library function (`compareTraces`) but is not yet integrated into the CLI.
 - `PLANNED`: deterministic execution replay of live decision/tool paths.
 
-Current replay guarantee is integrity + baseline diff.
+Current replay guarantee is integrity verification via CLI. Baseline drift comparison exists at library level only.
 Execution replay is planned and tracked.
 
 ### Closed-Assistant Observability Limits
@@ -488,21 +488,21 @@ Example:
 ## Operational Usage
 - CI Gate (primary):
   - `krynix evaluate --trace <trace.jsonl> --policy <policy-or-dir>`
-  - `krynix replay --verify --trace <current.trace.jsonl> --golden-dir test/golden/`
-- Integrity checks for golden sets:
+  - `krynix replay --verify --trace <current.trace.jsonl>`
+- Golden trace integrity checks:
   - `krynix replay --verify --golden-dir test/golden/`
 - Compliance evidence packaging:
   - `krynix compliance export --trace <trace.jsonl> --output <bundle-dir>`
 
 Consistency marker statements (used by CI docs checks):
-- `REPLAY_CURRENT_MODE=integrity_plus_baseline_diff`
+- `REPLAY_CURRENT_MODE=integrity_verification`
 - `KRYNIX_ROLE=trust_spine_not_full_platform`
 - `KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss`
 - `KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal`
 - `KRYNIX_ENFORCEMENT_PRINCIPLE=block_on_actions_not_inferred_intent`
 
 ## Known Gaps And Roadmap
-- [PARTIAL] Replay assurance: integrity + drift comparison exists; deterministic execution replay is not implemented.
+- [PARTIAL] Replay assurance: integrity verification via CLI is `CURRENT`; drift comparison exists as library function (`compareTraces`) but is not CLI-integrated; deterministic execution replay is not implemented.
 - [PARTIAL] Redaction defaults do not cover every common secret key naming pattern.
 - [PARTIAL] Runtime enforcement blueprint exists, but implementation remains mostly external/integration-driven.
 - [PLANNED] Execution replay mode with deterministic executor contract.

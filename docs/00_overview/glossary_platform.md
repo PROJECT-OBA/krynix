@@ -25,8 +25,8 @@ Behavioral difference between a current trace and an approved baseline trace for
 
 ## Replay Mode
 The verification mode for replay workflows.
-- `integrity` mode: validates trace structure/lifecycle/hash integrity.
-- `baseline-diff` mode: compares current trace behavior against baseline trace behavior.
+- `integrity` mode: validates trace structure/lifecycle/hash integrity. This is available via `krynix replay --verify`.
+- `baseline-diff` mode: compares two trace event arrays for structural drift. Available as `compareTraces` library function (`PARTIAL`); not yet integrated into the CLI.
 - `execution` mode: planned deterministic re-execution of agent logic (not current OSS behavior).
 
 ## Trust Spine

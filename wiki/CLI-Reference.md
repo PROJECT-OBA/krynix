@@ -8,13 +8,13 @@ Usage: krynix replay [--verify|--regenerate] [--trace <file>|--golden-dir <dir>]
 ```
 
 - `CURRENT` `--verify`: validates trace integrity and structure.
-- `PARTIAL` `--golden-dir`: compares `--trace` against golden traces to detect drift.
+- `CURRENT` `--golden-dir`: verifies integrity of all `*.trace.jsonl` files in the specified directory.
 - `CURRENT` `--regenerate`: recomputes hashes for traces.
 
 Examples:
 ```bash
 krynix replay --verify --trace traces/session.trace.jsonl
-krynix replay --verify --trace traces/current.trace.jsonl --golden-dir test/golden/
+krynix replay --verify --golden-dir test/golden/
 krynix replay --regenerate --trace traces/session.trace.jsonl
 ```
 

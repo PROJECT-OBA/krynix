@@ -83,8 +83,8 @@ test/golden/
 
 The golden trace test verifies that:
 1. Each golden trace has a valid hash chain
-2. Replay produces identical output
-3. No behavioral regression has occurred
+2. Lifecycle events are present and properly ordered
+3. Hash recomputation produces identical results
 
 ```bash
 # Run golden trace tests only

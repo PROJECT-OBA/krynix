@@ -18,7 +18,7 @@ Krynix does not provide an agent execution runtime. It does not define how agent
 
 Krynix does not host models, make API calls to LLM providers, or manage inference infrastructure. LLM requests and responses appear in Traces as `llm_request` and `llm_response` events, but Krynix treats them as opaque data for policy evaluation and replay.
 
-**Boundary:** LLM provider interactions are the responsibility of the agent framework. Krynix records them for auditability. [CURRENT] Replay verifies trace integrity and baseline drift. [PLANNED] Execution replay from recordings for determinism.
+**Boundary:** LLM provider interactions are the responsibility of the agent framework. Krynix records them for auditability. [CURRENT] Replay verifies trace integrity. [PARTIAL] Baseline drift comparison exists as a library function (`compareTraces`) but is not yet CLI-integrated. [PLANNED] Execution replay from recordings for determinism.
 
 ## 3. Krynix Does NOT Provide Real-Time Agent Monitoring UI
 

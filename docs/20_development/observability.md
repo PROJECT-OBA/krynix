@@ -83,7 +83,7 @@ These metrics are computed from trace data and are available as structured outpu
 |---|---|---|
 | Hash chain validation failure | Critical | Potential trace tampering. Investigate immediately. |
 | `critical`-severity policy violation | Critical | Agent attempted a critical-severity action. Review trace. |
-| Replay divergence in CI | High | Trace structure or hash chain diverged from baseline. Review code changes. |
+| Replay divergence in CI | High | Trace hash chain or structure verification failed. Review code changes. |
 | `error`-severity policy violation | Medium | Policy violation blocking merge. Fix before retry. |
 | Golden trace regeneration required | Low | Code change affected deterministic behavior. Regenerate and review. |
 

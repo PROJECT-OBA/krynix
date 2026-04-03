@@ -7,7 +7,7 @@ Agentic systems need verifiable evidence of what happened, what was allowed, and
 Krynix is the trust spine for agentic systems.
 
 - `CURRENT`: provides trace integrity, policy CI evaluation, replay integrity checks.
-- `PARTIAL`: supports baseline drift detection and integration-driven runtime guard usage.
+- `PARTIAL`: baseline drift comparison exists as library function (`compareTraces`), not yet CLI-integrated; integration-driven runtime guard usage.
 - `PLANNED`: expands toward deeper input/runtime/output trust controls and execution replay.
 
 ## Core Principles
@@ -26,5 +26,5 @@ Krynix is the trust spine for agentic systems.
 
 ## v1 Directional Success Criteria
 - `CURRENT`: stable trace + policy + replay integrity workflows.
-- `PARTIAL`: practical drift detection in CI via baseline comparisons.
+- `PARTIAL`: drift comparison library exists (`compareTraces`); CLI integration is planned.
 - `PLANNED`: decision-ready contracts for layered runtime controls.

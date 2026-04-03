@@ -13,7 +13,7 @@ A **Trace** is an ordered, immutable sequence of **TraceEvents** representing on
 Traces serve three purposes:
 1. **Audit** — complete record of what an agent did and why
 2. **Policy evaluation** — structured data against which [Policies](policy_spec.md) are evaluated
-3. **Replay** — input to replay verification ([CURRENT] integrity + baseline drift; [PLANNED] deterministic execution replay). See [determinism_spec](determinism_spec.md).
+3. **Replay** — input to replay verification ([CURRENT] integrity verification; [PARTIAL] baseline drift comparison via library API; [PLANNED] deterministic execution replay). See [determinism_spec](determinism_spec.md).
 
 ## TraceEvent Schema
 

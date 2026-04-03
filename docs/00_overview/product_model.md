@@ -21,7 +21,7 @@ The OSS engine is everything in this repository. It runs locally, offline, with 
 |---------|-------------|--------|
 | `@krynix/core` | Trace schema, SHA-256 hash chain, canonical JSON, SeededRandom, redaction | `CURRENT` |
 | `@krynix/policy` | Policy evaluation engine, YAML parsing, 7 match operators, first-match-wins | `CURRENT` |
-| `@krynix/replay` | Trace integrity verification, baseline drift comparison | `CURRENT` / `PARTIAL` |
+| `@krynix/replay` | Trace integrity verification; baseline drift comparison (`PARTIAL`, library only) | `CURRENT` / `PARTIAL` |
 | `@krynix/cli` | `evaluate`, `replay`, `stats`, `export` commands with CI exit codes | `CURRENT` |
 | `@krynix/adapter-langchain` | Auto-capture adapter for LangChain agents | `CURRENT` |
 | `@krynix/adapter-openclaw` | Auto-capture adapter for OpenClaw agents | `CURRENT` |
@@ -35,7 +35,7 @@ The OSS engine is everything in this repository. It runs locally, offline, with 
 - [CURRENT] Framework-agnostic policies — write once, apply to any agent
 - [CURRENT] Compliance export — evidence bundles for audit
 - [CURRENT] Offline operation — zero network calls, zero telemetry
-- [PARTIAL] Baseline drift detection — structural comparison, not semantic
+- [PARTIAL] Baseline drift comparison — library function (`compareTraces`) exists, not yet integrated into CLI
 - [PARTIAL] Redaction — key-pattern based, not universal content scanning
 
 ### What OSS Does NOT Include
@@ -106,7 +106,7 @@ The HTTP ingest path (`PLANNED`) will be the universal, zero-adapter integration
 
 ## Known Gaps and Roadmap
 
-- [PARTIAL] Replay is integrity + structural drift diff, not execution replay.
+- [PARTIAL] Replay CLI provides integrity verification. Structural drift comparison exists as library function (`compareTraces`) but is not CLI-accessible.
 - [PARTIAL] Redaction is key-pattern based, not universal content scanning.
 - [PLANNED] Execution replay — re-run agent with same inputs, verify same outputs.
 - [PLANNED] Layered input/runtime/output enforcement contracts.
