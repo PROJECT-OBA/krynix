@@ -126,37 +126,54 @@ describe("validateTraceEvent", () => {
   // ---------------------------------------------------------------------------
 
   test("tool_call with approved_by and approval_reason passes", () => {
-    const event = makeToolCall(0, {
+    const baseEvent = makeToolCall(0, {
       tool_name: "shell_exec",
       arguments: { cmd: "ls" },
       approval_status: "manual",
     });
-    (event.payload as unknown as Record<string, unknown>).approved_by = "admin@example.com";
-    (event.payload as unknown as Record<string, unknown>).approval_reason = "Trusted command";
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        approved_by: "admin@example.com",
+        approval_reason: "Trusted command",
+      },
+    };
     const result = validateTraceEvent(event);
     expect(result.valid).toBe(true);
   });
 
   test("llm_response with total_tokens and estimated_cost passes", () => {
-    const event = makeLlmResponse(0, {
+    const baseEvent = makeLlmResponse(0, {
       model: "claude-opus-4-5-20251101",
       content: "Hello",
       usage: { prompt_tokens: 100, completion_tokens: 50 },
       finish_reason: "stop",
     });
-    (event.payload as unknown as Record<string, unknown>).usage = {
-      prompt_tokens: 100,
-      completion_tokens: 50,
-      total_tokens: 150,
-      estimated_cost: 0.0045,
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        usage: {
+          ...baseEvent.payload.usage,
+          total_tokens: 150,
+          estimated_cost: 0.0045,
+        },
+      },
     };
     const result = validateTraceEvent(event);
     expect(result.valid).toBe(true);
   });
 
   test("llm_response with is_streaming passes", () => {
-    const event = makeLlmResponse(0);
-    (event.payload as unknown as Record<string, unknown>).is_streaming = true;
+    const baseEvent = makeLlmResponse(0);
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        is_streaming: true,
+      },
+    };
     const result = validateTraceEvent(event);
     expect(result.valid).toBe(true);
   });

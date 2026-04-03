@@ -106,8 +106,8 @@ const TRACE_SCHEMA = {
         usage: {
           type: "object",
           properties: {
-            prompt_tokens: { type: "integer" },
-            completion_tokens: { type: "integer" },
+            prompt_tokens: { type: "integer", minimum: 0 },
+            completion_tokens: { type: "integer", minimum: 0 },
             total_tokens: { type: "integer", minimum: 0 },
             estimated_cost: { type: "number", minimum: 0 },
           },
@@ -177,6 +177,7 @@ const POLICY_SCHEMA = {
         version: { type: "string" },
         description: { type: "string" },
         labels: { type: "object", additionalProperties: { type: "string" } },
+        extends: { type: "string" },
       },
       required: ["name", "version", "description"],
       additionalProperties: false,
