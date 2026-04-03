@@ -17,11 +17,12 @@ Determinism remains a core design principle.
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
 - [CURRENT] Hash recomputation determinism is verified by strip-and-recompute checks.  
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/replay-runner.test.ts`
-- [PARTIAL] `--baseline` compares current trace behavior against baseline trace behavior and reports drift.
+- [PARTIAL] `compareTraces` library function compares two trace event arrays for structural drift. Not yet wired into the CLI's `--golden-dir` flag.
+  Evidence: `packages/replay/src/comparator.ts`, `packages/replay/src/comparator.test.ts`
 - [CURRENT] Replay verification is artifact-based; it does not execute live agent decision/tool code paths.  
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/cli/src/replay.ts`
 
-Current replay guarantee is integrity + baseline diff.
+Current CLI replay guarantee is integrity verification. Drift comparison exists at library level (`compareTraces`) but is not CLI-accessible.
 Execution replay is planned and tracked.
 
 ## Planned Guarantees (Future)
@@ -42,28 +43,26 @@ Execution replay is planned and tracked.
 ### Current Replay Modes
 - `--verify`:
   - Verifies integrity and structure.
-  - Optionally paired with `--baseline` for drift comparison.
+  - `--golden-dir` verifies integrity of all traces in a directory (does not perform drift comparison).
 - `--regenerate`:
   - Recomputes hash chains and overwrites trace artifacts.
 
-### Drift Detection Contract
-- Inputs: `--trace <current>` and `--baseline <golden>`.
-- Preconditions: both traces pass integrity verification.
-- Output: pass or divergence report from trace comparator.
+### Drift Detection Contract (PLANNED for CLI)
+- Library API: `compareTraces(baseline, candidate)` in `@krynix/replay` (`PARTIAL` — exists and tested).
+- CLI integration: not yet wired into `krynix replay` command.
+- Planned inputs: `--trace <current>` and `--golden-dir <golden-dir>`.
+- Planned output: pass or divergence report from trace comparator.
 
 ## Operational Usage
 ```bash
 # Integrity verification
 krynix replay --verify --trace traces/session.trace.jsonl
 
-# Drift detection
-krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
-
 # Verify all golden traces for integrity
 krynix replay --verify --golden-dir test/golden/
 ```
 
 ## Known Gaps And Roadmap
-- [PARTIAL] Behavior comparison exists without deterministic execution of agent logic.
+- [PARTIAL] Behavior comparison exists as library function (`compareTraces`); CLI integration is planned.
 - [PLANNED] Replay executor RFC and interface rollout.
 - [PLANNED] Transition path from artifact diffing to execution replay assurance.

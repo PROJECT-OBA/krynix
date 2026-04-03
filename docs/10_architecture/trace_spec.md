@@ -13,7 +13,7 @@ A **Trace** is an ordered, immutable sequence of **TraceEvents** representing on
 Traces serve three purposes:
 1. **Audit** — complete record of what an agent did and why
 2. **Policy evaluation** — structured data against which [Policies](policy_spec.md) are evaluated
-3. **Replay** — input to replay verification ([CURRENT] integrity + baseline drift; [PLANNED] deterministic execution replay). See [determinism_spec](determinism_spec.md).
+3. **Replay** — input to replay verification ([CURRENT] integrity verification; [PARTIAL] baseline drift comparison via library API; [PLANNED] deterministic execution replay). See [determinism_spec](determinism_spec.md).
 
 ## TraceEvent Schema
 
@@ -61,6 +61,8 @@ Records an agent's invocation of a tool.
 | `tool_name` | string | yes | Tool identifier, e.g., `file_write`, `shell_exec` |
 | `arguments` | object | yes | Tool-specific arguments |
 | `approval_status` | enum | no | `auto`, `manual`, or `denied`. Present when policy requires approval |
+| `approved_by` | string | no | Identifier of the human or system that approved this tool call |
+| `approval_reason` | string | no | Reason the approval decision was made |
 
 ### `tool_result`
 
@@ -117,8 +119,9 @@ Records a response received from an LLM provider.
 |---|---|---|---|
 | `model` | string | yes | Model identifier |
 | `content` | string | yes | Response text (redacted if necessary) |
-| `usage` | object | yes | `{ prompt_tokens: uint, completion_tokens: uint }` |
+| `usage` | object | yes | `{ prompt_tokens: uint, completion_tokens: uint, total_tokens?: uint, estimated_cost?: float }` |
 | `finish_reason` | string | yes | `stop`, `max_tokens`, or `tool_use` |
+| `is_streaming` | boolean | no | Whether this response was generated via streaming |
 
 ### `decision`
 
@@ -350,6 +353,73 @@ A Trace is valid if and only if:
 |---|---|
 | `test/golden/*.trace.jsonl` | Golden Traces for deterministic replay testing |
 | `traces/` | Runtime trace output directory (gitignored) |
+
+## Metadata Conventions
+
+The `metadata` object is extensible. The following conventions are recommended for common use cases. These do not require schema changes — they use the existing metadata namespace system.
+
+### Multi-Agent Tracing
+
+Use `parent_id` to link events across agents in a multi-agent system. Additionally, use `metadata.runtime.agent_role` to identify the agent's role:
+
+```json
+{
+  "parent_id": "evt-from-orchestrator-001",
+  "metadata": {
+    "runtime.agent_role": "planner",
+    "runtime.parent_agent_id": "orchestrator-001"
+  }
+}
+```
+
+### RAG / Retrieval Tracing
+
+Use `tool_call` events with retrieval-specific metadata to trace RAG workflows:
+
+```json
+{
+  "event_type": "tool_call",
+  "payload": {
+    "tool_name": "vector_search",
+    "arguments": { "query": "latest revenue figures" }
+  },
+  "metadata": {
+    "intent.retrieval_source": "pinecone",
+    "intent.retrieval_top_k": 5
+  }
+}
+```
+
+### Human-in-the-Loop Decisions
+
+Use the `approved_by` and `approval_reason` fields on `tool_call` payloads for structured approval tracking. For richer approval metadata, use the `guard.*` namespace:
+
+```json
+{
+  "metadata": {
+    "guard.approval_requested_at": "2026-03-15T14:00:00.000Z",
+    "guard.approval_deadline": "2026-03-15T14:05:00.000Z",
+    "guard.approval_channel": "slack"
+  }
+}
+```
+
+### Intent Assessment Signals (`PLANNED`)
+
+Third-party classifiers (Lakera, Rebuff, custom models) can attach advisory risk signals:
+
+```json
+{
+  "metadata": {
+    "intent.risk_score": 0.82,
+    "intent.risk_labels": ["prompt_injection", "exfiltration_risk"],
+    "intent.confidence": 0.76,
+    "intent.classifier": "lakera-v2"
+  }
+}
+```
+
+These are advisory only — per the enforcement hierarchy, advisory signals must not be the sole basis for critical denial.
 
 ## Future Work
 

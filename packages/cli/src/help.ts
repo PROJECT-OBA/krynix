@@ -76,10 +76,10 @@ Options:
   --help                Show this help
 
 Exit codes:
-  0   All policies pass
-  1   Runtime error
-  2   Policy violation (deny)
-  3   Requires approval`;
+  0   All policies pass (including non-CI-failing violations)
+  1   CI-failing error-severity violation or runtime error
+  2   CI-failing critical-severity violation
+  3   Requires approval (no CI-failing violations)`;
 
     case "replay":
       return `krynix replay — Verify or regenerate trace files

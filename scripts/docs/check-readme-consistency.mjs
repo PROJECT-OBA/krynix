@@ -9,7 +9,7 @@ const canonical = readFileSync(
 );
 
 const markers = [
-  "REPLAY_CURRENT_MODE=integrity_plus_baseline_diff",
+  "REPLAY_CURRENT_MODE=integrity_verification",
   "KRYNIX_ROLE=trust_spine_not_full_platform",
   "KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss",
 ];
