@@ -104,8 +104,10 @@ spec:
 | Action | What Happens | CI Exit Code |
 |--------|-------------|-------------|
 | `allow` | Event passes | `0` |
-| `deny` | Event is a violation | `1` (error severity) or `2` (critical severity) |
-| `require-approval` | Event needs human review | `3` (only when no CI-failing violations exist) |
+| `deny` | Event is recorded as a violation | `1` or `2` only if the violation is CI-failing; otherwise `0` |
+| `require-approval` | Event needs human review | `3` only when no CI-failing violations exist |
+
+A violation is CI-failing by default when its severity is `error` or `critical`, or when `ci_failure: true` is set on the rule. A `deny` with `info` or `warning` severity (and `ci_failure` unset) still records a violation, but CI exits `0`.
 
 ## Write Once, Apply Everywhere
 

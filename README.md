@@ -90,7 +90,7 @@ spec:
 
 ```bash
 krynix evaluate --trace traces/session.trace.jsonl --policy policies/
-# Exit codes: 0 = pass, 1 = error, 2 = critical violation, 3 = needs approval
+# Exit codes: 0 = pass (including non-CI-failing violations), 1 = CI-failing error, 2 = CI-failing critical, 3 = needs approval
 ```
 
 ### Verify Integrity

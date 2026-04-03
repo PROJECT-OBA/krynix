@@ -7,13 +7,14 @@ Every event in a Krynix trace is cryptographically chained to the previous one u
 **How it works:**
 
 1. Each event is serialized into **canonical JSON** — a deterministic format where keys are sorted and whitespace is normalized. The same event always produces the same byte sequence.
-2. The SHA-256 hash is computed over the canonical JSON of the event plus the hash of the previous event (`prev_hash`).
-3. The result is stored as `event_hash` on the event itself.
+2. The `prev_hash` field is set to the previous event's hash (or `""` for the first event), and `event_hash` is set to `""`.
+3. The SHA-256 hash is computed over the canonical JSON of the **entire event object** (including `prev_hash`, with `event_hash` as `""`).
+4. The result is stored as `event_hash` on the event itself.
 
 ```
-Event 1: hash = SHA-256(canonical(event1) + "")    ← empty string as initial prev_hash
-Event 2: hash = SHA-256(canonical(event2) + event1.hash)
-Event 3: hash = SHA-256(canonical(event3) + event2.hash)
+Event 1: event.prev_hash = "",  event.event_hash = ""  → hash = SHA-256(canonical(event1))
+Event 2: event.prev_hash = event1.hash, event.event_hash = "" → hash = SHA-256(canonical(event2))
+Event 3: event.prev_hash = event2.hash, event.event_hash = "" → hash = SHA-256(canonical(event3))
 ...
 ```
 
@@ -95,7 +96,7 @@ This is `PARTIAL` because it performs structural comparison, not semantic analys
 | **Post-run only** — no real-time blocking in OSS | OSS is a library, not a runtime | CI exit codes fail pipelines on violations | `PLANNED`: Sidecar proxy mode enables real-time blocking before tool execution |
 | **Traces are plaintext JSONL** | Simplicity, portability, debuggability | Use filesystem permissions; redact sensitive fields before storage | `PLANNED`: Optional AES-256 encryption at rest |
 | **Completeness depends on adapter** | Adapter might miss events the framework doesn't expose | HTTP ingest captures at the network level (harder to miss) | `PLANNED`: Proxy mode guarantees 100% capture |
-| **No cost tracking** | Not in v1.0 schema | Policies can match on token counts (`usage.prompt_tokens`) | Schema v1.1 adds `estimated_cost` field |
+| **No cost tracking** | Not in v1.0 schema | Policies can match on token counts (`usage.prompt_tokens`) | Optional `estimated_cost` field added (`schema_version` remains `"1.0.0"`) |
 | **Drift detection is structural** | Semantic comparison requires execution replay | Structural diff catches most obvious drift | `PLANNED`: Execution replay for full behavioral comparison |
 
 ## Data Protection
