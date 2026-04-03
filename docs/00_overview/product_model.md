@@ -111,4 +111,4 @@ The HTTP ingest path is the universal, zero-adapter integration for any language
 - [PLANNED] Execution replay — re-run agent with same inputs, verify same outputs.
 - [PLANNED] Layered input/runtime/output enforcement contracts.
 - [PLANNED] HTTP ingest server — first paid component, universal integration path.
-- [PLANNED] Schema v1.1 — cost tracking, approval fields, streaming marker.
+- [CURRENT] Schema v1.1 fields — cost tracking, approval fields, streaming marker (backward-compatible optional fields in v1.0.0).

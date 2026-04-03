@@ -44,7 +44,7 @@ krynix evaluate --trace session.trace.jsonl --policy policies/
 krynix replay --verify --trace session.trace.jsonl
 ```
 
-Exit codes: `0` pass · `1` error · `2` violation · `3` needs approval. Wire into any CI pipeline.
+Exit codes: `0` pass · `1` error/violation · `2` critical violation · `3` needs approval. Wire into any CI pipeline.
 
 ---
 
@@ -87,7 +87,7 @@ spec:
 
 ```bash
 krynix evaluate --trace traces/session.trace.jsonl --policy policies/
-# Exit code 0 = all clear, 2 = violation found
+# Exit codes: 0 = pass, 1 = error, 2 = critical violation, 3 = needs approval
 ```
 
 ### Verify Integrity

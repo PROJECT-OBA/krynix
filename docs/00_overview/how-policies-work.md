@@ -104,8 +104,8 @@ spec:
 | Action | What Happens | CI Exit Code |
 |--------|-------------|-------------|
 | `allow` | Event passes | `0` |
-| `deny` | Event is a violation | `2` |
-| `require-approval` | Event needs human review | `3` |
+| `deny` | Event is a violation | `1` (error severity) or `2` (critical severity) |
+| `require-approval` | Event needs human review | `3` (only when no CI-failing violations exist) |
 | `log` | Event is recorded but not blocked | `0` |
 
 ## Write Once, Apply Everywhere
