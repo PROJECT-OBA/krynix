@@ -91,7 +91,7 @@ spec:
 | `not_in` | Value is not in a set | `model not_in ["gpt-3.5-turbo"]` |
 | `matches` | ECMAScript regex match | `tool_name matches "^shell.*"` |
 | `contains` | String contains substring | `message contains "password"` |
-| `exists` | Field is present (non-null) | `arguments.api_key exists true` |
+| `exists` | Field is present (not missing/undefined); `null` counts as present | `arguments.api_key exists true` |
 
 ## Evaluation Rules
 
