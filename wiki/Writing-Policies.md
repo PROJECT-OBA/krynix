@@ -107,6 +107,7 @@ Override the default CI behavior per rule:
 
 ```yaml
 - id: log-shell-usage
+  description: Detect shell tool usage with forced CI failure
   match:
     event_type: tool_call
     payload:

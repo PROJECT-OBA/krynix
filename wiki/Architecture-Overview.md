@@ -5,7 +5,7 @@ Canonical source: `docs/10_architecture/platform_architecture_spec.md`.
 ## Current Architecture Summary
 - `CURRENT`: Krynix OSS is the trust spine for trace/policy/replay evidence.
 - `CURRENT`: primary enforcement is CI/post-run.
-- `PARTIAL`: behavior drift checks exist via baseline trace comparison.
+- `PARTIAL`: behavior drift comparison library exists (`compareTraces`); not yet integrated into CLI.
 - `PLANNED`: execution replay and richer runtime-native controls.
 
 ## Layering Model

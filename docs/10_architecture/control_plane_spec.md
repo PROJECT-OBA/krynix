@@ -210,7 +210,7 @@ Step 3: Control Plane stores evaluation result linked to the trace
 Step 4: Dashboard surfaces evaluation results in org-wide views
 ```
 
-**CLI command:** `krynix push --evaluation <path>` or as part of `krynix push --trace <path> --include-evaluation`
+**CLI command:** `krynix push --evaluation <path>` (for separate upload) or `krynix push --trace <path> --evaluation <path>` (combined upload)
 
 ### 2.4 Replay Report Ingestion (v1) / Hosted Replay (v2)
 
@@ -271,7 +271,7 @@ Step 5: Returns the bundle as a downloadable archive
 Step 6: Bundle generation event recorded in audit log
 ```
 
-**CLI command:** `krynix compliance export --trace-ids <id1,id2> --output <path>`
+**CLI command:** `krynix compliance export --trace <file> [--trace <file>...] --output <path>`
 
 ---
 
@@ -287,26 +287,25 @@ Step 6: Bundle generation event recorded in audit log
 
 **API keys** are scoped to a single organization and issued via `krynix auth create-key`. Keys do not expire by default but:
 
-- Can be revoked at any time
-- Support optional expiration (`--expires-in 90d`)
+- Support revocation (`PLANNED` — no CLI command yet)
+- Support optional expiration (planned: `--expires-in 90d`)
 - Have a `last_used_at` timestamp for staleness detection
 - Are stored as salted bcrypt hashes (plaintext shown only at creation time)
 
 **Token exchange flow for interactive sessions:**
 
 ```
-1. krynix auth login --org <org_id>
-2. CLI opens browser to Control Plane login endpoint
-3. User authenticates (email + password for v1)
-4. Control Plane issues short-lived JWT to CLI
-5. CLI stores JWT in OS keychain or ~/.krynix/credentials (mode 0600)
+1. krynix auth login --email <email> --password <password>
+2. CLI POSTs credentials to Control Plane /api/v1/auth/token
+3. Control Plane validates credentials and issues a short-lived JWT
+4. CLI stores JWT in ~/.krynix/credentials (mode 0600)
 ```
 
 **SSO/OIDC integration:** Deferred to v2. v1 supports email-based authentication with password. OIDC provider integration (for enterprise SSO) is planned for v2 and will support standard providers (Okta, Azure AD, Google Workspace).
 
 **Service accounts** are API keys with a `service_account: true` flag. They:
 
-- Are created with `krynix auth create-key --service-account --description "CI pipeline"`
+- Are created server-side (UI or API); the CLI creates generic API keys via `krynix auth create-key --name "CI pipeline"` — server-side designation as service account is `PARTIAL` and not yet exposed via CLI flag
 - Have permissions equivalent to `member` role (push traces, pull policies)
 - Cannot access the Dashboard API or manage users
 - Are the recommended authentication method for CI pipelines
@@ -1148,10 +1147,10 @@ The following CLI commands are added when the Control Plane is configured. They 
 | `krynix push --replay-report <path>` | Upload a locally-produced replay report | Yes |
 | `krynix policy pull [--labels ...]` | Sync policies from the registry | Yes |
 | `krynix policy push --file <path>` | Publish a policy to the registry | Yes |
-| `krynix auth login` | Interactive authentication | Yes |
-| `krynix auth create-key [--service-account]` | Create an API key or service account | Yes |
-| `krynix auth revoke-key <key_id>` | Revoke an API key | Yes |
-| `krynix compliance export [--trace-ids ...]` | Generate a compliance evidence bundle | Yes |
+| `krynix auth login --email <email> --password <password>` | Interactive authentication | Yes |
+| `krynix auth create-key [--name <name>]` | Create an API key | Yes |
+| `krynix auth revoke-key <key_id>` | Revoke an API key | No (planned) |
+| `krynix compliance export --trace <file> [--trace ...]` | Generate a compliance evidence bundle | Yes |
 | `krynix replay --remote --trace-id <id>` | Request hosted replay | No (v2) |
 
 ---

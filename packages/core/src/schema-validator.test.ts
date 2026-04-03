@@ -120,6 +120,81 @@ describe("validateTraceEvent", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain("format");
   });
+
+  // ---------------------------------------------------------------------------
+  // Schema v1.1 optional fields
+  // ---------------------------------------------------------------------------
+
+  test("tool_call with approved_by and approval_reason passes", () => {
+    const baseEvent = makeToolCall(0, {
+      tool_name: "shell_exec",
+      arguments: { cmd: "ls" },
+      approval_status: "manual",
+    });
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        approved_by: "admin@example.com",
+        approval_reason: "Trusted command",
+      },
+    };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("llm_response with total_tokens and estimated_cost passes", () => {
+    const baseEvent = makeLlmResponse(0, {
+      model: "claude-opus-4-5-20251101",
+      content: "Hello",
+      usage: { prompt_tokens: 100, completion_tokens: 50 },
+      finish_reason: "stop",
+    });
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        usage: {
+          ...baseEvent.payload.usage,
+          total_tokens: 150,
+          estimated_cost: 0.0045,
+        },
+      },
+    };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("llm_response with is_streaming passes", () => {
+    const baseEvent = makeLlmResponse(0);
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        is_streaming: true,
+      },
+    };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("llm_response with negative usage values rejected", () => {
+    const baseEvent = makeLlmResponse(0);
+    const event = {
+      ...baseEvent,
+      payload: {
+        ...baseEvent.payload,
+        usage: {
+          prompt_tokens: -1,
+          completion_tokens: -1,
+          total_tokens: -1,
+          estimated_cost: -0.001,
+        },
+      },
+    };
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -202,6 +277,41 @@ describe("validatePolicy", () => {
     const result = validatePolicy(policy);
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
+  });
+
+  test("valid policy with all optional fields passes", () => {
+    const policy = {
+      ...VALID_POLICY,
+      metadata: {
+        ...VALID_POLICY.metadata,
+        labels: { team: "security", env: "prod" },
+        extends: "base-policy",
+      },
+      spec: {
+        ...VALID_POLICY.spec,
+        defaults: {
+          unmatched_action: "allow",
+          unmatched_severity: "info",
+        },
+        rules: [
+          {
+            ...VALID_POLICY.spec.rules[0],
+            match: {
+              event_type: "tool_call",
+              payload: [{ field: "tool_name", operator: "eq", value: "shell_exec" }],
+            },
+            ci_failure: true,
+            on_violation: {
+              notify: ["security@example.com"],
+              create_issue: true,
+            },
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(true);
+    expect(result.error).toBeUndefined();
   });
 });
 

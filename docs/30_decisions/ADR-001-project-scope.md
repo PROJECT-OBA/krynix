@@ -14,7 +14,7 @@ Krynix will focus on:
 
 - Trace standardization
 - Policy enforcement
-- Deterministic replay ([CURRENT] integrity + baseline diff; [PLANNED] execution replay)
+- Deterministic replay ([CURRENT] integrity verification; [PARTIAL] baseline drift comparison via library; [PLANNED] execution replay)
 - CI evaluation
 
 Krynix will NOT:

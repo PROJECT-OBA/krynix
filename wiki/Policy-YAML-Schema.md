@@ -112,9 +112,10 @@ Payload field paths use dot-notation: `arguments.path`, `usage.completion_tokens
 
 | Verdict | Condition | Exit Code |
 |---------|-----------|-----------|
-| `pass` | Zero violations with `ci_failure: true` | 0 |
-| `fail` | One or more `deny` violations with `ci_failure: true` | 2 |
-| `require-approval` | At least one `require-approval`, zero fail-level | 3 |
+| `pass` | Zero CI-failing violations; non-CI-failing violations do not affect the exit code | 0 |
+| `fail` | One or more CI-failing `error`-severity violations | 1 |
+| `fail` | One or more CI-failing `critical`-severity violations | 2 |
+| `require-approval` | At least one `require-approval`, zero CI-failing violations | 3 |
 
 ## Severity Defaults
 

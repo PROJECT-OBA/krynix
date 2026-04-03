@@ -39,7 +39,7 @@ Mapping:
 
 ```bash
 # Export trace to OTLP JSON format
-krynix export --format otlp --trace traces/session.trace.jsonl
+krynix export --format otlp-json --trace traces/session.trace.jsonl
 ```
 
 ## Derived Metrics
@@ -83,7 +83,7 @@ These metrics are computed from trace data and are available as structured outpu
 |---|---|---|
 | Hash chain validation failure | Critical | Potential trace tampering. Investigate immediately. |
 | `critical`-severity policy violation | Critical | Agent attempted a critical-severity action. Review trace. |
-| Replay divergence in CI | High | Trace structure or hash chain diverged from baseline. Review code changes. |
+| Replay divergence in CI | High | Trace hash chain or structure verification failed. Review code changes. |
 | `error`-severity policy violation | Medium | Policy violation blocking merge. Fix before retry. |
 | Golden trace regeneration required | Low | Code change affected deterministic behavior. Regenerate and review. |
 
@@ -126,14 +126,14 @@ Use the JSON Lines format with Datadog log ingestion, mapping `event_type` to Da
 
 ### Custom Integration
 
-The CLI provides structured JSON output that can be piped to any system:
+The CLI outputs structured JSON to stdout that can be piped to any system:
 
 ```bash
-# Policy evaluation results as JSON
-krynix evaluate --trace traces/session.trace.jsonl --policy policies/ --output json
+# Policy evaluation results as JSON (default output)
+krynix evaluate --trace traces/session.trace.jsonl --policy policies/
 
-# Replay results as JSON
-krynix replay --verify --trace traces/session.trace.jsonl --output json
+# Replay results as JSON (default output)
+krynix replay --verify --trace traces/session.trace.jsonl
 ```
 
 ## Data Sensitivity

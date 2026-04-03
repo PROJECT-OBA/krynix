@@ -6,11 +6,11 @@ Canonical source: `docs/10_architecture/platform_architecture_spec.md`.
 1. Capture trace evidence (`TraceEvent` stream with hash chain).
 2. Evaluate policies (`krynix evaluate`).
 3. Verify replay integrity (`krynix replay --verify`).
-4. Detect drift when baseline exists (`krynix replay --verify --baseline ...`).
+4. Verify golden trace integrity (`krynix replay --verify --golden-dir ...`).
 
 Status:
 - `CURRENT`: integrity + policy CI gate.
-- `PARTIAL`: behavior drift detection with baseline trace comparator.
+- `PARTIAL`: behavior drift comparison exists as library function (`compareTraces`); not yet CLI-integrated.
 - `PLANNED`: deterministic execution replay.
 
 ## CI Example
@@ -18,6 +18,6 @@ Status:
 - name: Policy Gate
   run: pnpm krynix evaluate --trace $TRACE --policy policies/
 
-- name: Replay Integrity + Drift Gate
-  run: pnpm krynix replay --verify --trace $TRACE --baseline test/golden/baseline.trace.jsonl
+- name: Replay Integrity Gate
+  run: pnpm krynix replay --verify --trace $TRACE
 ```

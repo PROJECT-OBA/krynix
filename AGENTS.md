@@ -29,7 +29,7 @@ Major capability claims must include one of:
 - `PLANNED`
 
 ## Mandatory Current-State Constraints
-- Current replay guarantee is integrity + baseline diff.
+- Current replay guarantee is integrity verification. Baseline drift comparison exists as a library function (`compareTraces`) but is not yet integrated into the CLI.
 - Execution replay is planned and tracked.
 - Krynix is trust spine, not full platform ownership.
 - OSS default enforcement boundary is CI/post-run.
@@ -45,7 +45,7 @@ Major capability claims must include one of:
 - No unsupported guarantee claims in docs or generated outputs.
 
 ## Consistency Markers
-- `REPLAY_CURRENT_MODE=integrity_plus_baseline_diff`
+- `REPLAY_CURRENT_MODE=integrity_verification`
 - `KRYNIX_ROLE=trust_spine_not_full_platform`
 - `KRYNIX_RUNTIME_ENFORCEMENT=external_runtime_controls_ci_postrun_in_oss`
 - `KRYNIX_INPUT_LAYER_MODE=deployment_specific_not_universal`

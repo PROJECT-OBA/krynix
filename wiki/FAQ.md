@@ -4,7 +4,7 @@
 `CURRENT`: Krynix provides trace integrity, policy evaluation, replay integrity checks, and CI/post-run evidence workflows.
 
 ## Is replay deterministic execution today?
-No. Determinism remains a core design principle, but current replay guarantee is integrity + baseline diff. Execution replay is planned and tracked.
+No. Determinism remains a core design principle, but current CLI replay guarantee is integrity verification. Baseline drift comparison exists as a library function (`compareTraces`) but is not yet CLI-integrated. Execution replay is planned and tracked.
 
 ## Is Krynix the full platform?
 No. Krynix is the trust spine, not full platform ownership of input/runtime/output controls.
