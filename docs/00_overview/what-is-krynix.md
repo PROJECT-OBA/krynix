@@ -34,7 +34,7 @@ Four capabilities, each solving one of the problems above:
 2. trace.jsonl — structured, hash-chained log of all agent activity
    ↓
 3. krynix evaluate --trace trace.jsonl --policy rules/
-   → Pass (exit 0) or Fail (exit 2) — enforceable in CI
+   → Exit 0 (pass), 1 (error), 2 (critical), 3 (needs approval)
    ↓
 4. krynix replay --verify --trace trace.jsonl
    → Integrity check: hash chain unbroken, events ordered, session complete
@@ -58,6 +58,9 @@ metadata:
   version: "1.0"
   description: Prevent shell command execution
 spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
   rules:
     - id: block-shell
       description: Deny any tool call that executes shell commands
