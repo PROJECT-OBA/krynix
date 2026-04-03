@@ -278,6 +278,41 @@ describe("validatePolicy", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
   });
+
+  test("valid policy with all optional fields passes", () => {
+    const policy = {
+      ...VALID_POLICY,
+      metadata: {
+        ...VALID_POLICY.metadata,
+        labels: { team: "security", env: "prod" },
+        extends: "base-policy",
+      },
+      spec: {
+        ...VALID_POLICY.spec,
+        defaults: {
+          unmatched_action: "allow",
+          unmatched_severity: "info",
+        },
+        rules: [
+          {
+            ...VALID_POLICY.spec.rules[0],
+            match: {
+              event_type: "tool_call",
+              payload: [{ field: "tool_name", operator: "eq", value: "shell_exec" }],
+            },
+            ci_failure: true,
+            on_violation: {
+              notify: ["security@example.com"],
+              create_issue: true,
+            },
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
