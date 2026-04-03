@@ -44,7 +44,7 @@ Onboarding checklist:
 Minimum commands:
 ```bash
 krynix evaluate --trace <trace> --policy policies/
-krynix replay --verify --trace <trace> --baseline <golden>
+krynix replay --verify --trace <trace> --golden-dir test/golden/
 ```
 
 Required artifacts:
@@ -104,7 +104,7 @@ Onboarding checklist:
 Minimum commands:
 ```bash
 krynix evaluate --trace traces/local.trace.jsonl --policy policies/
-krynix replay --verify --trace traces/local.trace.jsonl --baseline test/golden/task-baseline.trace.jsonl
+krynix replay --verify --trace traces/local.trace.jsonl --golden-dir test/golden/
 ```
 
 Required artifacts:

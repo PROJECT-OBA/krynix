@@ -39,7 +39,7 @@ Mapping:
 
 ```bash
 # Export trace to OTLP JSON format
-krynix export --format otlp --trace traces/session.trace.jsonl
+krynix export --format otlp-json --trace traces/session.trace.jsonl
 ```
 
 ## Derived Metrics
@@ -126,14 +126,14 @@ Use the JSON Lines format with Datadog log ingestion, mapping `event_type` to Da
 
 ### Custom Integration
 
-The CLI provides structured JSON output that can be piped to any system:
+The CLI outputs structured JSON to stdout that can be piped to any system:
 
 ```bash
-# Policy evaluation results as JSON
-krynix evaluate --trace traces/session.trace.jsonl --policy policies/ --output json
+# Policy evaluation results as JSON (default output)
+krynix evaluate --trace traces/session.trace.jsonl --policy policies/
 
-# Replay results as JSON
-krynix replay --verify --trace traces/session.trace.jsonl --output json
+# Replay results as JSON (default output)
+krynix replay --verify --trace traces/session.trace.jsonl
 ```
 
 ## Data Sensitivity

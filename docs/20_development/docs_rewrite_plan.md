@@ -26,7 +26,7 @@ ADRs record irreversible decisions/tradeoffs only.
 | `wiki/Trust-Pipeline.md` | Edit | Use integrity + baseline drift wording, not execution replay claims. |
 | `wiki/FAQ.md` | Edit | Correct replay/redaction/runtime scope answers. |
 | `wiki/Getting-Started.md` | Edit | Update onboarding commands and truthful behavior claims. |
-| `wiki/CLI-Reference.md` | Edit | Include `--baseline` and note verify semantics. |
+| `wiki/CLI-Reference.md` | Edit | Include `--golden-dir` and note verify semantics. |
 | `wiki/Glossary.md` | Merge | Keep concise wiki mirror and defer canonical definitions to docs glossary files. |
 | Other `wiki/*` with duplicated outdated claims | Deprecate | Add short notice directing to canonical spec if not maintained. |
 | `CLAUDE.md` | Edit | Add truth-labeling and source-precedence requirements. |

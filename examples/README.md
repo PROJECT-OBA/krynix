@@ -162,11 +162,11 @@ If `krynix evaluate` exits non-zero, the CI step fails and the PR is blocked.
 Compare a current trace against a known-good baseline:
 
 ```bash
-# Save a golden trace as your baseline
+# Save a golden trace
 cp traces/my-session.trace.jsonl test/golden/my-baseline.trace.jsonl
 
-# Later, compare new runs against the baseline
-krynix replay --verify --trace traces/new-run.trace.jsonl --baseline test/golden/my-baseline.trace.jsonl
+# Later, compare new runs against golden traces
+krynix replay --verify --trace traces/new-run.trace.jsonl --golden-dir test/golden/
 ```
 
 This detects when agent behavior drifts from the established pattern — even if no individual policy rule is violated.

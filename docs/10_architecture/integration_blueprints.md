@@ -81,7 +81,7 @@ Artifact flow:
 3. `endSession(...)` to finalize `.trace.jsonl`.
 4. Local checks:
    - `krynix evaluate --trace <trace> --policy <policy-dir>`
-   - optional `krynix replay --verify --trace <trace> --baseline <baseline>`
+   - optional `krynix replay --verify --trace <trace> --golden-dir test/golden/`
 5. CI gate on PR with same commands.
 
 Failure behavior:
@@ -117,7 +117,7 @@ Artifact flow:
 4. CI evaluates:
    - policy gate (`evaluate`)
    - replay integrity (`replay --verify`)
-   - optional drift gate (`--baseline`)
+   - optional drift gate (`--golden-dir`)
 
 Multi-tenant notes:
 - Namespace trace paths by org/project/agent/session.
@@ -131,7 +131,7 @@ krynix evaluate --trace traces/<tenant>/<session>.trace.jsonl --policy policies/
 krynix replay --verify --trace traces/<tenant>/<session>.trace.jsonl
 
 # Optional drift gate
-krynix replay --verify --trace traces/<tenant>/<session>.trace.jsonl --baseline test/golden/<scenario>.trace.jsonl
+krynix replay --verify --trace traces/<tenant>/<session>.trace.jsonl --golden-dir test/golden/
 ```
 
 ## Known Gaps And Roadmap

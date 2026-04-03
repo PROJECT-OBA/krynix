@@ -130,10 +130,10 @@ krynix evaluate --trace <trace-file> --policy <path>
 
 | Code | Meaning |
 |---|---|
-| 0 | All policies pass |
-| 1 | One or more `error`-severity violations |
-| 2 | One or more `critical`-severity violations |
-| 3 | `require-approval` triggered, no fail-level violations |
+| 0 | No CI-failing violations (non-CI-failing violations still exit 0) |
+| 1 | One or more CI-failing `error`-severity violations, or runtime error |
+| 2 | One or more CI-failing `critical`-severity violations |
+| 3 | `require-approval` triggered, no CI-failing violations |
 
 **Stdout:** Structured JSON report of all violations.
 

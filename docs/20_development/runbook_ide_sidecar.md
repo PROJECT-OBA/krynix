@@ -25,7 +25,7 @@ pnpm build
 
 # Local trust checks
 krynix evaluate --trace traces/local.trace.jsonl --policy policies/
-krynix replay --verify --trace traces/local.trace.jsonl --baseline test/golden/task-baseline.trace.jsonl
+krynix replay --verify --trace traces/local.trace.jsonl --golden-dir test/golden/
 ```
 
 ## Expected Artifacts

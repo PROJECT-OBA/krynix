@@ -6,7 +6,7 @@ Canonical architecture and guarantee truth lives in:
 
 Current snapshot:
 - `CURRENT`: trace integrity + policy evaluation + replay integrity checks.
-- `PARTIAL`: baseline drift detection via replay `--baseline`.
+- `PARTIAL`: baseline drift detection via replay `--golden-dir`.
 - `PLANNED`: deterministic execution replay and deeper runtime guard integrations.
 
 Use these first:

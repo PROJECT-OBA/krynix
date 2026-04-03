@@ -18,7 +18,7 @@ Standardize CI trust-gate setup for Krynix policy and replay checks.
 ```bash
 krynix evaluate --trace $TRACE --policy policies/
 krynix replay --verify --trace $TRACE
-krynix replay --verify --trace $TRACE --baseline $BASELINE_TRACE
+krynix replay --verify --trace $TRACE --golden-dir test/golden/
 ```
 
 ## Expected Artifacts

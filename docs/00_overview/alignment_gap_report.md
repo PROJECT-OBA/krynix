@@ -30,10 +30,10 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 | `wiki/Trust-Pipeline.md` | Treats replay as proof-by-execution rather than integrity + diff today. | High |
 | `wiki/FAQ.md` | Uses broad replay and redaction guarantees without current-limit qualifiers. | High |
 | `wiki/Getting-Started.md` | Onboarding path implies deterministic replay verification as implemented. | Medium |
-| `wiki/CLI-Reference.md` | Replay section omits `--baseline`; diverges from current CLI semantics. | High |
+| `wiki/CLI-Reference.md` | Replay section omits `--golden-dir`; diverges from current CLI semantics. | High |
 | `CLAUDE.md` | Uses "guarantees" language that can overstate implemented behavior. | High |
 | `.claude/rules/*` | Previously stated deterministic re-execution as current; now updated with truth labels. | Resolved |
-| `packages/cli/src/help.ts` | Correctly scopes `--verify` to integrity and `--baseline` to drift detection. | High |
+| `packages/cli/src/help.ts` | Correctly scopes `--verify` to integrity and `--golden-dir` to drift detection. | High |
 
 ## Contradictions And Ambiguities
 
@@ -66,7 +66,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 
 ### CR-5: CLI semantics drift in wiki
 - Severity: `minor`
-- Contradiction: wiki CLI reference omits current `--baseline` replay mode and related behavior-drift semantics.
+- Contradiction: wiki CLI reference omits current `--golden-dir` replay mode and related behavior-drift semantics.
 - Evidence:
   - Outdated docs: `wiki/CLI-Reference.md`
   - Current semantics: `packages/cli/src/help.ts`, `packages/cli/src/replay.ts`
@@ -77,7 +77,7 @@ Document contradictions and ambiguity across repository docs and agent rules bef
 | Trace schema + hash-chain integrity | Implemented | Mature and tested in `@krynix/core`. |
 | Policy parsing/evaluation + CI exit codes | Implemented | Primary enforcement contract in OSS. |
 | Replay integrity validation (`--verify`) | Implemented | Structural/lifecycle/hash checks and deterministic hash recomputation. |
-| Replay drift detection (`--baseline`) | Partial | Trace-vs-trace behavior comparison exists, not execution replay. |
+| Replay drift detection (`--golden-dir`) | Partial | Trace-vs-trace behavior comparison exists, not execution replay. |
 | Deterministic execution replay of agent logic | Planned | Not implemented in OSS currently. |
 | Redaction guarantees | Partial | Built-in pattern matching + custom patterns; coverage not universal. |
 | Runtime inline blocking by Krynix OSS | Partial | Integration architecture discussed, but core OSS guarantee remains CI/post-run. |
