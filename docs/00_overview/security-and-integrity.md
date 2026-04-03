@@ -114,7 +114,7 @@ Krynix supports key-pattern-based redaction to strip sensitive fields from trace
 
 ### Network Behavior
 
-- **OSS (this repo):** Zero network calls. Everything runs locally. No external dependencies at runtime.
+- **OSS (this repo):** Core trust checks (`evaluate`, `replay`, `export`) run offline by default — no phone-home, telemetry, or third-party data sharing. Optional Control Plane integration commands (`auth`, `push`, `policy pull/push`, `golden *`) perform network calls when explicitly used.
 - **HTTP ingest (`PLANNED`):** TLS in transit. Optional encryption at rest. Self-hosted by design — you control where traces are stored.
 - **Control Plane (`PLANNED`):** Centralized storage with access controls, encryption, and compliance features.
 
@@ -129,7 +129,7 @@ Krynix addresses six primary threats. Full details in [threat_model.md](../10_ar
 | **Privilege escalation** | Critical | External policy evaluation — the agent cannot modify its own policies. Hash chain proves the trace wasn't altered to hide escalation. |
 | **Secret exfiltration** | Critical | Redaction engine strips sensitive fields. Policies can deny network-capable tool calls. |
 | **Policy tampering** | Critical | Policies are version-controlled files reviewed via PR. CI enforces the committed version. |
-| **Trace tampering** | High | SHA-256 hash chain. Golden trace comparison in CI. Any modification breaks the chain. |
+| **Trace tampering** | High | SHA-256 hash chain. Golden trace integrity verification in CI (`--golden-dir`). Any modification breaks the chain. |
 
 ### Effects-Based Security Model
 

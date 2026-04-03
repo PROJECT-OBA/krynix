@@ -6,7 +6,7 @@ Standardize CI trust-gate setup for Krynix policy and replay checks.
 ## Prerequisites
 - Trace artifacts produced in build/test workflow.
 - Policies checked into repository.
-- Baseline traces available for golden trace integrity verification.
+- Golden traces available for golden trace integrity verification.
 
 ## Setup Steps
 1. Add policy gate step.

@@ -13,7 +13,7 @@ Define the boundary between OSS capabilities and planned platform capabilities. 
 
 ## OSS Engine (Always Free — MIT License)
 
-The OSS engine is everything in this repository. It runs locally, offline, with zero external dependencies.
+The OSS engine is everything in this repository. Core trust checks (`evaluate`, `replay`, `export`) run locally with no external dependencies. Optional Control Plane integration commands (`auth`, `push`, `policy pull/push`, `golden *`) perform network calls when explicitly used.
 
 ### Packages
 
@@ -34,7 +34,7 @@ The OSS engine is everything in this repository. It runs locally, offline, with 
 - [CURRENT] Replay integrity verification — chain, ordering, session bookends
 - [CURRENT] Framework-agnostic policies — write once, apply to any agent
 - [CURRENT] Compliance export — evidence bundles for audit
-- [CURRENT] Offline operation — zero network calls, zero telemetry
+- [CURRENT] No phone-home or telemetry — core trust checks (`evaluate`, `replay`, `export`) run offline; Control Plane integration commands (`auth`, `push`, etc.) perform network calls only when explicitly used
 - [PARTIAL] Baseline drift comparison — library function (`compareTraces`) exists, not yet integrated into CLI
 - [PARTIAL] Redaction — key-pattern based, not universal content scanning
 
