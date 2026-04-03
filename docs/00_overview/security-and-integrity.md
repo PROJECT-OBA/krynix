@@ -48,12 +48,12 @@ Policy evaluation is **deterministic**: the same trace + the same policy = the s
 
 | Exit Code | Meaning | CI Effect |
 |-----------|---------|-----------|
-| `0` | All events pass | Pipeline continues |
+| `0` | No CI-failing violations (non-CI-failing violations still exit 0) | Pipeline continues |
 | `1` | CI-failing `error` severity violation, or runtime error | Pipeline fails |
 | `2` | CI-failing `critical` severity violation | Pipeline fails |
 | `3` | Requires approval (no CI-failing violations) | Pipeline pauses (if CI supports it) |
 
-**What this means in practice:** Add `krynix evaluate` to your CI pipeline. If an agent violates a policy, the pipeline fails with a non-zero exit code. No human has to review every trace manually — violations are caught automatically.
+**What this means in practice:** Add `krynix evaluate` to your CI pipeline. If an agent triggers a CI-failing violation (`error` or `critical` severity), the pipeline fails with a non-zero exit code. No human has to review every trace manually — violations are caught automatically.
 
 ## What Replay Guarantees
 
@@ -74,7 +74,7 @@ Checks:
 ### Baseline Drift Detection (`PARTIAL`)
 
 ```bash
-krynix replay --verify --trace current.trace.jsonl --baseline golden.trace.jsonl
+krynix replay --verify --trace current.trace.jsonl --golden-dir test/golden/
 ```
 
 Compares today's trace against a known-good baseline and reports:

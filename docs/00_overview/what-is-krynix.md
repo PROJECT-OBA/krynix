@@ -34,7 +34,7 @@ Four capabilities, each solving one of the problems above:
 2. trace.jsonl — structured, hash-chained log of all agent activity
    ↓
 3. krynix evaluate --trace trace.jsonl --policy rules/
-   → Exit 0 (pass), 1 (error), 2 (critical), 3 (needs approval)
+   → Exit 0 (pass), 1 (error or runtime error), 2 (critical), 3 (needs approval)
    ↓
 4. krynix replay --verify --trace trace.jsonl
    → Integrity check: hash chain unbroken, events ordered, session complete
@@ -83,11 +83,11 @@ You don't need to write a custom adapter. Choose the path that fits your stack:
 
 | Path | Effort | Who It's For |
 |------|--------|-------------|
-| **HTTP ingest** | POST JSON events to an endpoint — no library needed | Any agent, any language |
-| **SDK** | `pip install krynix` or `npm install @krynix/core` + a few lines of code | Python or TypeScript agents |
 | **Pre-built adapter** | Drop-in auto-capture with zero instrumentation code | LangChain, OpenClaw (more coming) |
+| **SDK** | Import `@krynix/core` (TypeScript) or the Python SDK + a few lines of code | Python or TypeScript agents |
+| **HTTP ingest** (`PLANNED`) | POST JSON events to an endpoint — no library needed | Any agent, any language |
 
-The HTTP ingest path is the universal answer to "do I need to write an adapter?" — no. Just send events as JSON.
+For current integrations, use a pre-built adapter or the SDK. HTTP ingest is `PLANNED` as the first Control Plane component — it will provide zero-library integration for any language.
 
 ## What's Free vs Paid
 
@@ -125,8 +125,8 @@ krynix evaluate --trace traces/session.trace.jsonl --policy policies/
 # Verify trace integrity
 krynix replay --verify --trace traces/session.trace.jsonl
 
-# Compare against a known-good baseline
-krynix replay --verify --trace traces/current.trace.jsonl --baseline traces/golden.trace.jsonl
+# Compare against known-good golden traces
+krynix replay --verify --trace traces/current.trace.jsonl --golden-dir test/golden/
 ```
 
 Exit codes: `0` = pass, `1` = error-severity violation or runtime error, `2` = critical-severity violation, `3` = requires approval (no CI-failing violations). Wire these into your CI pipeline.

@@ -37,14 +37,14 @@ Krynix records every agent action into a tamper-proof trace, evaluates it agains
 # 1. Your agent runs normally — adapter captures every event automatically
 #    → session.trace.jsonl (SHA-256 hash-chained log)
 
-# 2. Check policy compliance — exits non-zero on violations
+# 2. Check policy compliance — exits non-zero on CI-failing violations
 krynix evaluate --trace session.trace.jsonl --policy policies/
 
 # 3. Verify integrity — prove the trace hasn't been tampered with
 krynix replay --verify --trace session.trace.jsonl
 ```
 
-Exit codes: `0` pass · `1` error/violation · `2` critical violation · `3` needs approval. Wire into any CI pipeline.
+Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing critical · `3` needs approval. Wire into any CI pipeline.
 
 ---
 
@@ -90,7 +90,7 @@ spec:
 
 ```bash
 krynix evaluate --trace traces/session.trace.jsonl --policy policies/
-# Exit codes: 0 = pass (including non-CI-failing violations), 1 = CI-failing error, 2 = CI-failing critical, 3 = needs approval
+# Exit codes: 0 = pass (including non-CI-failing violations), 1 = CI-failing error or runtime error, 2 = CI-failing critical, 3 = needs approval
 ```
 
 ### Verify Integrity
@@ -105,8 +105,8 @@ krynix replay --verify --trace traces/session.trace.jsonl
 ```bash
 krynix replay --verify \
   --trace traces/current.trace.jsonl \
-  --baseline traces/golden.trace.jsonl
-# Compares against a known-good baseline — flags new tools, changed models, structural changes
+  --golden-dir test/golden/
+# Compares against known-good golden traces — flags new tools, changed models, structural changes
 ```
 
 ---
