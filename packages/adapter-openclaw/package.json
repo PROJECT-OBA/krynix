@@ -1,7 +1,16 @@
 {
   "name": "@krynix/adapter-openclaw",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "OpenClaw adapter for Krynix: translates OpenClaw plugin hook events into Krynix trace events",
+  "author": "PROJECT-OBA",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PROJECT-OBA/krynix.git",
+    "directory": "packages/adapter-openclaw"
+  },
+  "keywords": ["krynix", "openclaw", "adapter", "ai-agent", "trace", "observability"],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -13,7 +22,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist"

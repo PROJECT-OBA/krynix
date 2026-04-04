@@ -44,7 +44,7 @@ That's it. Three commands give you policy enforcement and integrity verification
 
 ## Framework-Agnostic Policies
 
-Write a policy once. It works with any agent framework — LangChain, CrewAI, AutoGen, custom agents, any language.
+Write a policy once. It works with any agent framework that produces Krynix trace events — currently LangChain and OpenClaw via pre-built adapters, with more frameworks planned.
 
 This works because Krynix normalizes all agent activity into **8 canonical event types**: `tool_call`, `tool_result`, `llm_request`, `llm_response`, `decision`, `observation`, `error`, and `lifecycle`. Every adapter translates framework-specific events into these types. Policies match against the canonical fields, not framework internals.
 
@@ -84,7 +84,7 @@ You don't need to write a custom adapter. Choose the path that fits your stack:
 | Path | Effort | Who It's For |
 |------|--------|-------------|
 | **Pre-built adapter** | Drop-in auto-capture with zero instrumentation code | LangChain, OpenClaw (more coming) |
-| **SDK** | Import `@krynix/core` (TypeScript) or the Python SDK + a few lines of code | Python or TypeScript agents |
+| **SDK** | Import `@krynix/core` (TypeScript) + a few lines of code. Python SDK is `PLANNED` ([krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python)) | TypeScript agents (Python coming) |
 | **HTTP ingest** (`PLANNED`) | POST JSON events to an endpoint — no library needed | Any agent, any language |
 
 For current integrations, use a pre-built adapter or the SDK. HTTP ingest is `PLANNED` as the first Control Plane component — it will provide zero-library integration for any language.

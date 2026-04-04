@@ -61,3 +61,10 @@ jobs:
           node packages/cli/dist/main.js policy test --policy packages/adapter-openclaw/policies/openclaw-default.policy.yaml --trace test/golden/openclaw-minimal.trace.jsonl --expect-verdict fail
           node packages/cli/dist/main.js policy diff --old packages/adapter-openclaw/policies/openclaw-default.policy.yaml --new packages/adapter-openclaw/policies/openclaw-default.policy.yaml
           node scripts/planning/orchestrator.mjs --help
+
+      - name: Standalone binary smoke test
+        run: |
+          node packages/cli/dist/standalone/main.cjs --version
+          node packages/cli/dist/standalone/main.cjs --help
+          node packages/cli/dist/standalone/main.cjs replay --verify --golden-dir test/golden/
+          node packages/cli/dist/standalone/main.cjs stats --trace test/golden/minimal.trace.jsonl

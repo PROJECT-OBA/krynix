@@ -178,7 +178,7 @@ This verifies that golden traces haven't been tampered with — hash chain, life
 ```
 ┌─────────────────────────────────────────────────┐
 │                  Your Agent                      │
-│  (LangChain, CrewAI, AutoGen, custom, etc.)     │
+│  (LangChain, OpenClaw, custom — more frameworks planned) │
 │                                                  │
 │  ┌──────────────┐                                │
 │  │ LLM calls    │──┐                             │
@@ -224,5 +224,6 @@ This verifies that golden traces haven't been tampered with — hash chain, life
 
 | File | Description |
 |------|-------------|
+| [core-quickstart.ts](core-quickstart.ts) | TypeScript: Direct `@krynix/core` session API usage |
 | [langchain-quickstart.ts](langchain-quickstart.ts) | TypeScript: LangChain tracer plugin → trace → evaluate |
 | [http-quickstart.md](http-quickstart.md) | `[PLANNED]` Any language: HTTP ingest API protocol details |
