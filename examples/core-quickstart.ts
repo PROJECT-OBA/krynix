@@ -9,8 +9,8 @@
  *   npx tsx examples/core-quickstart.ts
  *
  * Then verify:
- *   node packages/cli/dist/main.js replay --verify --trace ./traces/
- *   node packages/cli/dist/main.js evaluate --trace ./traces/ --policy examples/sample.policy.yaml
+ *   node packages/cli/dist/main.js replay --verify --golden-dir ./traces/
+ *   node packages/cli/dist/main.js evaluate --trace ./traces/<session-id>.trace.jsonl --policy examples/sample.policy.yaml
  */
 
 import {

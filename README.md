@@ -54,9 +54,9 @@ Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing 
 
 ```bash
 # Option 1: Standalone binary (no dependencies)
-curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix -o krynix
-chmod +x krynix
-node krynix --version
+curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
+chmod +x krynix.cjs
+node krynix.cjs --version
 
 # Option 2: Build from source
 git clone https://github.com/PROJECT-OBA/krynix.git
