@@ -135,6 +135,10 @@ node krynix.cjs evaluate \
 
 ```yaml
 # .github/workflows/ci.yml (add after your test step)
+- name: Download Krynix
+  run: |
+    curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
+    chmod +x krynix.cjs
 - name: Krynix policy check
   run: node krynix.cjs evaluate --trace ./traces/my-agent-session.trace.jsonl --policy ./policies/
 ```
