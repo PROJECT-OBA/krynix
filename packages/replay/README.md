@@ -15,12 +15,10 @@ Replay and integrity verification engine for Krynix. Verifies hash chain integri
 
 ```typescript
 import { verifyTrace, verifyGoldenDir } from "@krynix/replay";
-import { readTrace } from "@krynix/core";
 
-// Verify a single trace
-const events = await readTrace("./traces/session.trace.jsonl");
-const result = verifyTrace(events);
-// result.status: "pass" | "fail"
+// Verify a single trace — takes a file path directly
+const result = await verifyTrace("./traces/session.trace.jsonl");
+// result.status: "pass" | "diverged" | "error"
 
 // Verify all golden traces in a directory
 const results = await verifyGoldenDir("./test/golden/");

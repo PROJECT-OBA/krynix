@@ -9,15 +9,18 @@ OpenClaw adapter for Krynix. Translates OpenClaw plugin hook events into Krynix 
 ```typescript
 import { createKrynixPlugin } from "@krynix/adapter-openclaw";
 
-const plugin = createKrynixPlugin({
+// createKrynixPlugin returns a plugin initializer function.
+// Export it as the default from your OpenClaw extensions file:
+//   extensions/krynix/index.ts
+export default createKrynixPlugin({
+  outputPath: "./traces/my-agent.trace.jsonl",
   agentId: "my-agent",
-  outputPath: "./traces",
 });
 
-// Register with OpenClaw
-agent.use(plugin.handler);
-
-await plugin.stop();
+// OpenClaw calls the initializer with its plugin API.
+// To get the handle for programmatic shutdown:
+//   const handle = await initPlugin(api);
+//   await handle.shutdown();
 ```
 
 ### 2. Manual adapter (fine-grained control)
@@ -25,8 +28,11 @@ await plugin.stop();
 ```typescript
 import { OpenClawAdapter } from "@krynix/adapter-openclaw";
 
-const adapter = new OpenClawAdapter({ agentId: "my-agent" });
-const event = adapter.translate(hookEvent);
+// Constructor takes no arguments; config goes to initialize()
+// AdapterConfig requires agentId and sessionId (from startSession())
+const adapter = new OpenClawAdapter();
+await adapter.initialize({ agentId: "my-agent", sessionId: "your-session-id" });
+const traceEvent = adapter.onEvent(hookEvent);
 ```
 
 ## Hooks Handled
