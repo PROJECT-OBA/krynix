@@ -4,7 +4,7 @@
   "private": true,
   "description": "Replay and integrity verification engine for Krynix: hash chain verification, golden trace validation, and drift comparison",
   "author": "PROJECT-OBA",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/PROJECT-OBA/krynix.git",
