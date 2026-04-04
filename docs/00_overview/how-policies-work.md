@@ -2,7 +2,7 @@
 
 ## The Core Idea
 
-A Krynix policy is a YAML file that defines rules for what an agent is and isn't allowed to do. Write it once, and it works with any agent framework — LangChain, CrewAI, AutoGen, a custom Python script, a Go service, anything.
+A Krynix policy is a YAML file that defines rules for what an agent is and isn't allowed to do. Write it once, and it works with any agent framework that produces canonical Krynix trace events — currently LangChain and OpenClaw via pre-built adapters, with more frameworks planned.
 
 This universality is the most important property of Krynix policies.
 
@@ -15,7 +15,7 @@ Krynix solves this with a normalization layer:
 ```
 LangChain Agent  → LangChainAdapter  → canonical TraceEvent ─┐
 OpenClaw Agent   → OpenClawAdapter   → canonical TraceEvent  ├→ Same Policy Engine
-Python Agent     → Python SDK        → canonical TraceEvent  │
+Python Agent     → Python SDK (PLANNED) → canonical TraceEvent  │
 Custom Agent     → Custom Adapter    → canonical TraceEvent ─┘
 ```
 
@@ -130,8 +130,8 @@ Here's why universality matters. This single policy blocks shell commands from *
 It works because:
 
 1. **LangChain agent** calls `ShellTool` → LangChain adapter normalizes it to `{ event_type: "tool_call", payload: { tool_name: "shell_exec", ... } }` → policy matches → **denied**
-2. **Python agent** uses the Python SDK to emit `{ tool_name: "bash_exec", ... }` → normalized to canonical event → policy matches → **denied**
-3. **Custom Go agent** uses the SDK to emit `{ tool_name: "system_cmd", ... }` → policy matches → **denied**
+2. **Custom agent** uses `@krynix/core` SDK to emit `{ tool_name: "bash_exec", ... }` → normalized to canonical event → policy matches → **denied**
+3. **Any language agent** (when Python SDK or HTTP ingest is available) emits `{ tool_name: "system_cmd", ... }` → policy matches → **denied**
 
 Zero policy modification. The adapter handles the translation; the policy stays the same.
 
@@ -174,7 +174,7 @@ tracer.tool_result("web_search", result, duration_ms=150)
 tracer.flush()  # writes trace.jsonl
 ```
 
-**Status:** TypeScript SDK is `CURRENT`. Python SDK is `PARTIAL` (basic functionality).
+**Status:** TypeScript SDK is `CURRENT`. Python SDK is `PLANNED` (separate repo: [krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python)).
 
 ### 3. Pre-Built Adapter — Auto-Capture for Supported Frameworks
 

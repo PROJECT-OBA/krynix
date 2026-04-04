@@ -1,7 +1,16 @@
 {
   "name": "@krynix/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Core primitives for Krynix: trace events, hash chains, sessions, canonical JSON, and schema validation",
+  "author": "PROJECT-OBA",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PROJECT-OBA/krynix.git",
+    "directory": "packages/core"
+  },
+  "keywords": ["krynix", "trace", "hash-chain", "ai-agent", "trust", "observability"],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -14,7 +23,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",

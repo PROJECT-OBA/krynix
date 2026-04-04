@@ -50,12 +50,21 @@ Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing 
 
 ## Quickstart
 
+### Install
+
 ```bash
+# Option 1: Standalone binary (no dependencies)
+curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
+chmod +x krynix.cjs
+node krynix.cjs --version
+
+# Option 2: Build from source
 git clone https://github.com/PROJECT-OBA/krynix.git
 cd krynix
-pnpm install
-pnpm build
+pnpm install && pnpm build
 ```
+
+See [Quickstart Guide](docs/00_overview/quickstart.md) for full integration instructions.
 
 ### Write a Policy
 
@@ -120,7 +129,7 @@ Policies are framework-agnostic. Write once, apply to any agent:
 | LangChain | Pre-built adapter (auto-capture) | `CURRENT` |
 | OpenClaw | Pre-built adapter (auto-capture) | `CURRENT` |
 | Any TypeScript agent | `@krynix/core` SDK | `CURRENT` |
-| Any Python agent | `krynix-sdk-python` | `PARTIAL` |
+| Any Python agent | `krynix-sdk-python` | `PLANNED` |
 | Any language | HTTP ingest (POST JSON) | `PLANNED` |
 
 All adapters normalize events into 8 canonical types (`tool_call`, `tool_result`, `llm_request`, `llm_response`, `decision`, `observation`, `error`, `lifecycle`). Policies match these canonical types — zero framework awareness in the policy engine.
