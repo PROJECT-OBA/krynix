@@ -1,7 +1,16 @@
 {
   "name": "@krynix/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Command-line interface for Krynix: policy evaluation, trace verification, replay, and compliance reporting",
+  "author": "PROJECT-OBA",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PROJECT-OBA/krynix.git",
+    "directory": "packages/cli"
+  },
+  "keywords": ["krynix", "cli", "policy", "trace", "ai-agent", "trust"],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -16,7 +25,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist"

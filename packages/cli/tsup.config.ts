@@ -22,4 +22,20 @@ export default defineConfig([
       __CLI_VERSION__: JSON.stringify(pkg.version),
     },
   },
+  // Standalone binary (single file, all deps bundled — zero node_modules needed)
+  {
+    entry: ["src/main.ts"],
+    format: ["cjs"],
+    outDir: "dist/standalone",
+    outExtension: () => ({ js: ".cjs" }),
+    banner: { js: "#!/usr/bin/env node" },
+    noExternal: [/@krynix\/.*/, "yaml", "ajv", "ajv-formats"],
+    splitting: false,
+    platform: "node",
+    sourcemap: false,
+    minify: true,
+    define: {
+      __CLI_VERSION__: JSON.stringify(pkg.version),
+    },
+  },
 ]);

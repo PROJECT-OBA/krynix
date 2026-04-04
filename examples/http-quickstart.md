@@ -18,7 +18,7 @@ The raw HTTP protocol below shows every field for completeness. In practice, **y
 | Batching and retry on network failure | Automatic |
 | `sequence_num`, `prev_hash`, `event_hash` | Server computes these |
 
-**What you actually write** with the Python SDK:
+**What you would write** with the Python SDK (`PLANNED`):
 
 ```python
 from krynix import KrynixTracer

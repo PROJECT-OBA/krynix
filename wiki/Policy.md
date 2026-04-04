@@ -159,10 +159,10 @@ krynix policy test --policy my.policy.yaml --trace test.trace.jsonl --expect-ver
 # Compare two policy versions
 krynix policy diff --old v1.policy.yaml --new v2.policy.yaml
 
-# Pull policies from Control Plane
+# Pull policies from Control Plane (PLANNED — requires Control Plane)
 krynix policy pull --output-dir ./policies
 
-# Push a policy to Control Plane
+# Push a policy to Control Plane (PLANNED — requires Control Plane)
 krynix policy push --file my.policy.yaml --changelog "Added shell_exec deny rule"
 ```
 

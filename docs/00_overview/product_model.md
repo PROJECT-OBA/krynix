@@ -75,7 +75,7 @@ The Control Plane adds centralized governance for teams and organizations. It bu
 ### Licensing
 
 - OSS packages (`krynix` repo): MIT — always free
-- SDK packages (`krynix-sdk-python`): MIT — always free (they send data TO the paid server)
+- SDK packages (`krynix-sdk-python`): MIT — always free (they send data TO the paid server) (`PLANNED`)
 - Control Plane services (`krynix-ingest`, future `krynix-platform`): Proprietary or BSL
 
 ## Integration Paths
@@ -84,7 +84,7 @@ The Control Plane adds centralized governance for teams and organizations. It bu
 |------|----------|----------|------|
 | Pre-built adapter | TypeScript | OSS only | Free |
 | TypeScript SDK | TypeScript | OSS only | Free |
-| Python SDK | Python | OSS only | Free |
+| Python SDK (`PLANNED`) | Python | OSS only | Free |
 | HTTP Ingest (`PLANNED`) | Any | Control Plane | Paid |
 | Custom adapter | TypeScript | OSS only | Free |
 
