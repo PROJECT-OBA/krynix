@@ -12,7 +12,7 @@ if [ ! -f "$BINARY" ]; then
 fi
 
 # Create an isolated temp directory (simulates consumer project)
-WORKDIR="$(mktemp -d)"
+WORKDIR="$(mktemp -d 2>/dev/null || mktemp -d -t krynix-consumer-e2e)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 echo "=== Consumer e2e test ==="

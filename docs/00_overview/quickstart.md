@@ -25,42 +25,50 @@ cd krynix && pnpm install && pnpm build
 Add trace recording to your agent code. This writes a `.trace.jsonl` file to your project directory.
 
 ```typescript
-import {
-  startSession,
-  recordEvent,
-  endSession,
-  TraceWriter,
-} from "@krynix/core";
+import { startSession, recordEvent, endSession } from "@krynix/core";
 
-// 1. Create a writer — traces go to YOUR project, not Krynix's directory
-const writer = new TraceWriter({ outputPath: "./traces" });
+const TRACE_PATH = "./traces/my-agent-session.trace.jsonl";
 
-// 2. Start a session
-const session = startSession({ agentId: "my-agent" });
+async function instrumentAgent(): Promise<void> {
+  // 1. Start a session — opens TRACE_PATH for writing (directory must exist)
+  const session = await startSession({
+    agentId: "my-agent",
+    outputPath: TRACE_PATH,
+  });
 
-// 3. Record events as your agent runs
-recordEvent(session, {
-  event_type: "tool_call",
-  payload: {
-    tool_name: "web_search",
-    arguments: { query: "latest AI news" },
-  },
-});
+  // 2. Record events as your agent runs
+  await recordEvent(session, {
+    event_type: "tool_call",
+    timestamp: new Date().toISOString(),
+    parent_id: null,
+    agent_id: "my-agent",
+    metadata: null,
+    payload: {
+      tool_name: "web_search",
+      arguments: { query: "latest AI news" },
+    },
+  });
 
-recordEvent(session, {
-  event_type: "tool_result",
-  payload: {
-    tool_name: "web_search",
-    output: "Results: ...",
-    duration_ms: 150,
-    exit_code: 0,
-  },
-});
+  await recordEvent(session, {
+    event_type: "tool_result",
+    timestamp: new Date().toISOString(),
+    parent_id: null,
+    agent_id: "my-agent",
+    metadata: null,
+    payload: {
+      tool_name: "web_search",
+      output: "Results: ...",
+      duration_ms: 150,
+      exit_code: 0,
+    },
+  });
 
-// 4. End and write
-const events = endSession(session);
-await writer.writeEvents(events);
-// Creates: ./traces/<session-id>.trace.jsonl
+  // 3. End session — writes session_end and closes the trace file
+  await endSession(session);
+  // Trace written to: TRACE_PATH
+}
+
+instrumentAgent().catch(console.error);
 ```
 
 ### Using a Pre-Built Adapter (LangChain)

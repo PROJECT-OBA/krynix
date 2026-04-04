@@ -4,7 +4,7 @@
   "private": true,
   "description": "OpenClaw adapter for Krynix: translates OpenClaw plugin hook events into Krynix trace events",
   "author": "PROJECT-OBA",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/PROJECT-OBA/krynix.git",
