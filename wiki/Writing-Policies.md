@@ -241,7 +241,7 @@ Parent rules are evaluated first, then child rules. The child can override `defa
 
 ### Remote Resolution
 
-With the HTTP policy resolver, `extends` references like `"base-safety@1.0.0"` can be fetched from a Control Plane policy registry.
+With the HTTP policy resolver, `extends` references like `"base-safety@1.0.0"` can be fetched from a Control Plane policy registry (`PLANNED`).
 
 ## Testing Policies
 
