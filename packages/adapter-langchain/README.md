@@ -9,17 +9,17 @@ LangChain adapter for Krynix. Translates LangChain callback events into Krynix t
 ```typescript
 import { createLangChainTracer } from "@krynix/adapter-langchain";
 
-const tracer = createLangChainTracer({
+const { handler, handle } = await createLangChainTracer({
   agentId: "my-agent",
-  outputPath: "./traces",
+  outputPath: "./traces/my-agent.trace.jsonl",
 });
 
-// Pass tracer.handler as a LangChain callback
+// Pass handler to LangChain — all events captured automatically
 const result = await chain.invoke(input, {
-  callbacks: [tracer.handler],
+  callbacks: [handler],
 });
 
-await tracer.stop();
+await handle.shutdown();
 ```
 
 ### 2. Manual adapter (fine-grained control)
@@ -27,8 +27,11 @@ await tracer.stop();
 ```typescript
 import { LangChainAdapter } from "@krynix/adapter-langchain";
 
-const adapter = new LangChainAdapter({ agentId: "my-agent" });
-const event = adapter.handleLLMEnd(llmResult);
+// Constructor takes no arguments; config goes to initialize()
+// AdapterConfig requires agentId and sessionId (from startSession())
+const adapter = new LangChainAdapter();
+await adapter.initialize({ agentId: "my-agent", sessionId: "your-session-id" });
+const traceEvent = adapter.onEvent(langchainCallbackEvent);
 ```
 
 ## Callbacks Handled

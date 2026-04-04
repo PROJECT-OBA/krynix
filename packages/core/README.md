@@ -38,18 +38,24 @@ Core primitives for the Krynix trust and observability toolkit. This package pro
 ## Usage
 
 ```typescript
-import { startSession, recordEvent, endSession, TraceWriter } from "@krynix/core";
+import { startSession, recordEvent, endSession } from "@krynix/core";
 
-const writer = new TraceWriter({ outputPath: "./traces" });
-const session = startSession({ agentId: "my-agent" });
+const session = await startSession({
+  agentId: "my-agent",
+  outputPath: "./traces/my-agent.trace.jsonl",
+});
 
-recordEvent(session, {
+await recordEvent(session, {
   event_type: "tool_call",
+  timestamp: new Date().toISOString(),
+  parent_id: null,
+  agent_id: "my-agent",
+  metadata: null,
   payload: { tool_name: "search", arguments: { query: "hello" } },
 });
 
-const events = endSession(session);
-await writer.writeEvents(events);
+await endSession(session);
+// Trace written to: ./traces/my-agent.trace.jsonl
 ```
 
 ## Part of Krynix
