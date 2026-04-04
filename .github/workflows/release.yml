@@ -41,8 +41,8 @@ jobs:
       - name: Prepare release artifacts
         run: |
           mkdir -p release
-          cp packages/cli/dist/standalone/main.cjs release/krynix
-          chmod +x release/krynix
+          cp packages/cli/dist/standalone/main.cjs release/krynix.cjs
+          chmod +x release/krynix.cjs
 
           # Create tarball of all packages
           tar -czf release/krynix-${{ github.ref_name }}.tar.gz \
@@ -54,12 +54,13 @@ jobs:
             packages/adapter-openclaw/dist \
             packages/*/README.md \
             packages/*/package.json \
-            README.md
+            README.md \
+            LICENSE
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            release/krynix
+            release/krynix.cjs
             release/krynix-${{ github.ref_name }}.tar.gz

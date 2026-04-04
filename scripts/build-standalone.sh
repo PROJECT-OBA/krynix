@@ -15,10 +15,10 @@ if [ ! -f "$STANDALONE" ]; then
 fi
 
 mkdir -p "$REPO_ROOT/dist"
-cp "$STANDALONE" "$REPO_ROOT/dist/krynix"
-chmod +x "$REPO_ROOT/dist/krynix"
+cp "$STANDALONE" "$REPO_ROOT/dist/krynix.cjs"
+chmod +x "$REPO_ROOT/dist/krynix.cjs"
 
 echo ""
-echo "Standalone binary: dist/krynix"
-echo "Run with: node dist/krynix --version"
-node "$REPO_ROOT/dist/krynix" --version
+echo "Standalone binary: dist/krynix.cjs"
+echo "Run with: node dist/krynix.cjs --version"
+node "$REPO_ROOT/dist/krynix.cjs" --version

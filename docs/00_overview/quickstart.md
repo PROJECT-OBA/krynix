@@ -10,10 +10,10 @@ This guide shows you how to add Krynix to an existing TypeScript agent and run y
 ## Step 1: Install
 
 ```bash
-# From GitHub release tarball
-curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix -o krynix
-chmod +x krynix
-node krynix --version
+# From GitHub release (standalone binary)
+curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
+chmod +x krynix.cjs
+node krynix.cjs --version
 
 # Or clone and build from source
 git clone https://github.com/PROJECT-OBA/krynix.git
@@ -115,9 +115,9 @@ spec:
 ## Step 4: Evaluate
 
 ```bash
-# Evaluate the trace against your policy
-node krynix evaluate \
-  --trace ./traces/*.trace.jsonl \
+# Evaluate the trace against your policy (--trace takes a single .trace.jsonl file)
+node krynix.cjs evaluate \
+  --trace ./traces/my-agent-session.trace.jsonl \
   --policy ./policies/safety.policy.yaml
 
 # Exit code 0 = pass, 1 = error-severity violation, 2 = critical
@@ -128,7 +128,7 @@ node krynix evaluate \
 ```yaml
 # .github/workflows/ci.yml (add after your test step)
 - name: Krynix policy check
-  run: node krynix evaluate --trace ./traces/*.trace.jsonl --policy ./policies/
+  run: node krynix.cjs evaluate --trace ./traces/my-agent-session.trace.jsonl --policy ./policies/
 ```
 
 That's it. Your agent now has tamper-proof trace logging and policy enforcement in CI.
@@ -138,5 +138,5 @@ That's it. Your agent now has tamper-proof trace logging and policy enforcement 
 - [How Policies Work](how-policies-work.md) — understand the 8 event types, operators, and match patterns
 - [Security & Integrity](security-and-integrity.md) — hash chain guarantees and threat model
 - [What Is Krynix](what-is-krynix.md) — full product overview
-- Verify trace integrity: `node krynix replay --verify --golden-dir ./traces/`
-- Compute analytics: `node krynix stats --trace ./traces/*.trace.jsonl`
+- Verify trace integrity: `node krynix.cjs replay --verify --golden-dir ./traces/`
+- Compute analytics: `node krynix.cjs stats --trace ./traces/my-agent-session.trace.jsonl`

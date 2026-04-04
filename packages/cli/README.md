@@ -41,7 +41,7 @@ A self-contained binary (no `node_modules` needed) can be built with:
 
 ```bash
 ./scripts/build-standalone.sh
-node dist/krynix --version
+node dist/krynix.cjs --version
 ```
 
 ## Part of Krynix
