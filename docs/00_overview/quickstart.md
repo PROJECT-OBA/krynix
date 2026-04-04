@@ -78,17 +78,17 @@ If you use LangChain, the adapter handles all event recording automatically:
 ```typescript
 import { createLangChainTracer } from "@krynix/adapter-langchain";
 
-const tracer = createLangChainTracer({
+const { handler, handle } = await createLangChainTracer({
   agentId: "my-agent",
-  outputPath: "./traces",
+  outputPath: "./traces/my-agent.trace.jsonl",
 });
 
 // Pass to LangChain — all LLM and tool calls are captured automatically
 const result = await chain.invoke(input, {
-  callbacks: [tracer.handler],
+  callbacks: [handler],
 });
 
-await tracer.stop();
+await handle.shutdown();
 ```
 
 ## Step 3: Write a Policy
