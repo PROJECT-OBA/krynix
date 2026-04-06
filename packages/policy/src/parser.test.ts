@@ -524,4 +524,69 @@ spec:
 `;
     expect(() => parsePolicy(yaml)).toThrow("must be an array");
   });
+
+  test("rejects sequence rule with non-empty payload (silently ignored at runtime)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: seq-with-payload
+  version: "1.0.0"
+  description: Payload + sequence conflict
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: conflicting
+      description: Has both payload conditions and sequence
+      match:
+        payload:
+          - field: tool_name
+            operator: eq
+            value: shell_exec
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_result
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow("must be omitted or empty when match.sequence is set");
+  });
+
+  test("rejects sequence rule with event_type (silently ignored at runtime)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: seq-with-event-type
+  version: "1.0.0"
+  description: event_type + sequence conflict
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: conflicting
+      description: Has event_type and sequence
+      match:
+        event_type: tool_call
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_result
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow("cannot be set when match.sequence is present");
+  });
 });
