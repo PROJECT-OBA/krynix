@@ -26,6 +26,13 @@ describe("validatePayload", () => {
     expect(() => validatePayload("tool_call", 42)).toThrow("must be an object, got number");
   });
 
+  test("throws INVALID_PAYLOAD for unknown event type (JS caller bypass)", () => {
+    // TypeScript callers can't reach this, but JS callers or unsafe casts can
+    const badType = "unknown_event" as unknown as Parameters<typeof validatePayload>[0];
+    expect(() => validatePayload(badType, { some: "field" })).toThrow(KrynixError);
+    expect(() => validatePayload(badType, { some: "field" })).toThrow("unknown event type");
+  });
+
   // -----------------------------------------------------------------------
   // tool_call
   // -----------------------------------------------------------------------

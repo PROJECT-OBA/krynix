@@ -67,7 +67,13 @@ export function validatePayload(eventType: EventType, payload: unknown): void {
     );
   }
 
-  const fields = REQUIRED_FIELDS[eventType];
+  // Typed as Partial so TypeScript treats the lookup as possibly undefined —
+  // REQUIRED_FIELDS covers all EventType members but JS callers can pass any string.
+  const fields = (REQUIRED_FIELDS as Partial<Record<string, Array<[string, string]>>>)[eventType];
+  if (fields === undefined) {
+    throw new KrynixError("INVALID_PAYLOAD", `unknown event type '${String(eventType)}'`);
+  }
+
   const obj = payload as Record<string, unknown>;
 
   for (const [fieldName, expectedType] of fields) {
