@@ -246,8 +246,9 @@ const POLICY_SCHEMA = {
               additionalProperties: false,
             },
           },
-          // Require either payload (per-event rule) or sequence (cross-event rule)
-          anyOf: [{ required: ["payload"] }, { required: ["sequence"] }],
+          // payload is always required (may be [] for sequence-only rules).
+          // Parser enforces: when sequence is present, payload must be empty and event_type must be absent.
+          required: ["payload"],
           additionalProperties: false,
         },
         action: { type: "string", enum: ["allow", "deny", "require-approval"] },
