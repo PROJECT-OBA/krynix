@@ -54,20 +54,42 @@ describe("validatePayload", () => {
     );
   });
 
+  test("rejects tool_call with array arguments", () => {
+    expect(() => validatePayload("tool_call", { tool_name: "x", arguments: [1, 2] })).toThrow(
+      "field 'arguments' must be an object, got array",
+    );
+  });
+
   // -----------------------------------------------------------------------
   // tool_result
   // -----------------------------------------------------------------------
 
   test("accepts valid tool_result payload", () => {
     expect(() =>
-      validatePayload("tool_result", { tool_name: "read_file", duration_ms: 123 }),
+      validatePayload("tool_result", {
+        tool_name: "read_file",
+        output: "file contents",
+        duration_ms: 123,
+      }),
     ).not.toThrow();
   });
 
+  test("accepts tool_result with null output (any type)", () => {
+    expect(() =>
+      validatePayload("tool_result", { tool_name: "read_file", output: null, duration_ms: 123 }),
+    ).not.toThrow();
+  });
+
+  test("rejects tool_result missing output", () => {
+    expect(() =>
+      validatePayload("tool_result", { tool_name: "read_file", duration_ms: 123 }),
+    ).toThrow("missing required field 'output'");
+  });
+
   test("rejects tool_result with string duration_ms", () => {
-    expect(() => validatePayload("tool_result", { tool_name: "x", duration_ms: "fast" })).toThrow(
-      "field 'duration_ms' must be number, got string",
-    );
+    expect(() =>
+      validatePayload("tool_result", { tool_name: "x", output: "", duration_ms: "fast" }),
+    ).toThrow("field 'duration_ms' must be number, got string");
   });
 
   // -----------------------------------------------------------------------
@@ -79,14 +101,37 @@ describe("validatePayload", () => {
       validatePayload("llm_request", {
         model: "gpt-4",
         messages: [{ role: "user", content: "hi" }],
+        parameters: {},
       }),
     ).not.toThrow();
   });
 
   test("rejects llm_request missing model", () => {
-    expect(() => validatePayload("llm_request", { messages: [] })).toThrow(
+    expect(() => validatePayload("llm_request", { messages: [], parameters: {} })).toThrow(
       "missing required field 'model'",
     );
+  });
+
+  test("rejects llm_request missing parameters", () => {
+    expect(() => validatePayload("llm_request", { model: "gpt-4", messages: [] })).toThrow(
+      "missing required field 'parameters'",
+    );
+  });
+
+  test("rejects llm_request with non-array messages", () => {
+    expect(() =>
+      validatePayload("llm_request", { model: "gpt-4", messages: "bad", parameters: {} }),
+    ).toThrow("field 'messages' must be an array");
+  });
+
+  test("rejects llm_request with object messages", () => {
+    expect(() =>
+      validatePayload("llm_request", {
+        model: "gpt-4",
+        messages: { role: "user" },
+        parameters: {},
+      }),
+    ).toThrow("field 'messages' must be an array");
   });
 
   // -----------------------------------------------------------------------
@@ -135,11 +180,25 @@ describe("validatePayload", () => {
   // -----------------------------------------------------------------------
 
   test("accepts valid observation payload", () => {
-    expect(() => validatePayload("observation", { source: "user_input" })).not.toThrow();
+    expect(() =>
+      validatePayload("observation", { source: "user_input", content: { data: "value" } }),
+    ).not.toThrow();
+  });
+
+  test("accepts observation with null content (any type)", () => {
+    expect(() =>
+      validatePayload("observation", { source: "user_input", content: null }),
+    ).not.toThrow();
+  });
+
+  test("rejects observation missing content", () => {
+    expect(() => validatePayload("observation", { source: "user_input" })).toThrow(
+      "missing required field 'content'",
+    );
   });
 
   test("rejects observation with non-string source", () => {
-    expect(() => validatePayload("observation", { source: 42 })).toThrow(
+    expect(() => validatePayload("observation", { source: 42, content: {} })).toThrow(
       "field 'source' must be string, got number",
     );
   });
@@ -150,14 +209,30 @@ describe("validatePayload", () => {
 
   test("accepts valid error payload", () => {
     expect(() =>
-      validatePayload("error", { code: "TIMEOUT", message: "Request timed out" }),
+      validatePayload("error", {
+        code: "TIMEOUT",
+        message: "Request timed out",
+        recoverable: true,
+      }),
     ).not.toThrow();
   });
 
+  test("rejects error missing recoverable", () => {
+    expect(() =>
+      validatePayload("error", { code: "TIMEOUT", message: "Request timed out" }),
+    ).toThrow("missing required field 'recoverable'");
+  });
+
   test("rejects error missing message", () => {
-    expect(() => validatePayload("error", { code: "TIMEOUT" })).toThrow(
+    expect(() => validatePayload("error", { code: "TIMEOUT", recoverable: false })).toThrow(
       "missing required field 'message'",
     );
+  });
+
+  test("rejects error with non-boolean recoverable", () => {
+    expect(() =>
+      validatePayload("error", { code: "TIMEOUT", message: "fail", recoverable: "yes" }),
+    ).toThrow("field 'recoverable' must be boolean, got string");
   });
 
   // -----------------------------------------------------------------------

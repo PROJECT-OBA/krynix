@@ -267,6 +267,7 @@ const REPORT_SCHEMA = {
     verdict: { type: "string", enum: ["pass", "fail", "require-approval"] },
     exitCode: { type: "integer", enum: [0, 1, 2, 3] },
     violations: { type: "array", items: { $ref: "#/definitions/Violation" } },
+    warnings: { type: "array", items: { type: "string" } },
   },
   required: ["verdict", "exitCode", "violations"],
   additionalProperties: false,
