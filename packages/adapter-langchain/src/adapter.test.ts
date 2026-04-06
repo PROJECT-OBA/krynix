@@ -228,7 +228,7 @@ describe("LangChainAdapter.onEvent", () => {
     expect(payload["tool_name"]).toBe("unknown_tool");
   });
 
-  test("handleToolEnd resolves tool_name from prior handleToolStart and emits duration_ms: 0", () => {
+  test("handleToolEnd resolves tool_name from prior handleToolStart, emits duration_ms: 0 in payload and real timing in metadata", () => {
     // First, send a handleToolStart to register the tool name
     adapter.onEvent({
       _callback: "handleToolStart",
@@ -247,8 +247,12 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("calculator");
-    // duration_ms is 0 for deterministic replay (wall-clock timing emitted once replay gains tolerance)
+    // payload.duration_ms is always 0 for deterministic replay (compareTraces deep-compares payload)
     expect(payload["duration_ms"]).toBe(0);
+    // Real wall-clock duration is in metadata for OTLP export span timing
+    const meta = result?.metadata as Record<string, unknown>;
+    expect(typeof meta["tool.duration_ms"]).toBe("number");
+    expect(meta["tool.duration_ms"] as number).toBeGreaterThanOrEqual(0);
   });
 
   test("handleToolEnd falls back to unknown_tool when no prior handleToolStart", () => {

@@ -193,14 +193,15 @@ export class LangChainAdapter implements TraceAdapter {
       case "handleToolEnd": {
         const resolvedToolName = this.runIdToToolName.get(event.runId) ?? "unknown_tool";
         const startTime = this.runIdToStartTime.get(event.runId);
-        // durationMs is computed but not emitted: replay --compare deep-compares payload
-        // including duration_ms, so a wall-clock value would cause every tool_result to
-        // diverge across runs. Emit 0 until replay gains temporal-field tolerance (PLANNED).
-        const _durationMs = startTime !== undefined ? Date.now() - startTime : 0;
+        // Real wall-clock duration goes into metadata so OTLP export gets accurate span timing.
+        // payload.duration_ms stays 0 because replay --compare deep-compares payload fields,
+        // and wall-clock values cause every tool_result to diverge across runs.
+        const durationMs = startTime !== undefined ? Date.now() - startTime : 0;
         this.runIdToToolName.delete(event.runId);
         this.runIdToStartTime.delete(event.runId);
         return {
           ...base,
+          metadata: { ...base.metadata, "tool.duration_ms": durationMs },
           event_type: "tool_result",
           payload: {
             tool_name: resolvedToolName,
