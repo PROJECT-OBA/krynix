@@ -267,6 +267,20 @@ describe("LangChainAdapter.onEvent", () => {
     expect(payload["tool_name"]).toBe("unknown_tool");
   });
 
+  test("handleToolEnd coerces missing output to null so JSON.stringify preserves the field", () => {
+    const result = adapter.onEvent({
+      _callback: "handleToolEnd",
+      output: undefined as unknown as string, // JS caller bypass — TS type says string
+      runId: "run-no-output",
+    } as LangChainCallbackEvent);
+
+    expect(result).not.toBeNull();
+    const payload = asPayload(result as TraceEvent);
+    // undefined would be silently dropped by JSON.stringify, leaving output missing.
+    // null is a valid JSON value and satisfies the required 'output' field.
+    expect(payload["output"]).toBeNull();
+  });
+
   test("handleChainStart → observation with chain name and inputs", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleChainStart",

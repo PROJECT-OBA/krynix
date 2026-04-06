@@ -205,7 +205,9 @@ export class LangChainAdapter implements TraceAdapter {
           event_type: "tool_result",
           payload: {
             tool_name: resolvedToolName,
-            output: event.output,
+            // Coerce undefined → null: JSON.stringify drops undefined values, which would
+            // produce a payload missing the required 'output' field.
+            output: event.output ?? null,
             duration_ms: 0,
           },
         } as unknown as TraceEvent;
