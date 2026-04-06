@@ -52,8 +52,22 @@ export async function runReplay(
   const hasCompare = hasFlag(args, "--compare");
   const verbose = hasFlag(args, "--verbose");
 
-  // --compare mode: separate flow
+  // --compare mode: separate flow; reject incompatible flag combos up front
   if (hasCompare) {
+    if (hasVerify || hasRegenerate) {
+      return {
+        exitCode: 1,
+        report: null,
+        error: "--compare cannot be combined with --verify or --regenerate",
+      };
+    }
+    if (tracePath !== undefined || goldenDir !== undefined) {
+      return {
+        exitCode: 1,
+        report: null,
+        error: "--compare does not accept --trace or --golden-dir; use --baseline and --candidate",
+      };
+    }
     return await runCompare(args);
   }
 

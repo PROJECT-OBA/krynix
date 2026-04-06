@@ -313,6 +313,110 @@ describe("validatePolicy", () => {
     expect(result.valid).toBe(true);
     expect(result.error).toBeUndefined();
   });
+
+  test("match with neither payload nor sequence → error", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            ...VALID_POLICY.spec.rules[0],
+            match: { event_type: "tool_call" }, // no payload, no sequence
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  test("valid sequence rule (no payload on match) passes", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "sequence-rule",
+            description: "A sequence rule",
+            match: {
+              sequence: {
+                steps: [
+                  {
+                    event_type: "tool_call",
+                    payload: [{ field: "tool_name", operator: "eq", value: "read" }],
+                  },
+                  { event_type: "tool_result", payload: [] },
+                ],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Sequence detected",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(true);
+  });
+
+  test("sequence rule with malformed step (missing payload) → error", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "bad-seq",
+            description: "Bad sequence",
+            match: {
+              sequence: {
+                steps: [
+                  { event_type: "tool_call" }, // missing required payload
+                  { event_type: "tool_result", payload: [] },
+                ],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Bad",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  test("sequence rule with only 1 step (minItems: 2) → error", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "short-seq",
+            description: "Too short",
+            match: {
+              sequence: {
+                steps: [{ event_type: "tool_call", payload: [] }],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Bad",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
