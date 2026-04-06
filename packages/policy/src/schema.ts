@@ -43,10 +43,25 @@ export interface PayloadCondition {
   value: unknown;
 }
 
+/** A single step in a sequence match — matches one event in the sequence. */
+export interface SequenceStep {
+  event_type?: string;
+  payload: PayloadCondition[];
+}
+
+/** Sequence match: ordered pattern of events within a window. */
+export interface SequenceMatch {
+  steps: SequenceStep[];
+  /** Maximum number of events between first and last match (default: entire trace). */
+  window?: number;
+}
+
 /** Match criteria for a policy rule. */
 export interface PolicyMatch {
   event_type?: string;
   payload: PayloadCondition[];
+  /** Cross-event sequence match. When present, per-event match fields are ignored. */
+  sequence?: SequenceMatch;
 }
 
 /** A single policy rule. */

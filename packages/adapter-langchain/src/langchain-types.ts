@@ -101,6 +101,22 @@ export interface LangChainToolErrorEvent {
   parentRunId?: string;
 }
 
+/** Matches the shape of LangChain's handleAgentAction callback data. */
+export interface LangChainAgentActionEvent {
+  _callback: "handleAgentAction";
+  action: { tool: string; toolInput: unknown; log: string };
+  runId: string;
+  parentRunId?: string;
+}
+
+/** Matches the shape of LangChain's handleAgentFinish callback data. */
+export interface LangChainAgentFinishEvent {
+  _callback: "handleAgentFinish";
+  finish: { output: unknown; log: string };
+  runId: string;
+  parentRunId?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Discriminated union
 // ---------------------------------------------------------------------------
@@ -115,7 +131,9 @@ export type LangChainCallbackEvent =
   | LangChainChainEndEvent
   | LangChainChainErrorEvent
   | LangChainLlmErrorEvent
-  | LangChainToolErrorEvent;
+  | LangChainToolErrorEvent
+  | LangChainAgentActionEvent
+  | LangChainAgentFinishEvent;
 
 /** Known callback names that the adapter handles. */
 export const KNOWN_CALLBACKS = new Set([
@@ -128,4 +146,6 @@ export const KNOWN_CALLBACKS = new Set([
   "handleChainError",
   "handleLLMError",
   "handleToolError",
+  "handleAgentAction",
+  "handleAgentFinish",
 ]);

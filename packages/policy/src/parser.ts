@@ -12,6 +12,8 @@ import type {
   PolicyAction,
   Severity,
   MatchOperator,
+  SequenceMatch,
+  SequenceStep,
 } from "./schema.js";
 import { POLICY_API_VERSION, VALID_ACTIONS, VALID_SEVERITIES, VALID_OPERATORS } from "./schema.js";
 
@@ -94,6 +96,48 @@ function validatePayloadCondition(raw: unknown, path: string): PayloadCondition 
   };
 }
 
+function validateSequenceStep(raw: unknown, path: string): SequenceStep {
+  assertObject(raw, path);
+
+  if (raw["event_type"] !== undefined) {
+    assertString(raw["event_type"], `${path}.event_type`);
+  }
+
+  assertArray(raw["payload"], `${path}.payload`);
+  const payload = (raw["payload"] as unknown[]).map((c, i) =>
+    validatePayloadCondition(c, `${path}.payload[${String(i)}]`),
+  );
+
+  return {
+    ...(raw["event_type"] !== undefined ? { event_type: raw["event_type"] as string } : {}),
+    payload,
+  };
+}
+
+function validateSequence(raw: unknown, path: string): SequenceMatch {
+  assertObject(raw, path);
+
+  assertArray(raw["steps"], `${path}.steps`);
+  if ((raw["steps"] as unknown[]).length < 2) {
+    throw new PolicyValidationError(`${path}.steps`, "must have at least 2 steps");
+  }
+
+  const steps = (raw["steps"] as unknown[]).map((s, i) =>
+    validateSequenceStep(s, `${path}.steps[${String(i)}]`),
+  );
+
+  const result: SequenceMatch = { steps };
+
+  if (raw["window"] !== undefined) {
+    if (typeof raw["window"] !== "number" || raw["window"] < 1) {
+      throw new PolicyValidationError(`${path}.window`, "must be a positive number");
+    }
+    result.window = raw["window"];
+  }
+
+  return result;
+}
+
 function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyRule {
   assertObject(raw, path);
 
@@ -123,6 +167,12 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
     validatePayloadCondition(c, `${path}.match.payload[${String(i)}]`),
   );
 
+  // match.sequence (optional)
+  let sequence: SequenceMatch | undefined;
+  if (matchRaw["sequence"] !== undefined) {
+    sequence = validateSequence(matchRaw["sequence"], `${path}.match.sequence`);
+  }
+
   const rule: PolicyRule = {
     id: raw["id"] as string,
     description: raw["description"] as string,
@@ -131,6 +181,7 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
       ...(matchRaw["event_type"] !== undefined
         ? { event_type: matchRaw["event_type"] as string }
         : {}),
+      ...(sequence !== undefined ? { sequence } : {}),
     },
     action: raw["action"] as PolicyAction,
     severity: raw["severity"] as Severity,

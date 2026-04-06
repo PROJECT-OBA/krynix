@@ -25,25 +25,27 @@ export function getMainHelp(): string {
 
 Usage: krynix <command> [options]
 
-Commands:
+Local Commands (work offline, no auth required):
   evaluate           Evaluate a trace against one or more policies
-  replay             Verify or regenerate trace files
+  replay             Verify, regenerate, or compare trace files
   validate           Validate policy file syntax
   stats              Compute per-session analytics from a trace
   export             Export a trace to external formats (e.g., OpenTelemetry)
   policy test        Test a policy against a sample trace
   policy diff        Compare two policies and detect regressions
-  policy pull        Pull policies from the Control Plane registry
-  policy push        Publish a policy to the Control Plane registry
   compliance export  Generate a compliance evidence bundle
   compliance verify  Verify a compliance bundle's integrity
-  golden promote     Promote a trace to golden status in the CP registry
-  golden list        List golden traces from the CP registry
-  golden pull        Download a golden trace from the CP registry
+
+Control Plane Commands (require configuration + auth):
+  policy pull        Pull policies from the Control Plane registry
+  policy push        Publish a policy to the Control Plane registry
   push               Upload artifacts to the Control Plane
-  auth status        Show authentication status
-  auth logout        Clear stored credentials
+  golden promote     Promote a trace to golden status in the registry
+  golden list        List golden traces from the registry
+  golden pull        Download a golden trace from the registry
   auth login         Authenticate with email/password
+  auth logout        Clear stored credentials
+  auth status        Show authentication status
   auth create-key    Create an API key
 
 Options:
@@ -63,11 +65,12 @@ export function getCommandHelp(command: string): string | undefined {
     case "evaluate":
       return `krynix evaluate — Evaluate a trace against policies
 
-Usage: krynix evaluate --trace <file> --policy <file-or-dir>
+Usage: krynix evaluate --trace <file> --policy <file-or-dir> [--format json|text]
 
 Options:
   --trace <file>        Path to a .trace.jsonl file
   --policy <path>       Path to a .policy.yaml file or directory
+  --format <fmt>        Output format: json (default) or text
   --filter-type <type>  Filter events by type (repeatable)
   --filter-agent <id>   Filter events by agent_id (repeatable)
   --after <timestamp>   Include events at or after this ISO-8601 time
@@ -82,21 +85,25 @@ Exit codes:
   3   Requires approval (no CI-failing violations)`;
 
     case "replay":
-      return `krynix replay — Verify or regenerate trace files
+      return `krynix replay — Verify, regenerate, or compare trace files
 
 Usage: krynix replay [--verify|--regenerate] [--trace <file>|--golden-dir <dir>] [--verbose]
+       krynix replay --compare --baseline <file> --candidate <file>
 
 Options:
   --verify              Verify trace integrity (default)
   --regenerate          Regenerate hash chains
+  --compare             Compare two traces for behavioral drift
   --trace <file>        Single trace file
   --golden-dir <dir>    Directory of golden trace files
+  --baseline <file>     Baseline trace for comparison (used with --compare)
+  --candidate <file>    Candidate trace for comparison (used with --compare)
   --verbose             Show detailed output
   --help                Show this help
 
 Exit codes:
-  0   All traces pass
-  1   Verification failure or runtime error`;
+  0   All traces pass / traces match
+  1   Verification failure, divergence detected, or runtime error`;
 
     case "validate":
       return `krynix validate — Validate policy file syntax

@@ -1,0 +1,40 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: error-budget
+  version: "1.0.0"
+  description: >
+    Flag error events for visibility. Use with krynix stats to monitor
+    agent error rates. Marks non-recoverable errors as CI-failing.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["error"]
+  rules:
+    - id: flag-non-recoverable-errors
+      description: Non-recoverable errors should fail CI
+      match:
+        event_type: error
+        payload:
+          - field: recoverable
+            operator: eq
+            value: false
+      action: deny
+      severity: error
+      ci_failure: true
+      message: "Non-recoverable error detected — agent encountered a fatal failure"
+
+    - id: record-recoverable-errors
+      description: Recoverable errors are recorded for monitoring
+      match:
+        event_type: error
+        payload:
+          - field: recoverable
+            operator: eq
+            value: true
+      action: allow
+      severity: info
+      message: "Recoverable error recorded for monitoring"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

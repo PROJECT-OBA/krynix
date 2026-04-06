@@ -64,10 +64,12 @@ export class LangChainAdapter implements TraceAdapter {
 
   private config: AdapterConfig | null = null;
   private runIdToToolName = new Map<string, string>();
+  private runIdToStartTime = new Map<string, number>();
   onSkippedEvent?: (reason: string, externalEvent: unknown) => void;
 
   async initialize(config: AdapterConfig): Promise<void> {
     this.runIdToToolName.clear();
+    this.runIdToStartTime.clear();
     if (
       config.replaySeed !== undefined &&
       (!Number.isSafeInteger(config.replaySeed) || config.replaySeed <= 0)
@@ -129,6 +131,7 @@ export class LangChainAdapter implements TraceAdapter {
 
   async shutdown(): Promise<void> {
     this.runIdToToolName.clear();
+    this.runIdToStartTime.clear();
     this.config = null;
   }
 
@@ -176,6 +179,7 @@ export class LangChainAdapter implements TraceAdapter {
       case "handleToolStart": {
         const toolName = event.tool?.name ?? "unknown_tool";
         this.runIdToToolName.set(event.runId, toolName);
+        this.runIdToStartTime.set(event.runId, Date.now());
         return {
           ...base,
           event_type: "tool_call",
@@ -188,14 +192,17 @@ export class LangChainAdapter implements TraceAdapter {
 
       case "handleToolEnd": {
         const resolvedToolName = this.runIdToToolName.get(event.runId) ?? "unknown_tool";
+        const startTime = this.runIdToStartTime.get(event.runId);
+        const durationMs = startTime !== undefined ? Date.now() - startTime : 0;
         this.runIdToToolName.delete(event.runId);
+        this.runIdToStartTime.delete(event.runId);
         return {
           ...base,
           event_type: "tool_result",
           payload: {
             tool_name: resolvedToolName,
             output: event.output,
-            duration_ms: 0, // LangChain callbacks don't provide timing
+            duration_ms: durationMs,
           },
         } as unknown as TraceEvent;
       }
@@ -249,6 +256,7 @@ export class LangChainAdapter implements TraceAdapter {
 
       case "handleToolError": {
         this.runIdToToolName.delete(event.runId);
+        this.runIdToStartTime.delete(event.runId);
         return {
           ...base,
           event_type: "error",
@@ -259,6 +267,29 @@ export class LangChainAdapter implements TraceAdapter {
           },
         } as unknown as TraceEvent;
       }
+
+      case "handleAgentAction":
+        return {
+          ...base,
+          event_type: "decision",
+          payload: {
+            action: event.action?.tool ?? "unknown_action",
+            reasoning: event.action?.log ?? "",
+          },
+        } as unknown as TraceEvent;
+
+      case "handleAgentFinish":
+        return {
+          ...base,
+          event_type: "observation",
+          payload: {
+            source: "langchain_agent_finish",
+            content: {
+              output: event.finish?.output,
+              log: event.finish?.log,
+            },
+          },
+        } as unknown as TraceEvent;
     }
   }
 
@@ -284,7 +315,7 @@ export class LangChainAdapter implements TraceAdapter {
       session_id: this.config?.sessionId ?? "",
       sequence_num: 0,
       timestamp: new Date().toISOString(),
-      parent_id: null,
+      parent_id: parentRunId ?? null,
       redacted: false,
       prev_hash: "",
       event_hash: "",

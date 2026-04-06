@@ -1,0 +1,51 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: no-database-mutation
+  version: "1.0.0"
+  description: >
+    Deny destructive database operations (DROP, DELETE, TRUNCATE, ALTER).
+    Allows read queries and requires approval for INSERT/UPDATE.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: block-destructive-db
+      description: Deny DROP, DELETE, TRUNCATE, and ALTER operations
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(db_|sql_|query_)?(drop|delete|truncate|alter).*"
+      action: deny
+      severity: critical
+      message: "Destructive database operation is not permitted"
+
+    - id: block-destructive-sql-content
+      description: Deny tool calls containing destructive SQL in arguments
+      match:
+        event_type: tool_call
+        payload:
+          - field: arguments.query
+            operator: matches
+            value: "\\b[Dd][Rr][Oo][Pp]\\b|\\b[Dd][Ee][Ll][Ee][Tt][Ee]\\b|\\b[Tt][Rr][Uu][Nn][Cc][Aa][Tt][Ee]\\b|\\b[Aa][Ll][Tt][Ee][Rr]\\b"
+      action: deny
+      severity: critical
+      message: "SQL query contains a destructive operation"
+
+    - id: require-approval-write-db
+      description: INSERT and UPDATE operations require approval
+      match:
+        event_type: tool_call
+        payload:
+          - field: arguments.query
+            operator: matches
+            value: "\\b[Ii][Nn][Ss][Ee][Rr][Tt]\\b|\\b[Uu][Pp][Dd][Aa][Tt][Ee]\\b|\\b[Mm][Ee][Rr][Gg][Ee]\\b|\\b[Uu][Pp][Ss][Ee][Rr][Tt]\\b"
+      action: require-approval
+      severity: warning
+      message: "Database write operation requires approval"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

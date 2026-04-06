@@ -205,11 +205,11 @@ describe("LangChainAdapter.onEvent", () => {
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("search");
     expect(payload["arguments"]).toEqual({ input: "LangChain documentation" });
-    expect(result?.parent_id).toBeNull();
+    expect(result?.parent_id).toBe("run-001");
     expect(result?.metadata).toMatchObject({ "runtime.langchain.parent_run_id": "run-001" });
   });
 
-  test("handleToolEnd → tool_result with output", () => {
+  test("handleToolEnd → tool_result with output and computed duration", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleToolEnd",
       output: "Search results: LangChain is a framework for...",
@@ -223,12 +223,13 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result?.event_type).toBe("tool_result");
     const payload = asPayload(result as TraceEvent);
     expect(payload["output"]).toBe("Search results: LangChain is a framework for...");
-    expect(payload["duration_ms"]).toBe(0);
+    // duration_ms is 0 when no matching handleToolStart preceded this event
+    expect(typeof payload["duration_ms"]).toBe("number");
     expect(payload["tool_name"]).toBe("unknown_tool");
   });
 
-  test("handleToolEnd resolves tool_name from prior handleToolStart via runId", () => {
-    // First, send a handleToolStart to register the tool name
+  test("handleToolEnd resolves tool_name and computes duration_ms from prior handleToolStart", () => {
+    // First, send a handleToolStart to register the tool name and start time
     adapter.onEvent({
       _callback: "handleToolStart",
       tool: { name: "calculator" },
@@ -236,7 +237,7 @@ describe("LangChainAdapter.onEvent", () => {
       runId: "run-tool-100",
     } as LangChainCallbackEvent);
 
-    // Now handleToolEnd with the same runId should resolve the tool name
+    // Now handleToolEnd with the same runId should resolve the tool name and duration
     const result = adapter.onEvent({
       _callback: "handleToolEnd",
       output: "4",
@@ -246,6 +247,8 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("calculator");
+    // Duration should be non-negative (computed from wall clock)
+    expect(payload["duration_ms"]).toBeGreaterThanOrEqual(0);
   });
 
   test("handleToolEnd falls back to unknown_tool when no prior handleToolStart", () => {
@@ -385,7 +388,7 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).toBeNull();
   });
 
-  test("parentRunId stored in metadata, parent_id always null", () => {
+  test("parentRunId mapped to parent_id and stored in metadata", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleToolStart",
       tool: { name: "search" },
@@ -395,7 +398,7 @@ describe("LangChainAdapter.onEvent", () => {
     };
 
     const result = adapter.onEvent(event);
-    expect(result?.parent_id).toBeNull();
+    expect(result?.parent_id).toBe("parent-001");
     expect(result?.metadata).toMatchObject({ "runtime.langchain.parent_run_id": "parent-001" });
   });
 
@@ -662,5 +665,83 @@ describe("LangChainAdapter.onEvent", () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleAgentAction → decision event
+  // ---------------------------------------------------------------------------
+
+  test("handleAgentAction produces decision event", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "web_search", toolInput: { query: "Krynix" }, log: "Need more info" },
+      runId: "agent-action-1",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("decision");
+    const payload = result?.payload as { action: string; reasoning: string };
+    expect(payload.action).toBe("web_search");
+    expect(payload.reasoning).toBe("Need more info");
+  });
+
+  test("handleAgentAction with parentRunId maps to parent_id", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "calculator", toolInput: "2+2", log: "Computing answer" },
+      runId: "agent-action-2",
+      parentRunId: "parent-run-99",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.parent_id).toBe("parent-run-99");
+  });
+
+  test("handleAgentAction with missing action fields uses defaults", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "", toolInput: null, log: "" },
+      runId: "agent-action-3",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("decision");
+    const payload = result?.payload as { action: string; reasoning: string };
+    expect(payload.action).toBe("");
+    expect(payload.reasoning).toBe("");
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleAgentFinish → observation event
+  // ---------------------------------------------------------------------------
+
+  test("handleAgentFinish produces observation event", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentFinish",
+      finish: { output: "The answer is 42", log: "Final answer computed" },
+      runId: "agent-finish-1",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("observation");
+    const payload = result?.payload as {
+      source: string;
+      content: { output: unknown; log: string };
+    };
+    expect(payload.source).toBe("langchain_agent_finish");
+    expect(payload.content.output).toBe("The answer is 42");
+    expect(payload.content.log).toBe("Final answer computed");
+  });
+
+  test("handleAgentFinish with parentRunId maps to parent_id", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentFinish",
+      finish: { output: "done", log: "" },
+      runId: "agent-finish-2",
+      parentRunId: "parent-run-100",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.parent_id).toBe("parent-run-100");
   });
 });

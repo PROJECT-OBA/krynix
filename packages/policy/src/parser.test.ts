@@ -359,3 +359,112 @@ spec:
     expect(() => parsePolicy(yaml)).toThrow("is required");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sequence rule parsing
+// ---------------------------------------------------------------------------
+
+describe("parsePolicy — sequence rules", () => {
+  test("parses a valid sequence rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: credential-exfil
+  version: "1.0.0"
+  description: Detect credential exfiltration
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: exfil-detect
+      description: Read sensitive file then external request
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload:
+                - field: arguments.path
+                  operator: matches
+                  value: "passwd|shadow|\\\\.env"
+            - event_type: tool_call
+              payload:
+                - field: tool_name
+                  operator: matches
+                  value: "curl|fetch|http"
+          window: 10
+      action: deny
+      severity: critical
+      message: "Agent read sensitive file then made external request"
+`;
+    const policy = parsePolicy(yaml);
+    expect(policy.spec.rules).toHaveLength(1);
+    const rule = policy.spec.rules[0];
+    expect(rule?.match.sequence).toBeDefined();
+    expect(rule?.match.sequence?.steps).toHaveLength(2);
+    expect(rule?.match.sequence?.window).toBe(10);
+    expect(rule?.match.sequence?.steps[0]?.event_type).toBe("tool_call");
+    expect(rule?.match.sequence?.steps[0]?.payload).toHaveLength(1);
+  });
+
+  test("rejects sequence with fewer than 2 steps", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: bad-seq
+  version: "1.0.0"
+  description: Bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: one-step
+      description: Only one step
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow("at least 2 steps");
+  });
+
+  test("rejects sequence with invalid window", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: bad-window
+  version: "1.0.0"
+  description: Bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad-w
+      description: Invalid window
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_call
+              payload: []
+          window: -1
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow("positive number");
+  });
+});

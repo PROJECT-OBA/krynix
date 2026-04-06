@@ -3,8 +3,14 @@ import { join } from "node:path";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { runReplay } from "./replay.js";
+import type { ReplayCommandResult, CompareCommandResult } from "./replay.js";
 import { computeHashChain, canonicalize } from "@krynix/core";
 import type { TraceEvent } from "@krynix/core";
+
+/** Type guard: narrows to ReplayCommandResult (verify/regenerate mode). */
+function isReplayResult(r: ReplayCommandResult | CompareCommandResult): r is ReplayCommandResult {
+  return "results" in r;
+}
 
 let tempDir: string;
 
@@ -92,6 +98,8 @@ describe("runReplay", () => {
     const tracePath = await writeTrace(dir, "valid.trace.jsonl", makeValidEvents());
 
     const result = await runReplay(["--verify", "--trace", tracePath]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(0);
     expect(result.results).toHaveLength(1);
@@ -104,6 +112,8 @@ describe("runReplay", () => {
     const tracePath = await writeTrace(dir, "broken.trace.jsonl", makeBrokenEvents());
 
     const result = await runReplay(["--verify", "--trace", tracePath]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(1);
     expect(result.results).toHaveLength(1);
@@ -115,6 +125,8 @@ describe("runReplay", () => {
     await writeTrace(dir, "trace1.trace.jsonl", makeValidEvents());
 
     const result = await runReplay(["--verify", "--golden-dir", dir]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(0);
     expect(result.results).toHaveLength(1);
@@ -127,6 +139,8 @@ describe("runReplay", () => {
     await writeTrace(dir, "bad.trace.jsonl", makeBrokenEvents());
 
     const result = await runReplay(["--verify", "--golden-dir", dir]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(1);
     expect(result.results).toHaveLength(2);
@@ -151,6 +165,8 @@ describe("runReplay", () => {
 
   test("nonexistent trace path → exit 1", async () => {
     const result = await runReplay(["--verify", "--trace", "/nonexistent/trace.jsonl"]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(1);
     expect(result.results).toHaveLength(1);
@@ -178,6 +194,8 @@ describe("runReplay", () => {
     const tracePath = await writeTrace(dir, "valid.trace.jsonl", makeValidEvents());
 
     const result = await runReplay(["--regenerate", "--trace", tracePath]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(0);
     expect(result.results).toHaveLength(1);
@@ -191,6 +209,8 @@ describe("runReplay", () => {
     await writeTrace(dir, "b.trace.jsonl", makeValidEvents());
 
     const result = await runReplay(["--regenerate", "--golden-dir", dir]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(0);
     expect(result.results).toHaveLength(2);
@@ -202,9 +222,101 @@ describe("runReplay", () => {
     const dir = await createTempDir();
 
     const result = await runReplay(["--regenerate", "--golden-dir", dir]);
+    expect(isReplayResult(result)).toBe(true);
+    if (!isReplayResult(result)) return;
 
     expect(result.exitCode).toBe(0);
     expect(result.results).toHaveLength(0);
     expect(result.error).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compare mode tests
+// ---------------------------------------------------------------------------
+
+describe("runReplay --compare", () => {
+  test("identical traces → exit 0, status pass", async () => {
+    const dir = await createTempDir();
+    const baselinePath = await writeTrace(dir, "baseline.trace.jsonl", makeValidEvents());
+    const candidatePath = await writeTrace(dir, "candidate.trace.jsonl", makeValidEvents());
+
+    const result = await runReplay([
+      "--compare",
+      "--baseline",
+      baselinePath,
+      "--candidate",
+      candidatePath,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect("report" in result).toBe(true);
+    if ("report" in result) {
+      expect(result.report?.status).toBe("pass");
+    }
+    expect(result.error).toBeNull();
+  });
+
+  test("divergent traces → exit 1, status diverged", async () => {
+    const dir = await createTempDir();
+    const baselineEvents = makeValidEvents();
+    const candidateEvents = makeValidEvents();
+    // Modify tool_name in candidate
+    (candidateEvents[1] as TraceEvent & { payload: { tool_name: string } }).payload.tool_name =
+      "shell_exec";
+
+    const baselinePath = await writeTrace(dir, "baseline.trace.jsonl", baselineEvents);
+    const candidatePath = await writeTrace(dir, "candidate.trace.jsonl", candidateEvents);
+
+    const result = await runReplay([
+      "--compare",
+      "--baseline",
+      baselinePath,
+      "--candidate",
+      candidatePath,
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect("report" in result).toBe(true);
+    if ("report" in result) {
+      expect(result.report?.status).toBe("diverged");
+      expect(result.report?.firstDivergence?.sequenceNum).toBe(1);
+    }
+  });
+
+  test("missing --baseline → exit 1 + error", async () => {
+    const dir = await createTempDir();
+    const candidatePath = await writeTrace(dir, "candidate.trace.jsonl", makeValidEvents());
+
+    const result = await runReplay(["--compare", "--candidate", candidatePath]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--baseline");
+  });
+
+  test("missing --candidate → exit 1 + error", async () => {
+    const dir = await createTempDir();
+    const baselinePath = await writeTrace(dir, "baseline.trace.jsonl", makeValidEvents());
+
+    const result = await runReplay(["--compare", "--baseline", baselinePath]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--candidate");
+  });
+
+  test("nonexistent baseline file → exit 1 + error", async () => {
+    const dir = await createTempDir();
+    const candidatePath = await writeTrace(dir, "candidate.trace.jsonl", makeValidEvents());
+
+    const result = await runReplay([
+      "--compare",
+      "--baseline",
+      "/nonexistent/baseline.jsonl",
+      "--candidate",
+      candidatePath,
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("Compare failed");
   });
 });
