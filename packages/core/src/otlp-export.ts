@@ -137,26 +137,38 @@ export function convertToOtlp(trace: readonly TraceEvent[]): OtlpExportData {
 // ---------------------------------------------------------------------------
 
 /**
- * Strip dashes from a UUID string.
- * "7c9e6679-7425-40de-944b-e07fc1f90ae7" → "7c9e6679742540de944be07fc1f90ae7"
+ * Convert a string to a fixed-length hex representation suitable for OTel IDs.
+ *
+ * If the input is already valid hex (e.g., a UUID with dashes stripped),
+ * it is used directly. Otherwise, character code points are encoded to hex
+ * to produce a deterministic, valid OTel identifier.
  */
-function uuidToHex(uuid: string): string {
-  return uuid.replace(/-/g, "");
+function toHexId(id: string, length: number): string {
+  const stripped = id.replace(/-/g, "");
+  // If it's already valid hex and long enough, use it directly
+  if (/^[0-9a-f]+$/i.test(stripped) && stripped.length >= length) {
+    return stripped.slice(0, length).toLowerCase();
+  }
+  // Otherwise, convert each character's code point to hex
+  let hex = "";
+  for (let i = 0; i < id.length && hex.length < length; i++) {
+    hex += id.charCodeAt(i).toString(16).padStart(2, "0");
+  }
+  return hex.padEnd(length, "0").slice(0, length);
 }
 
 /**
- * Convert a UUID to a 32-char OTel trace ID (128-bit).
+ * Convert a session ID to a 32-char OTel trace ID (128-bit).
  */
 function toTraceId(sessionId: string): string {
-  return uuidToHex(sessionId);
+  return toHexId(sessionId, 32);
 }
 
 /**
- * Convert a UUID to a 16-char OTel span ID (64-bit).
- * Takes the first 16 hex characters (first 64 bits).
+ * Convert an event/parent ID to a 16-char OTel span ID (64-bit).
  */
 function toSpanId(eventId: string): string {
-  return uuidToHex(eventId).slice(0, 16);
+  return toHexId(eventId, 16);
 }
 
 /**
@@ -175,13 +187,18 @@ function toNanoTimestamp(isoTimestamp: string): string {
 function convertEvent(event: TraceEvent): OtlpSpan {
   const startNano = toNanoTimestamp(event.timestamp);
 
-  // tool_result events have duration_ms — compute endTime
+  // tool_result events have duration_ms — compute endTime.
+  // Prefer metadata["tool.duration_ms"] (real wall-clock from adapters) over
+  // payload.duration_ms (which may be 0 for replay determinism).
   let endNano = startNano;
   if (event.event_type === "tool_result") {
     const payload = event.payload as ToolResultPayload;
+    const metaDuration = event.metadata?.["tool.duration_ms"];
+    const durationMs =
+      typeof metaDuration === "number" && metaDuration > 0 ? metaDuration : payload.duration_ms;
     const startMs = new Date(event.timestamp).getTime();
-    if (!isNaN(startMs)) {
-      const endMs = startMs + payload.duration_ms;
+    if (!isNaN(startMs) && durationMs > 0) {
+      const endMs = startMs + durationMs;
       endNano = (BigInt(endMs) * 1_000_000n).toString();
     }
   }

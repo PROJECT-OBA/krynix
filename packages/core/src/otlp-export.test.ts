@@ -222,4 +222,30 @@ describe("convertToOtlp", () => {
     expect(confidenceAttr?.value.doubleValue).toBe(0.95);
     expect(confidenceAttr?.value.intValue).toBeUndefined();
   });
+
+  test("non-UUID parent_id produces valid 16-char hex span ID", () => {
+    // LangChain adapters may pass non-UUID runId values (e.g., "run-001")
+    const events = chain([makeToolCall(0, undefined, { parent_id: "run-001" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    // parentSpanId should be a valid 16-char hex string, even for non-UUID input
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+    expect(span.parentSpanId).toHaveLength(16);
+  });
+
+  test("tool_result uses metadata duration_ms for OTLP span timing when payload is 0", () => {
+    const events = chain([
+      makeToolResult(0, { duration_ms: 0 }, { timestamp: "2025-01-15T14:00:00.000Z" }),
+    ]);
+    // Inject metadata duration (as adapter does for replay determinism)
+    const event = { ...events[0], metadata: { ...events[0]?.metadata, "tool.duration_ms": 250 } };
+    const result = convertToOtlp([event as TraceEvent]);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    const startMs = new Date("2025-01-15T14:00:00.000Z").getTime();
+    const expectedEndNano = (BigInt(startMs + 250) * 1_000_000n).toString();
+    expect(span.endTimeUnixNano).toBe(expectedEndNano);
+    expect(BigInt(span.endTimeUnixNano)).toBeGreaterThan(BigInt(span.startTimeUnixNano));
+  });
 });

@@ -332,7 +332,7 @@ describe("validatePolicy", () => {
     expect(result.error).toBeDefined();
   });
 
-  test("valid sequence rule (no payload on match) passes", () => {
+  test("valid sequence rule passes", () => {
     const policy = {
       ...VALID_POLICY,
       spec: {
@@ -342,6 +342,7 @@ describe("validatePolicy", () => {
             id: "sequence-rule",
             description: "A sequence rule",
             match: {
+              payload: [],
               sequence: {
                 steps: [
                   {
@@ -373,6 +374,7 @@ describe("validatePolicy", () => {
             id: "bad-seq",
             description: "Bad sequence",
             match: {
+              payload: [],
               sequence: {
                 steps: [
                   { event_type: "tool_call" }, // missing required payload
@@ -402,6 +404,7 @@ describe("validatePolicy", () => {
             id: "short-seq",
             description: "Too short",
             match: {
+              payload: [],
               sequence: {
                 steps: [{ event_type: "tool_call", payload: [] }],
               },

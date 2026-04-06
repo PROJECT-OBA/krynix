@@ -61,9 +61,13 @@ export function evaluateCondition(condition: PayloadCondition, value: unknown): 
 
     case "contains":
       if (value === undefined || typeof condition.value !== "string") return false;
-      return (
-        typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)
-      ).includes(condition.value);
+      try {
+        const str =
+          typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+        return str.includes(condition.value);
+      } catch {
+        return false;
+      }
 
     case "exists":
       return (value !== undefined) === condition.value;
