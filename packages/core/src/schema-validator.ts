@@ -224,14 +224,30 @@ const POLICY_SCHEMA = {
             sequence: {
               type: "object",
               properties: {
-                steps: { type: "array" },
+                steps: {
+                  type: "array",
+                  minItems: 2,
+                  items: {
+                    type: "object",
+                    properties: {
+                      event_type: { type: "string" },
+                      payload: {
+                        type: "array",
+                        items: { $ref: "#/definitions/PayloadCondition" },
+                      },
+                    },
+                    required: ["payload"],
+                    additionalProperties: false,
+                  },
+                },
                 window: { type: "integer", minimum: 1 },
               },
               required: ["steps"],
               additionalProperties: false,
             },
           },
-          required: [],
+          // Require either payload (per-event rule) or sequence (cross-event rule)
+          anyOf: [{ required: ["payload"] }, { required: ["sequence"] }],
           additionalProperties: false,
         },
         action: { type: "string", enum: ["allow", "deny", "require-approval"] },

@@ -52,7 +52,7 @@ export interface SequenceStep {
 /** Sequence match: ordered pattern of events within a window. */
 export interface SequenceMatch {
   steps: SequenceStep[];
-  /** Maximum number of events between first and last match (default: entire trace). */
+  /** Maximum index distance between the first and last matched events (default: entire trace). */
   window?: number;
 }
 

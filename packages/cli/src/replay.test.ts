@@ -319,4 +319,28 @@ describe("runReplay --compare", () => {
     expect(result.exitCode).toBe(1);
     expect(result.error).toContain("Compare failed");
   });
+
+  test("--compare --verify → exit 1 + error about incompatible flags", async () => {
+    const result = await runReplay(["--compare", "--verify"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("cannot be combined");
+  });
+
+  test("--compare --regenerate → exit 1 + error about incompatible flags", async () => {
+    const result = await runReplay(["--compare", "--regenerate"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("cannot be combined");
+  });
+
+  test("--compare --trace <file> → exit 1 + error about --trace", async () => {
+    const result = await runReplay(["--compare", "--trace", "any.trace.jsonl"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--trace");
+  });
+
+  test("--compare --golden-dir <dir> → exit 1 + error about --golden-dir", async () => {
+    const result = await runReplay(["--compare", "--golden-dir", "/some/dir"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--golden-dir");
+  });
 });
