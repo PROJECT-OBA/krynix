@@ -228,8 +228,8 @@ describe("LangChainAdapter.onEvent", () => {
     expect(payload["tool_name"]).toBe("unknown_tool");
   });
 
-  test("handleToolEnd resolves tool_name and computes duration_ms from prior handleToolStart", () => {
-    // First, send a handleToolStart to register the tool name and start time
+  test("handleToolEnd resolves tool_name from prior handleToolStart and emits duration_ms: 0", () => {
+    // First, send a handleToolStart to register the tool name
     adapter.onEvent({
       _callback: "handleToolStart",
       tool: { name: "calculator" },
@@ -237,7 +237,7 @@ describe("LangChainAdapter.onEvent", () => {
       runId: "run-tool-100",
     } as LangChainCallbackEvent);
 
-    // Now handleToolEnd with the same runId should resolve the tool name and duration
+    // Now handleToolEnd with the same runId should resolve the tool name
     const result = adapter.onEvent({
       _callback: "handleToolEnd",
       output: "4",
@@ -247,8 +247,8 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("calculator");
-    // Duration should be non-negative (computed from wall clock)
-    expect(payload["duration_ms"]).toBeGreaterThanOrEqual(0);
+    // duration_ms is 0 for deterministic replay (wall-clock timing emitted once replay gains tolerance)
+    expect(payload["duration_ms"]).toBe(0);
   });
 
   test("handleToolEnd falls back to unknown_tool when no prior handleToolStart", () => {

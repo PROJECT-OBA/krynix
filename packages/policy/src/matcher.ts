@@ -89,7 +89,7 @@ export function matchRule(event: TraceEvent, rule: PolicyRule): boolean {
   // All payload conditions must match (AND logic)
   const payload = event.payload as unknown as Record<string, unknown>;
 
-  for (const condition of rule.match.payload) {
+  for (const condition of rule.match.payload ?? []) {
     const value = resolveFieldPath(payload, condition.field);
     if (!evaluateCondition(condition, value)) {
       return false;

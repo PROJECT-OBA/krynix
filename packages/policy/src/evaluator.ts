@@ -138,23 +138,33 @@ function evaluateSequenceRules(
   violations: Violation[],
   scope: { agents: string[]; event_types: string[] },
 ): void {
+  // Build scoped trace once, keeping a parallel array of original indices so
+  // violation reports reference positions in the full trace, not the filtered slice.
+  const originalIndices: number[] = [];
+  const scopedTrace: TraceEvent[] = [];
+  for (let i = 0; i < trace.length; i++) {
+    const ev = trace[i];
+    if (ev !== undefined && isInScope(ev, scope.agents, scope.event_types)) {
+      originalIndices.push(i);
+      scopedTrace.push(ev);
+    }
+  }
+
   for (const rule of rules) {
     if (rule.match.sequence === undefined) continue;
-
-    // Filter trace to in-scope events before sequence matching
-    const scopedTrace = trace.filter((e) => isInScope(e, scope.agents, scope.event_types));
 
     const result = evaluateSequence(scopedTrace, rule.match.sequence);
     if (!result.matched) continue;
 
-    // Use the first matched event index for the violation report
-    const firstIndex = result.matchedEventIndices[0] ?? 0;
-    const firstEvent = trace[firstIndex];
+    // Map the first matched scoped index back to the original trace position.
+    const firstScopedIdx = result.matchedEventIndices[0] ?? 0;
+    const firstOriginalIdx = originalIndices[firstScopedIdx] ?? firstScopedIdx;
+    const firstEvent = scopedTrace[firstScopedIdx];
 
     if (rule.action === "deny" || rule.action === "require-approval") {
       violations.push({
         ruleId: rule.id,
-        eventIndex: firstIndex,
+        eventIndex: firstOriginalIdx,
         eventId: firstEvent?.event_id ?? "unknown",
         action: rule.action,
         severity: rule.severity,

@@ -677,4 +677,44 @@ describe("evaluate — sequence rules", () => {
     expect(result.verdict).toBe("require-approval");
     expect(result.exitCode).toBe(3);
   });
+
+  test("sequence rule violation reports original trace index when scope filters remove events", () => {
+    // Trace: 2 out-of-scope events precede the matching pair.
+    // Scoped indices (0,1) map to original indices (2,3).
+    const trace = [
+      makeEvent(0, "lifecycle", { action: "session_start" }), // out of scope (event_type)
+      makeEvent(1, "tool_call", { tool_name: "read_file", arguments: {} }, "other-agent"), // out of scope (agent)
+      makeEvent(2, "tool_call", { tool_name: "read_file", arguments: {} }), // in scope → scoped[0]
+      makeEvent(3, "tool_result", { tool_name: "read_file", output: "x", duration_ms: 0 }), // in scope → scoped[1]
+    ];
+
+    const policy = makePolicy({
+      scope: { agents: ["test-agent"], event_types: ["tool_call", "tool_result"] },
+      rules: [
+        makeRule({
+          id: "read-then-result",
+          action: "deny",
+          severity: "error",
+          message: "Read followed by result",
+          match: {
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                { event_type: "tool_result", payload: [] },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.violations).toHaveLength(1);
+    // violation must reference original trace position, not the filtered position
+    expect(result.violations[0]?.eventIndex).toBe(2);
+    expect(result.violations[0]?.eventId).toBe("evt-002");
+  });
 });
