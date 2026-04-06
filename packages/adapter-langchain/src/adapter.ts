@@ -193,7 +193,10 @@ export class LangChainAdapter implements TraceAdapter {
       case "handleToolEnd": {
         const resolvedToolName = this.runIdToToolName.get(event.runId) ?? "unknown_tool";
         const startTime = this.runIdToStartTime.get(event.runId);
-        const durationMs = startTime !== undefined ? Date.now() - startTime : 0;
+        // durationMs is computed but not emitted: replay --compare deep-compares payload
+        // including duration_ms, so a wall-clock value would cause every tool_result to
+        // diverge across runs. Emit 0 until replay gains temporal-field tolerance (PLANNED).
+        const _durationMs = startTime !== undefined ? Date.now() - startTime : 0;
         this.runIdToToolName.delete(event.runId);
         this.runIdToStartTime.delete(event.runId);
         return {
@@ -202,7 +205,7 @@ export class LangChainAdapter implements TraceAdapter {
           payload: {
             tool_name: resolvedToolName,
             output: event.output,
-            duration_ms: durationMs,
+            duration_ms: 0,
           },
         } as unknown as TraceEvent;
       }

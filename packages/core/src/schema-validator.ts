@@ -221,8 +221,17 @@ const POLICY_SCHEMA = {
           properties: {
             event_type: { type: "string" },
             payload: { type: "array", items: { $ref: "#/definitions/PayloadCondition" } },
+            sequence: {
+              type: "object",
+              properties: {
+                steps: { type: "array" },
+                window: { type: "integer", minimum: 1 },
+              },
+              required: ["steps"],
+              additionalProperties: false,
+            },
           },
-          required: ["payload"],
+          required: [],
           additionalProperties: false,
         },
         action: { type: "string", enum: ["allow", "deny", "require-approval"] },

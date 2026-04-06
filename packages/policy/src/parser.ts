@@ -165,11 +165,18 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
     assertString(matchRaw["event_type"], `${path}.match.event_type`);
   }
 
-  // match.payload
-  assertArray(matchRaw["payload"], `${path}.match.payload`);
-  const payload = (matchRaw["payload"] as unknown[]).map((c, i) =>
-    validatePayloadCondition(c, `${path}.match.payload[${String(i)}]`),
-  );
+  // match.payload — required for per-event rules, optional when sequence is present
+  let payload: PayloadCondition[];
+  if (matchRaw["payload"] !== undefined) {
+    assertArray(matchRaw["payload"], `${path}.match.payload`);
+    payload = (matchRaw["payload"] as unknown[]).map((c, i) =>
+      validatePayloadCondition(c, `${path}.match.payload[${String(i)}]`),
+    );
+  } else if (matchRaw["sequence"] !== undefined) {
+    payload = [];
+  } else {
+    throw new PolicyValidationError(`${path}.match.payload`, "must be an array");
+  }
 
   // match.sequence (optional)
   let sequence: SequenceMatch | undefined;
