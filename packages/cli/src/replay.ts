@@ -101,7 +101,7 @@ export async function runReplay(
     return {
       exitCode: 1,
       results: [],
-      error: `Unexpected error: ${String(err)}`,
+      error: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -138,7 +138,7 @@ async function runCompare(args: string[]): Promise<CompareCommandResult> {
     return {
       exitCode: 1,
       report: null,
-      error: `Compare failed: ${String(err)}`,
+      error: `Compare failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -192,7 +192,7 @@ async function handleRegenerate(
       results.push({
         file: tracePath,
         status: "error",
-        validationErrors: [String(err)],
+        validationErrors: [err instanceof Error ? err.message : String(err)],
       });
     }
   }

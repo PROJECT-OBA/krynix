@@ -182,6 +182,20 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
   let sequence: SequenceMatch | undefined;
   if (matchRaw["sequence"] !== undefined) {
     sequence = validateSequence(matchRaw["sequence"], `${path}.match.sequence`);
+    // When sequence is present, per-event match fields are ignored at runtime.
+    // Reject them to prevent silently misconfigured policies.
+    if (payload.length > 0) {
+      throw new PolicyValidationError(
+        `${path}.match.payload`,
+        "must be omitted or empty when match.sequence is set",
+      );
+    }
+    if (matchRaw["event_type"] !== undefined) {
+      throw new PolicyValidationError(
+        `${path}.match.event_type`,
+        "cannot be set when match.sequence is present; use event_type inside sequence steps",
+      );
+    }
   }
 
   const rule: PolicyRule = {

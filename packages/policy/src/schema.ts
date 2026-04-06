@@ -59,8 +59,8 @@ export interface SequenceMatch {
 /** Match criteria for a policy rule. */
 export interface PolicyMatch {
   event_type?: string;
-  /** Per-event payload conditions. Required for per-event rules; may be omitted when `sequence` is present. */
-  payload?: PayloadCondition[];
+  /** Per-event payload conditions. Always present (may be `[]` for sequence-only rules). */
+  payload: PayloadCondition[];
   /** Cross-event sequence match. When present, per-event match fields are ignored. */
   sequence?: SequenceMatch;
 }

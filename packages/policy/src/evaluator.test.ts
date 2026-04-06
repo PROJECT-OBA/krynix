@@ -697,6 +697,7 @@ describe("evaluate — sequence rules", () => {
           severity: "error",
           message: "Read followed by result",
           match: {
+            payload: [],
             sequence: {
               steps: [
                 {

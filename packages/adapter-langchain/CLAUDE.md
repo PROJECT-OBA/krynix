@@ -14,12 +14,13 @@ Translates LangChain callback events into Krynix TraceEvents. Depends on `@kryni
 
 ## Callbacks Handled
 
-`handleLLMStart`, `handleLLMEnd`, `handleLLMError`, `handleToolStart`, `handleToolEnd`, `handleToolError`, `handleChainStart`, `handleChainEnd`, `handleChainError`
+`handleLLMStart`, `handleLLMEnd`, `handleLLMError`, `handleToolStart`, `handleToolEnd`, `handleToolError`, `handleChainStart`, `handleChainEnd`, `handleChainError`, `handleAgentAction`, `handleAgentFinish`
 
 ## Key Behavior
 
 - Zero runtime dependency on LangChain — accepts `unknown` input, validates shape.
 - `normalizeFinishReason()` maps provider-specific strings to canonical `FinishReason` (`stop`, `max_tokens`, `tool_use`).
 - `runIdToToolName` map tracks tool call correlation across start/end events.
+- `runIdToStartTime` map tracks tool call timing; real duration goes into `metadata["tool.duration_ms"]` (not payload) for replay determinism.
 - `replaySeed` is optional — `undefined` means no seed.
 - Plugin uses write queue (same pattern as `@krynix/adapter-openclaw` plugin) to serialize concurrent callbacks.

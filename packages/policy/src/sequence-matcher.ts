@@ -8,65 +8,14 @@
  */
 
 import type { TraceEvent } from "@krynix/core";
-import type { SequenceMatch, SequenceStep, PayloadCondition } from "./schema.js";
+import type { SequenceMatch, SequenceStep } from "./schema.js";
+import { resolveFieldPath, evaluateCondition } from "./condition-utils.js";
 
 /** Result of a sequence match attempt. */
 export interface SequenceMatchResult {
   matched: boolean;
   /** Indices of the events that formed the complete match. */
   matchedEventIndices: number[];
-}
-
-/**
- * Resolve a dot-notation field path against an object.
- */
-function resolveFieldPath(obj: Record<string, unknown>, path: string): unknown {
-  const parts = path.split(".");
-  let current: unknown = obj;
-
-  for (const part of parts) {
-    if (current == null || typeof current !== "object" || Array.isArray(current)) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-
-  return current;
-}
-
-/**
- * Evaluate a single operator condition against a resolved value.
- * (Mirrors matcher.ts logic — kept local to avoid circular dependency.)
- */
-function evaluateCondition(condition: PayloadCondition, value: unknown): boolean {
-  switch (condition.operator) {
-    case "eq":
-      return value === condition.value;
-    case "neq":
-      return value !== condition.value;
-    case "in":
-      return Array.isArray(condition.value) && condition.value.includes(value);
-    case "not_in":
-      return Array.isArray(condition.value) && !condition.value.includes(value);
-    case "matches":
-      if (value === undefined || typeof condition.value !== "string") return false;
-      try {
-        const str =
-          typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
-        return new RegExp(condition.value, "u").test(str);
-      } catch {
-        return false;
-      }
-    case "contains":
-      if (value === undefined || typeof condition.value !== "string") return false;
-      return (
-        typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)
-      ).includes(condition.value);
-    case "exists":
-      return (value !== undefined) === condition.value;
-    default:
-      return false;
-  }
 }
 
 /**
