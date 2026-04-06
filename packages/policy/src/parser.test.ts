@@ -465,6 +465,6 @@ spec:
       severity: error
       message: "bad"
 `;
-    expect(() => parsePolicy(yaml)).toThrow("positive number");
+    expect(() => parsePolicy(yaml)).toThrow("positive integer");
   });
 });

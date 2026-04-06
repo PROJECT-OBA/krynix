@@ -98,7 +98,7 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
   }
 
   // Evaluate sequence rules (cross-event patterns)
-  evaluateSequenceRules(trace, policy.spec.rules, violations);
+  evaluateSequenceRules(trace, policy.spec.rules, violations, scope);
 
   return buildResult(violations, warnings);
 }
@@ -136,11 +136,15 @@ function evaluateSequenceRules(
   trace: readonly TraceEvent[],
   rules: readonly PolicyRule[],
   violations: Violation[],
+  scope: { agents: string[]; event_types: string[] },
 ): void {
   for (const rule of rules) {
     if (rule.match.sequence === undefined) continue;
 
-    const result = evaluateSequence(trace, rule.match.sequence);
+    // Filter trace to in-scope events before sequence matching
+    const scopedTrace = trace.filter((e) => isInScope(e, scope.agents, scope.event_types));
+
+    const result = evaluateSequence(scopedTrace, rule.match.sequence);
     if (!result.matched) continue;
 
     // Use the first matched event index for the violation report

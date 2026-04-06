@@ -129,8 +129,12 @@ function validateSequence(raw: unknown, path: string): SequenceMatch {
   const result: SequenceMatch = { steps };
 
   if (raw["window"] !== undefined) {
-    if (typeof raw["window"] !== "number" || raw["window"] < 1) {
-      throw new PolicyValidationError(`${path}.window`, "must be a positive number");
+    if (
+      typeof raw["window"] !== "number" ||
+      !Number.isSafeInteger(raw["window"]) ||
+      raw["window"] < 1
+    ) {
+      throw new PolicyValidationError(`${path}.window`, "must be a positive integer");
     }
     result.window = raw["window"];
   }

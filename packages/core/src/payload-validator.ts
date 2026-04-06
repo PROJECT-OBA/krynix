@@ -22,11 +22,13 @@ const REQUIRED_FIELDS: Record<EventType, Array<[string, string]>> = {
   ],
   tool_result: [
     ["tool_name", "string"],
+    ["output", "any"],
     ["duration_ms", "number"],
   ],
   llm_request: [
     ["model", "string"],
-    ["messages", "object"],
+    ["messages", "array"],
+    ["parameters", "object"],
   ],
   llm_response: [
     ["model", "string"],
@@ -38,10 +40,14 @@ const REQUIRED_FIELDS: Record<EventType, Array<[string, string]>> = {
     ["action", "string"],
     ["reasoning", "string"],
   ],
-  observation: [["source", "string"]],
+  observation: [
+    ["source", "string"],
+    ["content", "any"],
+  ],
   error: [
     ["code", "string"],
     ["message", "string"],
+    ["recoverable", "boolean"],
   ],
   lifecycle: [["action", "string"]],
 };
@@ -72,11 +78,24 @@ export function validatePayload(eventType: EventType, payload: unknown): void {
         `${eventType} payload missing required field '${fieldName}'`,
       );
     }
+
+    // "any" means the field must be present but can be any type (including null)
+    if (expectedType === "any") {
+      continue;
+    }
+
     if (expectedType === "object") {
-      if (typeof value !== "object" || value === null) {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
         throw new KrynixError(
           "INVALID_PAYLOAD",
-          `${eventType} payload field '${fieldName}' must be an object, got ${value === null ? "null" : typeof value}`,
+          `${eventType} payload field '${fieldName}' must be an object, got ${value === null ? "null" : Array.isArray(value) ? "array" : typeof value}`,
+        );
+      }
+    } else if (expectedType === "array") {
+      if (!Array.isArray(value)) {
+        throw new KrynixError(
+          "INVALID_PAYLOAD",
+          `${eventType} payload field '${fieldName}' must be an array, got ${value === null ? "null" : typeof value}`,
         );
       }
     } else if (typeof value !== expectedType) {

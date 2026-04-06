@@ -51,13 +51,17 @@ function evaluateCondition(condition: PayloadCondition, value: unknown): boolean
     case "matches":
       if (value === undefined || typeof condition.value !== "string") return false;
       try {
-        return new RegExp(condition.value, "u").test(String(value));
+        const str =
+          typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+        return new RegExp(condition.value, "u").test(str);
       } catch {
         return false;
       }
     case "contains":
       if (value === undefined || typeof condition.value !== "string") return false;
-      return String(value).includes(condition.value);
+      return (
+        typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)
+      ).includes(condition.value);
     case "exists":
       return (value !== undefined) === condition.value;
     default:
