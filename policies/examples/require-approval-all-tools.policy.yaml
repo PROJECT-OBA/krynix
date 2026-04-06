@@ -1,0 +1,25 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: require-approval-all-tools
+  version: "1.0.0"
+  description: >
+    Strictest mode: require human approval for every tool call.
+    Use this when running agents in high-risk environments where
+    every action must be explicitly authorized.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: require-approval-all
+      description: Every tool call requires human approval
+      match:
+        event_type: tool_call
+        payload: []
+      action: require-approval
+      severity: warning
+      message: "All tool calls require human approval in strict mode"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

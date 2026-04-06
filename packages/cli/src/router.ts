@@ -11,6 +11,7 @@
 import { parseCommand, hasFlag } from "./arg-parser.js";
 import { getVersion, getMainHelp, getCommandHelp } from "./help.js";
 import { runEvaluate } from "./evaluate.js";
+import { formatEvaluateText } from "./format-evaluate.js";
 import { runReplay } from "./replay.js";
 import { runValidate } from "./validate.js";
 import { runStats } from "./stats.js";
@@ -131,13 +132,26 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
   switch (command) {
     case "evaluate": {
       const result = await runEvaluate(rest);
-      const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+      let stdout = "";
+      if (result.output !== null) {
+        stdout =
+          result.format === "text"
+            ? formatEvaluateText(result.output)
+            : JSON.stringify(result.output, null, 2);
+      }
       const stderr = result.error ?? "";
       return { exitCode: result.exitCode, stdout, stderr };
     }
 
     case "replay": {
       const result = await runReplay(rest);
+
+      // Compare mode returns a different shape
+      if ("report" in result) {
+        const stdout = result.report !== null ? JSON.stringify(result.report, null, 2) : "";
+        return { exitCode: result.exitCode, stdout, stderr: result.error ?? "" };
+      }
+
       const stdout =
         result.error !== null && result.results.length === 0
           ? ""

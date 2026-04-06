@@ -1,0 +1,52 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: sensitive-data-guard
+  version: "1.0.0"
+  description: >
+    Deny tool calls whose arguments contain patterns matching sensitive data
+    (credit card numbers, SSNs, API keys). Catches accidental leakage
+    through tool arguments regardless of tool name.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: block-credit-card-in-args
+      description: Deny tool calls with credit card number patterns in arguments
+      match:
+        event_type: tool_call
+        payload:
+          - field: arguments
+            operator: matches
+            value: "\\b(?:\\d[ -]*?){13,16}\\b"
+      action: deny
+      severity: critical
+      message: "Tool call arguments contain a potential credit card number"
+
+    - id: block-ssn-in-args
+      description: Deny tool calls with SSN patterns in arguments
+      match:
+        event_type: tool_call
+        payload:
+          - field: arguments
+            operator: matches
+            value: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      action: deny
+      severity: critical
+      message: "Tool call arguments contain a potential SSN"
+
+    - id: block-api-key-in-args
+      description: Deny tool calls with API key patterns in arguments
+      match:
+        event_type: tool_call
+        payload:
+          - field: arguments
+            operator: matches
+            value: "(?:sk-|api[_-]?key|bearer |token[=:])[A-Za-z0-9_\\-]{20,}"
+      action: deny
+      severity: critical
+      message: "Tool call arguments contain a potential API key or token"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info
