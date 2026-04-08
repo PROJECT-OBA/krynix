@@ -106,3 +106,5 @@ export {
   type BundleVerificationResult,
   type BundleVerificationError,
 } from "./bundle-verifier.js";
+
+export { validatePayload } from "./payload-validator.js";

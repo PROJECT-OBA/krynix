@@ -13,7 +13,7 @@ Replay and integrity verification engine. Depends on `@krynix/core` only.
 ## Current Guarantees
 
 - `CURRENT`: Hash chain integrity verification, envelope extraction.
-- `PARTIAL`: Baseline drift comparison (library function `compareTraces` exists and is tested; not yet integrated into the CLI).
+- `CURRENT`: Baseline drift comparison via `compareTraces` (library) and `krynix replay --compare` (CLI).
 - `PLANNED`: Deterministic execution replay.
 
 ## Constraints

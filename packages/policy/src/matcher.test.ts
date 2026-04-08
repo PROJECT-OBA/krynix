@@ -190,6 +190,25 @@ describe("matchRule — operators", () => {
     });
     expect(matchRule(event, rule)).toBe(false);
   });
+
+  test("exists: non-boolean condition value (e.g. string 'true') returns false, never silently matches", () => {
+    // A misconfigured policy with value: "true" (string) must not silently match.
+    // Without the boolean guard, (value !== undefined) === "true" is always false anyway,
+    // but the guard makes the intent explicit and prevents subtle bugs.
+    const event = makeToolCall(0, { tool_name: "test", arguments: {}, approval_status: "auto" });
+    const rule = makeRule({
+      match: {
+        payload: [
+          {
+            field: "approval_status",
+            operator: "exists",
+            value: "true" as unknown as boolean,
+          },
+        ],
+      },
+    });
+    expect(matchRule(event, rule)).toBe(false);
+  });
 });
 
 describe("matchRule — dot-notation resolution", () => {

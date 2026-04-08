@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { formatReplayResults } from "./format-replay.js";
 import { runReplay } from "./replay.js";
+import type { ReplayCommandResult } from "./replay.js";
 import { computeHashChain, canonicalize } from "@krynix/core";
 import type { TraceEvent } from "@krynix/core";
 import type { ReplayResult } from "@krynix/replay";
@@ -135,8 +136,9 @@ describe("runReplay verbose integration", () => {
 
     const result = await runReplay(["--verify", "--trace", join(dir, "valid.trace.jsonl")]);
 
+    expect("report" in result).toBe(false);
     expect(result.exitCode).toBe(0);
-    expect(result.verboseLines).toBeUndefined();
+    expect((result as ReplayCommandResult).verboseLines).toBeUndefined();
   });
 
   test("verbose mode populates verboseLines array", async () => {
@@ -150,11 +152,13 @@ describe("runReplay verbose integration", () => {
       join(dir, "valid.trace.jsonl"),
     ]);
 
+    expect("report" in result).toBe(false);
     expect(result.exitCode).toBe(0);
-    expect(result.verboseLines).toBeDefined();
-    const lines = result.verboseLines ?? [];
+    const replayResult = result as ReplayCommandResult;
+    expect(replayResult.verboseLines).toBeDefined();
+    const lines = replayResult.verboseLines ?? [];
     expect(lines.length).toBeGreaterThan(0);
-    expect(lines.some((l) => l.includes("[PASS]"))).toBe(true);
+    expect(lines.some((l: string) => l.includes("[PASS]"))).toBe(true);
   });
 
   test("verbose mode with golden-dir formats each file", async () => {
@@ -164,10 +168,12 @@ describe("runReplay verbose integration", () => {
 
     const result = await runReplay(["--verbose", "--verify", "--golden-dir", dir]);
 
+    expect("report" in result).toBe(false);
     expect(result.exitCode).toBe(0);
-    expect(result.verboseLines).toBeDefined();
-    const dirLines = result.verboseLines ?? [];
-    expect(dirLines.some((l) => l.includes("a.trace.jsonl"))).toBe(true);
-    expect(dirLines.some((l) => l.includes("b.trace.jsonl"))).toBe(true);
+    const replayResult = result as ReplayCommandResult;
+    expect(replayResult.verboseLines).toBeDefined();
+    const dirLines = replayResult.verboseLines ?? [];
+    expect(dirLines.some((l: string) => l.includes("a.trace.jsonl"))).toBe(true);
+    expect(dirLines.some((l: string) => l.includes("b.trace.jsonl"))).toBe(true);
   });
 });

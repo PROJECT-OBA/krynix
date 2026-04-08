@@ -9,7 +9,7 @@ import { describe, test, expect, afterEach, vi } from "vitest";
 import { join } from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { readTrace, validateHashChain, validateTraceEvent } from "@krynix/core";
+import { readTrace, validateHashChain, validateTraceEvent, type TraceEvent } from "@krynix/core";
 import { createLangChainTracer } from "./plugin.js";
 
 // ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ describe("createLangChainTracer", () => {
     expect(validateHashChain(events).valid).toBe(true);
 
     // Correct event types
-    const types = events.map((e) => e.event_type);
+    const types = events.map((e: TraceEvent) => e.event_type);
     expect(types).toEqual([
       "lifecycle",
       "llm_request",
@@ -293,14 +293,14 @@ describe("createLangChainTracer", () => {
     expect(validateHashChain(events).valid).toBe(true);
 
     // Verify error event
-    const errorEvent = events.find((e) => e.event_type === "error");
+    const errorEvent = events.find((e: TraceEvent) => e.event_type === "error");
     expect(errorEvent).toBeDefined();
     const payload = errorEvent?.payload as { code: string; message: string; recoverable: boolean };
     expect(payload.code).toBe("TimeoutError");
     expect(payload.recoverable).toBe(true);
 
     // Verify tool name correlation across start/end
-    const toolResults = events.filter((e) => e.event_type === "tool_result");
+    const toolResults = events.filter((e: TraceEvent) => e.event_type === "tool_result");
     expect(toolResults.length).toBe(1);
     expect((toolResults.at(0)?.payload as { tool_name: string }).tool_name).toBe("web_search");
   });
@@ -343,7 +343,7 @@ describe("createLangChainTracer", () => {
     // start + observation(chain_start) + observation(chain_end) + end
     expect(events.length).toBe(4);
 
-    const observations = events.filter((e) => e.event_type === "observation");
+    const observations = events.filter((e: TraceEvent) => e.event_type === "observation");
     expect(observations.length).toBe(2);
     expect((observations.at(0)?.payload as { source: string }).source).toBe(
       "langchain_chain_start",

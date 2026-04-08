@@ -7,17 +7,31 @@
  * @module
  */
 
-import { verifyTrace, verifyGoldenDir, regenerateTrace, regenerateGoldenDir } from "@krynix/replay";
-import type { ReplayResult } from "@krynix/replay";
+import {
+  verifyTrace,
+  verifyGoldenDir,
+  regenerateTrace,
+  regenerateGoldenDir,
+  compareTraces,
+} from "@krynix/replay";
+import type { ReplayResult, DivergenceReport } from "@krynix/replay";
+import { readTrace } from "@krynix/core";
 import { getArg, hasFlag } from "./arg-parser.js";
 import { formatReplayResults } from "./format-replay.js";
 
-/** Result from the replay command. */
+/** Result from the replay command (verify/regenerate modes). */
 export interface ReplayCommandResult {
   exitCode: number;
   results: ReplayResult[];
   error: string | null;
   verboseLines?: string[];
+}
+
+/** Result from the replay --compare command. */
+export interface CompareCommandResult {
+  exitCode: number;
+  report: DivergenceReport | null;
+  error: string | null;
 }
 
 /**
@@ -28,12 +42,34 @@ export interface ReplayCommandResult {
  * @param args - Command arguments
  * @returns Replay result with exit code, results array, and any error message
  */
-export async function runReplay(args: string[]): Promise<ReplayCommandResult> {
+export async function runReplay(
+  args: string[],
+): Promise<ReplayCommandResult | CompareCommandResult> {
   const tracePath = getArg(args, "--trace");
   const goldenDir = getArg(args, "--golden-dir");
   const hasVerify = hasFlag(args, "--verify");
   const hasRegenerate = hasFlag(args, "--regenerate");
+  const hasCompare = hasFlag(args, "--compare");
   const verbose = hasFlag(args, "--verbose");
+
+  // --compare mode: separate flow; reject incompatible flag combos up front
+  if (hasCompare) {
+    if (hasVerify || hasRegenerate) {
+      return {
+        exitCode: 1,
+        report: null,
+        error: "--compare cannot be combined with --verify or --regenerate",
+      };
+    }
+    if (tracePath !== undefined || goldenDir !== undefined) {
+      return {
+        exitCode: 1,
+        report: null,
+        error: "--compare does not accept --trace or --golden-dir; use --baseline and --candidate",
+      };
+    }
+    return await runCompare(args);
+  }
 
   // Validate: need at least one target
   if (tracePath === undefined && goldenDir === undefined) {
@@ -65,7 +101,44 @@ export async function runReplay(args: string[]): Promise<ReplayCommandResult> {
     return {
       exitCode: 1,
       results: [],
-      error: `Unexpected error: ${String(err)}`,
+      error: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/**
+ * Compare two traces for behavioral drift.
+ *
+ * @param args - Command arguments (expects --baseline and --candidate)
+ * @returns Compare result with divergence report
+ */
+async function runCompare(args: string[]): Promise<CompareCommandResult> {
+  const baselinePath = getArg(args, "--baseline");
+  const candidatePath = getArg(args, "--candidate");
+
+  if (baselinePath === undefined || candidatePath === undefined) {
+    return {
+      exitCode: 1,
+      report: null,
+      error: "--compare requires both --baseline <file> and --candidate <file>",
+    };
+  }
+
+  try {
+    const baselineEvents = await readTrace(baselinePath);
+    const candidateEvents = await readTrace(candidatePath);
+    const report = compareTraces(baselineEvents, candidateEvents);
+
+    return {
+      exitCode: report.status === "pass" ? 0 : 1,
+      report,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      exitCode: 1,
+      report: null,
+      error: `Compare failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -119,7 +192,7 @@ async function handleRegenerate(
       results.push({
         file: tracePath,
         status: "error",
-        validationErrors: [String(err)],
+        validationErrors: [err instanceof Error ? err.message : String(err)],
       });
     }
   }

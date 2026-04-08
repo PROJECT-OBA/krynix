@@ -96,7 +96,7 @@ describe("CLI Binary", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("krynix");
     expect(result.stdout).toContain("Usage:");
-    expect(result.stdout).toContain("Commands:");
+    expect(result.stdout).toContain("Local Commands");
   });
 
   test("unknown command exits 1 with error", async () => {

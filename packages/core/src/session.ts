@@ -17,6 +17,7 @@ import { SeededRandom } from "./seeded-random.js";
 import { TraceWriter } from "./trace-writer.js";
 import { redact } from "./redaction.js";
 import type { EnvironmentContext } from "./environment.js";
+import { validatePayload } from "./payload-validator.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -41,6 +42,12 @@ export interface SessionConfig {
 
   /** Optional environment context embedded in session_start payload.context.environment. */
   environment?: EnvironmentContext;
+
+  /**
+   * When true, `recordEvent` validates that payloads have the required fields
+   * for their declared `event_type`. Default: false (no validation).
+   */
+  validatePayloads?: boolean;
 }
 
 /** Opaque session handle returned to callers. */
@@ -75,6 +82,7 @@ interface SessionInternal {
   writer: TraceWriter;
   sequenceNum: number;
   closed: boolean;
+  validatePayloads: boolean;
 }
 
 const sessions = new Map<string, SessionInternal>();
@@ -106,6 +114,7 @@ export async function startSession(config: SessionConfig): Promise<Session> {
     writer,
     sequenceNum: 0,
     closed: false,
+    validatePayloads: config.validatePayloads === true,
   };
 
   sessions.set(sessionId, internal);
@@ -164,6 +173,10 @@ export async function recordEvent(
   const internal = sessions.get(session.sessionId);
   if (!internal || internal.closed) {
     throw new KrynixError("SESSION_CLOSED", "cannot record event on a closed session");
+  }
+
+  if (internal.validatePayloads) {
+    validatePayload(partial.event_type, partial.payload);
   }
 
   const fullEvent = {
