@@ -234,6 +234,16 @@ describe("convertToOtlp", () => {
     expect(span.parentSpanId).toHaveLength(16);
   });
 
+  test("short valid-hex parent_id is zero-padded rather than char-code re-encoded", () => {
+    // "abc" is valid hex but < 16 chars — must become "abc0000000000000", not a char-code string
+    const events = chain([makeToolCall(0, undefined, { parent_id: "abc" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toBe("abc0000000000000");
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+  });
+
   test("tool_result uses metadata duration_ms for OTLP span timing when payload is 0", () => {
     const events = chain([
       makeToolResult(0, { duration_ms: 0 }, { timestamp: "2025-01-15T14:00:00.000Z" }),
