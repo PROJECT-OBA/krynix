@@ -146,16 +146,21 @@ export function convertToOtlp(trace: readonly TraceEvent[]): OtlpExportData {
  */
 function toHexId(id: string, length: number): string {
   const stripped = id.replace(/-/g, "");
+  let hex: string;
   // If it's already valid hex, normalise to the target length (pad with zeros or truncate)
   if (/^[0-9a-f]+$/i.test(stripped)) {
-    return stripped.toLowerCase().padEnd(length, "0").slice(0, length);
+    hex = stripped.toLowerCase().padEnd(length, "0").slice(0, length);
+  } else {
+    // Otherwise, convert each character's code point to hex
+    let encoded = "";
+    for (let i = 0; i < id.length && encoded.length < length; i++) {
+      encoded += id.charCodeAt(i).toString(16).padStart(2, "0");
+    }
+    hex = encoded.padEnd(length, "0").slice(0, length);
   }
-  // Otherwise, convert each character's code point to hex
-  let hex = "";
-  for (let i = 0; i < id.length && hex.length < length; i++) {
-    hex += id.charCodeAt(i).toString(16).padStart(2, "0");
-  }
-  return hex.padEnd(length, "0").slice(0, length);
+  // OTel/W3C trace-context requires non-zero trace and span IDs.
+  // If the result is all zeros (e.g. empty input, "0", all-zero UUID), force the last nibble to 1.
+  return /^0+$/.test(hex) ? `${hex.slice(0, -1)}1` : hex;
 }
 
 /**

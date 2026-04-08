@@ -433,6 +433,21 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result?.metadata).not.toHaveProperty("runtime.langchain.parent_run_id");
   });
 
+  test("empty string parentRunId is treated as absent: null parent_id, no metadata key", () => {
+    // LangChain may emit parentRunId: "" on some callbacks; empty string must not produce
+    // parent_id: "" which would become a non-empty (but broken) parentSpanId in OTLP export.
+    const result = adapter.onEvent({
+      _callback: "handleToolStart",
+      tool: { name: "search" },
+      input: "query",
+      runId: "run-empty-parent",
+      parentRunId: "",
+    } as unknown as LangChainCallbackEvent);
+
+    expect(result?.parent_id).toBeNull();
+    expect(result?.metadata).not.toHaveProperty("runtime.langchain.parent_run_id");
+  });
+
   // ---------------------------------------------------------------------------
   // onSkippedEvent callback
   // ---------------------------------------------------------------------------
