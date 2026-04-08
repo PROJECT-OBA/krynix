@@ -60,10 +60,15 @@ const REQUIRED_FIELDS: Record<EventType, Array<[string, string]>> = {
  * @throws {KrynixError} INVALID_PAYLOAD if required fields are missing or wrong type
  */
 export function validatePayload(eventType: EventType, payload: unknown): void {
-  if (payload === null || payload === undefined || typeof payload !== "object") {
+  if (
+    payload === null ||
+    payload === undefined ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
     throw new KrynixError(
       "INVALID_PAYLOAD",
-      `${eventType} payload must be an object, got ${payload === null ? "null" : typeof payload}`,
+      `${eventType} payload must be an object, got ${payload === null ? "null" : Array.isArray(payload) ? "array" : typeof payload}`,
     );
   }
 

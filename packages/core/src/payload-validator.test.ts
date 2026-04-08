@@ -26,6 +26,13 @@ describe("validatePayload", () => {
     expect(() => validatePayload("tool_call", 42)).toThrow("must be an object, got number");
   });
 
+  test("throws on array payload with clear 'array' message (not silent field mismatch)", () => {
+    // typeof [] === "object", so without the Array.isArray check an array would pass the
+    // first guard and produce a confusing "missing required field" error instead.
+    expect(() => validatePayload("tool_call", [])).toThrow("must be an object, got array");
+    expect(() => validatePayload("tool_call", [])).toThrow(KrynixError);
+  });
+
   test("throws INVALID_PAYLOAD for unknown event type (JS caller bypass)", () => {
     // TypeScript callers can't reach this, but JS callers or unsafe casts can
     const badType = "unknown_event" as unknown as Parameters<typeof validatePayload>[0];

@@ -139,15 +139,16 @@ export function convertToOtlp(trace: readonly TraceEvent[]): OtlpExportData {
 /**
  * Convert a string to a fixed-length hex representation suitable for OTel IDs.
  *
- * If the input is already valid hex (e.g., a UUID with dashes stripped),
- * it is used directly. Otherwise, character code points are encoded to hex
- * to produce a deterministic, valid OTel identifier.
+ * If the input (with dashes stripped) is already valid hex, it is normalised to
+ * the target length by zero-padding (if shorter) or truncating (if longer).
+ * Non-hex strings are encoded via character code points to produce a
+ * deterministic, valid OTel identifier.
  */
 function toHexId(id: string, length: number): string {
   const stripped = id.replace(/-/g, "");
-  // If it's already valid hex and long enough, use it directly
-  if (/^[0-9a-f]+$/i.test(stripped) && stripped.length >= length) {
-    return stripped.slice(0, length).toLowerCase();
+  // If it's already valid hex, normalise to the target length (pad with zeros or truncate)
+  if (/^[0-9a-f]+$/i.test(stripped)) {
+    return stripped.toLowerCase().padEnd(length, "0").slice(0, length);
   }
   // Otherwise, convert each character's code point to hex
   let hex = "";
