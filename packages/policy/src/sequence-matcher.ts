@@ -26,6 +26,11 @@ function matchStep(event: TraceEvent, step: SequenceStep): boolean {
     return false;
   }
 
+  // Defensive: JS callers may pass a mis-shaped step (undefined/null payload)
+  if (!Array.isArray(step.payload)) {
+    return false;
+  }
+
   const payload = event.payload as unknown as Record<string, unknown>;
 
   for (const condition of step.payload) {

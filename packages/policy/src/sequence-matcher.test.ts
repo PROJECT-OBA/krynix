@@ -324,4 +324,18 @@ describe("evaluateSequence", () => {
     const result = evaluateSequence(trace, sequence);
     expect(result.matched).toBe(false);
   });
+
+  test("mis-shaped step with undefined payload returns matched: false without throwing", () => {
+    // JS callers may pass a SequenceStep with a missing payload field.
+    // matchStep() must return false (not throw a TypeError) when step.payload is not an array.
+    const trace = [makeEvent(0, "tool_call", { tool_name: "read", arguments: {} })];
+
+    const misShapedSteps = [
+      { event_type: "tool_call" as const, payload: undefined },
+    ] as unknown as SequenceMatch["steps"];
+
+    const sequence: SequenceMatch = { steps: misShapedSteps };
+    expect(() => evaluateSequence(trace, sequence)).not.toThrow();
+    expect(evaluateSequence(trace, sequence).matched).toBe(false);
+  });
 });
