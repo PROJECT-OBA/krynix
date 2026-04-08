@@ -138,6 +138,9 @@ function evaluateSequenceRules(
   violations: Violation[],
   scope: { agents: string[]; event_types: string[] },
 ): void {
+  // Fast path: skip building the scoped trace when no sequence rules exist.
+  if (!rules.some((r) => r.match.sequence !== undefined)) return;
+
   // Build scoped trace once, keeping a parallel array of original indices so
   // violation reports reference positions in the full trace, not the filtered slice.
   const originalIndices: number[] = [];

@@ -41,14 +41,14 @@ describe("convertToOtlp", () => {
     expect(span.traceId).toBe(expectedTraceId);
   });
 
-  test("single event produces correct spanId (first 16 hex chars)", () => {
+  test("single event produces correct spanId (last 16 hex chars, low-order bits)", () => {
     const events = chain([makeToolCall(0)]);
     const result = convertToOtlp(events);
     const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
 
     expect(span.spanId).toMatch(/^[0-9a-f]{16}$/);
-    // Should be the first 16 hex chars of event_id without dashes
-    const expectedSpanId = events[0]?.event_id.replace(/-/g, "").slice(0, 16);
+    // Should be the last 16 hex chars of event_id without dashes (low-order bits)
+    const expectedSpanId = events[0]?.event_id.replace(/-/g, "").slice(-16);
     expect(span.spanId).toBe(expectedSpanId);
   });
 
@@ -58,7 +58,7 @@ describe("convertToOtlp", () => {
     const result = convertToOtlp(events);
     const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
 
-    const expectedParentSpanId = parentId.replace(/-/g, "").slice(0, 16);
+    const expectedParentSpanId = parentId.replace(/-/g, "").slice(-16);
     expect(span.parentSpanId).toBe(expectedParentSpanId);
   });
 

@@ -148,10 +148,11 @@ function toHexId(id: string, length: number): string {
   const stripped = id.replace(/-/g, "");
   let hex: string;
   // If it's already valid hex, normalise to the target length.
-  // padStart preserves low-order bits and avoids collisions between inputs with
-  // the same prefix but different lengths (e.g. "abc" vs "abc0").
+  // padStart zero-pads short inputs on the left, preserving value (low-order bits).
+  // slice(-length) keeps the last `length` chars for long inputs, also preserving
+  // low-order bits and avoiding collisions between same-prefix inputs (e.g. "abc" vs "abc0").
   if (/^[0-9a-f]+$/i.test(stripped)) {
-    hex = stripped.toLowerCase().padStart(length, "0").slice(0, length);
+    hex = stripped.toLowerCase().padStart(length, "0").slice(-length);
   } else {
     // Otherwise, convert each character's code point to hex
     let encoded = "";
