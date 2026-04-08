@@ -70,6 +70,7 @@ export function evaluateCondition(condition: PayloadCondition, value: unknown): 
       }
 
     case "exists":
+      if (typeof condition.value !== "boolean") return false;
       return (value !== undefined) === condition.value;
 
     default:

@@ -147,9 +147,11 @@ export function convertToOtlp(trace: readonly TraceEvent[]): OtlpExportData {
 function toHexId(id: string, length: number): string {
   const stripped = id.replace(/-/g, "");
   let hex: string;
-  // If it's already valid hex, normalise to the target length (pad with zeros or truncate)
+  // If it's already valid hex, normalise to the target length.
+  // padStart preserves low-order bits and avoids collisions between inputs with
+  // the same prefix but different lengths (e.g. "abc" vs "abc0").
   if (/^[0-9a-f]+$/i.test(stripped)) {
-    hex = stripped.toLowerCase().padEnd(length, "0").slice(0, length);
+    hex = stripped.toLowerCase().padStart(length, "0").slice(0, length);
   } else {
     // Otherwise, convert each character's code point to hex
     let encoded = "";

@@ -234,14 +234,30 @@ describe("convertToOtlp", () => {
     expect(span.parentSpanId).toHaveLength(16);
   });
 
-  test("short valid-hex parent_id is zero-padded rather than char-code re-encoded", () => {
-    // "abc" is valid hex but < 16 chars — must become "abc0000000000000", not a char-code string
+  test("short valid-hex parent_id is zero-padded (padStart) rather than char-code re-encoded", () => {
+    // "abc" is valid hex but < 16 chars — padStart gives "0000000000000abc".
+    // padStart (not padEnd) prevents collisions: "abc" vs "abc0" → distinct IDs.
     const events = chain([makeToolCall(0, undefined, { parent_id: "abc" })]);
     const result = convertToOtlp(events);
     const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
 
-    expect(span.parentSpanId).toBe("abc0000000000000");
+    expect(span.parentSpanId).toBe("0000000000000abc");
     expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  test("short valid-hex inputs with different lengths produce distinct span IDs (no padEnd collision)", () => {
+    // padEnd: "abc" → "abc0000000000000", "abc0" → "abc0000000000000" (collision!)
+    // padStart: "abc" → "0000000000000abc", "abc0" → "000000000000abc0" (distinct)
+    const eventsAbc = chain([makeToolCall(0, undefined, { parent_id: "abc" })]);
+    const eventsAbc0 = chain([makeToolCall(0, undefined, { parent_id: "abc0" })]);
+
+    const spanAbc = convertToOtlp(eventsAbc).resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+    const spanAbc0 = convertToOtlp(eventsAbc0).resourceSpans[0]?.scopeSpans[0]
+      ?.spans[0] as OtlpSpan;
+
+    expect(spanAbc.parentSpanId).toBe("0000000000000abc");
+    expect(spanAbc0.parentSpanId).toBe("000000000000abc0");
+    expect(spanAbc.parentSpanId).not.toBe(spanAbc0.parentSpanId);
   });
 
   test("empty parent_id produces non-zero parentSpanId (OTel requires non-zero IDs)", () => {

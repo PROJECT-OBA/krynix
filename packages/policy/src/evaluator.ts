@@ -189,14 +189,14 @@ function collectOnViolationWarnings(rules: readonly PolicyRule[]): string[] {
     ) {
       warned.add(`notify:${rule.id}`);
       warnings.push(
-        `Rule '${rule.id}' defines on_violation.notify but notification delivery is not yet implemented (PLANNED). The violation is still recorded.`,
+        `Rule '${rule.id}' defines on_violation.notify but notification delivery is not yet implemented (PLANNED). If this rule triggers a violation, the violation will still be recorded.`,
       );
     }
 
     if (rule.on_violation.create_issue === true && !warned.has(`issue:${rule.id}`)) {
       warned.add(`issue:${rule.id}`);
       warnings.push(
-        `Rule '${rule.id}' defines on_violation.create_issue but issue creation is not yet implemented (PLANNED). The violation is still recorded.`,
+        `Rule '${rule.id}' defines on_violation.create_issue but issue creation is not yet implemented (PLANNED). If this rule triggers a violation, the violation will still be recorded.`,
       );
     }
   }
