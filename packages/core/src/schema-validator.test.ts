@@ -420,6 +420,67 @@ describe("validatePolicy", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
   });
+
+  test("sequence rule with non-empty payload on match → error (schema enforces maxItems: 0)", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "bad-seq-payload",
+            description: "Sequence with non-empty payload",
+            match: {
+              payload: [{ field: "tool_name", operator: "eq", value: "read" }],
+              sequence: {
+                steps: [
+                  { event_type: "tool_call", payload: [] },
+                  { event_type: "tool_result", payload: [] },
+                ],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Bad",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  test("sequence rule with event_type on match → error (schema disallows event_type when sequence present)", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "bad-seq-event-type",
+            description: "Sequence with event_type on match",
+            match: {
+              event_type: "tool_call",
+              payload: [],
+              sequence: {
+                steps: [
+                  { event_type: "tool_call", payload: [] },
+                  { event_type: "tool_result", payload: [] },
+                ],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Bad",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.error).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

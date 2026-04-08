@@ -305,4 +305,23 @@ describe("evaluateSequence", () => {
     const result = evaluateSequence(trace, sequence);
     expect(result.matched).toBe(false);
   });
+
+  test("sparse steps array (undefined hole at index 1) returns matched: false, not a false positive", () => {
+    // JS callers could construct a steps array with holes. Before the fix, `break` without
+    // setting allMatched = false would leave allMatched as true and return a false positive.
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "search", arguments: {} }),
+      makeEvent(1, "tool_result", { tool_name: "search", output: "result", duration_ms: 0 }),
+    ];
+
+    // length === 2 but index 1 is undefined — matches first step, then hits the undefined guard
+    const sparseSteps = [
+      { event_type: "tool_call" as const, payload: [] },
+      undefined,
+    ] as unknown as SequenceMatch["steps"];
+
+    const sequence: SequenceMatch = { steps: sparseSteps };
+    const result = evaluateSequence(trace, sequence);
+    expect(result.matched).toBe(false);
+  });
 });

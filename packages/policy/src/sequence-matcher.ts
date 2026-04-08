@@ -74,7 +74,11 @@ export function evaluateSequence(
     for (let stepIdx = 1; stepIdx < steps.length; stepIdx++) {
       let found = false;
       const step = steps[stepIdx];
-      if (step === undefined) break;
+      if (step === undefined) {
+        // Sparse steps array from a JS caller — treat as a hard mismatch
+        allMatched = false;
+        break;
+      }
 
       for (let eventIdx = searchFrom; eventIdx < trace.length; eventIdx++) {
         // Window check: distance from first match
