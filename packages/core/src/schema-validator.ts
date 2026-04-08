@@ -247,8 +247,15 @@ const POLICY_SCHEMA = {
             },
           },
           // payload is always required (may be [] for sequence-only rules).
-          // Parser enforces: when sequence is present, payload must be empty and event_type must be absent.
+          // When sequence is present: payload must be empty and event_type must be absent.
+          // Ajv 8 (draft-2019-09) evaluates if/then as an additional constraint.
           required: ["payload"],
+          if: { required: ["sequence"] },
+          then: {
+            properties: { payload: { maxItems: 0 } },
+            // not: { required: ["event_type"] } means event_type must be absent
+            not: { required: ["event_type"] },
+          },
           additionalProperties: false,
         },
         action: { type: "string", enum: ["allow", "deny", "require-approval"] },
