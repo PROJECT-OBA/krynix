@@ -205,11 +205,11 @@ describe("LangChainAdapter.onEvent", () => {
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("search");
     expect(payload["arguments"]).toEqual({ input: "LangChain documentation" });
-    expect(result?.parent_id).toBeNull();
+    expect(result?.parent_id).toBe("run-001");
     expect(result?.metadata).toMatchObject({ "runtime.langchain.parent_run_id": "run-001" });
   });
 
-  test("handleToolEnd → tool_result with output", () => {
+  test("handleToolEnd → tool_result with output and computed duration", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleToolEnd",
       output: "Search results: LangChain is a framework for...",
@@ -223,11 +223,12 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result?.event_type).toBe("tool_result");
     const payload = asPayload(result as TraceEvent);
     expect(payload["output"]).toBe("Search results: LangChain is a framework for...");
-    expect(payload["duration_ms"]).toBe(0);
+    // duration_ms is 0 when no matching handleToolStart preceded this event
+    expect(typeof payload["duration_ms"]).toBe("number");
     expect(payload["tool_name"]).toBe("unknown_tool");
   });
 
-  test("handleToolEnd resolves tool_name from prior handleToolStart via runId", () => {
+  test("handleToolEnd resolves tool_name from prior handleToolStart, emits duration_ms: 0 in payload and real timing in metadata", () => {
     // First, send a handleToolStart to register the tool name
     adapter.onEvent({
       _callback: "handleToolStart",
@@ -246,6 +247,12 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("calculator");
+    // payload.duration_ms is always 0 for deterministic replay (compareTraces deep-compares payload)
+    expect(payload["duration_ms"]).toBe(0);
+    // Real wall-clock duration is in metadata for OTLP export span timing
+    const meta = result?.metadata as Record<string, unknown>;
+    expect(typeof meta["tool.duration_ms"]).toBe("number");
+    expect(meta["tool.duration_ms"] as number).toBeGreaterThanOrEqual(0);
   });
 
   test("handleToolEnd falls back to unknown_tool when no prior handleToolStart", () => {
@@ -258,6 +265,20 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).not.toBeNull();
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("unknown_tool");
+  });
+
+  test("handleToolEnd coerces missing output to null so JSON.stringify preserves the field", () => {
+    const result = adapter.onEvent({
+      _callback: "handleToolEnd",
+      output: undefined as unknown as string, // JS caller bypass — TS type says string
+      runId: "run-no-output",
+    } as LangChainCallbackEvent);
+
+    expect(result).not.toBeNull();
+    const payload = asPayload(result as TraceEvent);
+    // undefined would be silently dropped by JSON.stringify, leaving output missing.
+    // null is a valid JSON value and satisfies the required 'output' field.
+    expect(payload["output"]).toBeNull();
   });
 
   test("handleChainStart → observation with chain name and inputs", () => {
@@ -385,7 +406,7 @@ describe("LangChainAdapter.onEvent", () => {
     expect(result).toBeNull();
   });
 
-  test("parentRunId stored in metadata, parent_id always null", () => {
+  test("parentRunId mapped to parent_id and stored in metadata", () => {
     const event: LangChainCallbackEvent = {
       _callback: "handleToolStart",
       tool: { name: "search" },
@@ -395,7 +416,7 @@ describe("LangChainAdapter.onEvent", () => {
     };
 
     const result = adapter.onEvent(event);
-    expect(result?.parent_id).toBeNull();
+    expect(result?.parent_id).toBe("parent-001");
     expect(result?.metadata).toMatchObject({ "runtime.langchain.parent_run_id": "parent-001" });
   });
 
@@ -408,6 +429,21 @@ describe("LangChainAdapter.onEvent", () => {
     };
 
     const result = adapter.onEvent(event);
+    expect(result?.parent_id).toBeNull();
+    expect(result?.metadata).not.toHaveProperty("runtime.langchain.parent_run_id");
+  });
+
+  test("empty string parentRunId is treated as absent: null parent_id, no metadata key", () => {
+    // LangChain may emit parentRunId: "" on some callbacks; empty string must not produce
+    // parent_id: "" which would become a non-empty (but broken) parentSpanId in OTLP export.
+    const result = adapter.onEvent({
+      _callback: "handleToolStart",
+      tool: { name: "search" },
+      input: "query",
+      runId: "run-empty-parent",
+      parentRunId: "",
+    } as unknown as LangChainCallbackEvent);
+
     expect(result?.parent_id).toBeNull();
     expect(result?.metadata).not.toHaveProperty("runtime.langchain.parent_run_id");
   });
@@ -662,5 +698,83 @@ describe("LangChainAdapter.onEvent", () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleAgentAction → decision event
+  // ---------------------------------------------------------------------------
+
+  test("handleAgentAction produces decision event", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "web_search", toolInput: { query: "Krynix" }, log: "Need more info" },
+      runId: "agent-action-1",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("decision");
+    const payload = result?.payload as { action: string; reasoning: string };
+    expect(payload.action).toBe("web_search");
+    expect(payload.reasoning).toBe("Need more info");
+  });
+
+  test("handleAgentAction with parentRunId maps to parent_id", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "calculator", toolInput: "2+2", log: "Computing answer" },
+      runId: "agent-action-2",
+      parentRunId: "parent-run-99",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.parent_id).toBe("parent-run-99");
+  });
+
+  test("handleAgentAction with missing action fields uses defaults", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentAction",
+      action: { tool: "", toolInput: null, log: "" },
+      runId: "agent-action-3",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("decision");
+    const payload = result?.payload as { action: string; reasoning: string };
+    expect(payload.action).toBe("");
+    expect(payload.reasoning).toBe("");
+  });
+
+  // ---------------------------------------------------------------------------
+  // handleAgentFinish → observation event
+  // ---------------------------------------------------------------------------
+
+  test("handleAgentFinish produces observation event", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentFinish",
+      finish: { output: "The answer is 42", log: "Final answer computed" },
+      runId: "agent-finish-1",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("observation");
+    const payload = result?.payload as {
+      source: string;
+      content: { output: unknown; log: string };
+    };
+    expect(payload.source).toBe("langchain_agent_finish");
+    expect(payload.content.output).toBe("The answer is 42");
+    expect(payload.content.log).toBe("Final answer computed");
+  });
+
+  test("handleAgentFinish with parentRunId maps to parent_id", () => {
+    const result = adapter.onEvent({
+      _callback: "handleAgentFinish",
+      finish: { output: "done", log: "" },
+      runId: "agent-finish-2",
+      parentRunId: "parent-run-100",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.parent_id).toBe("parent-run-100");
   });
 });

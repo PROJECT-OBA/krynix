@@ -23,11 +23,15 @@ export {
   type PayloadCondition,
   type PolicyDefaults,
   type OnViolation,
+  type SequenceStep,
+  type SequenceMatch,
 } from "./schema.js";
 
 export { parsePolicy, PolicyValidationError } from "./parser.js";
 
 export { matchRule } from "./matcher.js";
+
+export { evaluateSequence, type SequenceMatchResult } from "./sequence-matcher.js";
 
 export {
   evaluate,

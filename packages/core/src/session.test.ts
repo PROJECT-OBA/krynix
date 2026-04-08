@@ -443,6 +443,90 @@ describe("Session Manager", () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // validatePayloads option (Task 9)
+  // -------------------------------------------------------------------------
+
+  test("validatePayloads: false (default) allows mismatched payload", async () => {
+    const outputPath = join(tempDir, "trace-no-validate.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+    });
+
+    // tool_call payload missing required 'arguments' — should NOT throw
+    await expect(
+      recordEvent(session, {
+        event_type: "tool_call",
+        timestamp: "2025-01-15T14:00:01.000Z",
+        parent_id: null,
+        agent_id: "test-agent",
+        payload: { tool_name: "file_read" },
+        metadata: null,
+      }),
+    ).resolves.toBeDefined();
+
+    await endSession(session);
+  });
+
+  test("validatePayloads: true rejects mismatched payload with INVALID_PAYLOAD", async () => {
+    const outputPath = join(tempDir, "trace-validate.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+      validatePayloads: true,
+    });
+
+    // tool_call payload missing 'arguments'
+    await expect(
+      recordEvent(session, {
+        event_type: "tool_call",
+        timestamp: "2025-01-15T14:00:01.000Z",
+        parent_id: null,
+        agent_id: "test-agent",
+        payload: { tool_name: "file_read" },
+        metadata: null,
+      }),
+    ).rejects.toThrow(KrynixError);
+
+    try {
+      await recordEvent(session, {
+        event_type: "tool_call",
+        timestamp: "2025-01-15T14:00:01.000Z",
+        parent_id: null,
+        agent_id: "test-agent",
+        payload: { tool_name: "file_read" },
+        metadata: null,
+      });
+    } catch (e) {
+      expect((e as KrynixError).code).toBe("INVALID_PAYLOAD");
+    }
+
+    await endSession(session);
+  });
+
+  test("validatePayloads: true accepts correct payload", async () => {
+    const outputPath = join(tempDir, "trace-validate-ok.jsonl");
+    const session = await startSession({
+      agentId: "test-agent",
+      replaySeed: 42,
+      outputPath,
+      validatePayloads: true,
+    });
+
+    await expect(recordEvent(session, makePartialToolCall("file_read"))).resolves.toBeDefined();
+
+    await expect(recordEvent(session, makePartialToolResult("file_read"))).resolves.toBeDefined();
+
+    await endSession(session);
+
+    const events = await readTrace(outputPath);
+    expect(events).toHaveLength(4); // start + 2 events + end
+    expect(validateHashChain(events).valid).toBe(true);
+  });
+
   test("getActiveSessions returns 0 after destroySession cleans up", async () => {
     const path1 = join(tempDir, "trace-d1.jsonl");
     const path2 = join(tempDir, "trace-d2.jsonl");

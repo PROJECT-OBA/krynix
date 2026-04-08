@@ -41,14 +41,14 @@ describe("convertToOtlp", () => {
     expect(span.traceId).toBe(expectedTraceId);
   });
 
-  test("single event produces correct spanId (first 16 hex chars)", () => {
+  test("single event produces correct spanId (last 16 hex chars, low-order bits)", () => {
     const events = chain([makeToolCall(0)]);
     const result = convertToOtlp(events);
     const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
 
     expect(span.spanId).toMatch(/^[0-9a-f]{16}$/);
-    // Should be the first 16 hex chars of event_id without dashes
-    const expectedSpanId = events[0]?.event_id.replace(/-/g, "").slice(0, 16);
+    // Should be the last 16 hex chars of event_id without dashes (low-order bits)
+    const expectedSpanId = events[0]?.event_id.replace(/-/g, "").slice(-16);
     expect(span.spanId).toBe(expectedSpanId);
   });
 
@@ -58,7 +58,7 @@ describe("convertToOtlp", () => {
     const result = convertToOtlp(events);
     const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
 
-    const expectedParentSpanId = parentId.replace(/-/g, "").slice(0, 16);
+    const expectedParentSpanId = parentId.replace(/-/g, "").slice(-16);
     expect(span.parentSpanId).toBe(expectedParentSpanId);
   });
 
@@ -221,5 +221,78 @@ describe("convertToOtlp", () => {
     expect(confidenceAttr).toBeDefined();
     expect(confidenceAttr?.value.doubleValue).toBe(0.95);
     expect(confidenceAttr?.value.intValue).toBeUndefined();
+  });
+
+  test("non-UUID parent_id produces valid 16-char hex span ID", () => {
+    // LangChain adapters may pass non-UUID runId values (e.g., "run-001")
+    const events = chain([makeToolCall(0, undefined, { parent_id: "run-001" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    // parentSpanId should be a valid 16-char hex string, even for non-UUID input
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+    expect(span.parentSpanId).toHaveLength(16);
+  });
+
+  test("short valid-hex parent_id is zero-padded (padStart) rather than char-code re-encoded", () => {
+    // "abc" is valid hex but < 16 chars — padStart gives "0000000000000abc".
+    // padStart (not padEnd) prevents collisions: "abc" vs "abc0" → distinct IDs.
+    const events = chain([makeToolCall(0, undefined, { parent_id: "abc" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toBe("0000000000000abc");
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  test("short valid-hex inputs with different lengths produce distinct span IDs (no padEnd collision)", () => {
+    // padEnd: "abc" → "abc0000000000000", "abc0" → "abc0000000000000" (collision!)
+    // padStart: "abc" → "0000000000000abc", "abc0" → "000000000000abc0" (distinct)
+    const eventsAbc = chain([makeToolCall(0, undefined, { parent_id: "abc" })]);
+    const eventsAbc0 = chain([makeToolCall(0, undefined, { parent_id: "abc0" })]);
+
+    const spanAbc = convertToOtlp(eventsAbc).resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+    const spanAbc0 = convertToOtlp(eventsAbc0).resourceSpans[0]?.scopeSpans[0]
+      ?.spans[0] as OtlpSpan;
+
+    expect(spanAbc.parentSpanId).toBe("0000000000000abc");
+    expect(spanAbc0.parentSpanId).toBe("000000000000abc0");
+    expect(spanAbc.parentSpanId).not.toBe(spanAbc0.parentSpanId);
+  });
+
+  test("empty parent_id produces non-zero parentSpanId (OTel requires non-zero IDs)", () => {
+    // Empty string → all-zero hex → forced to non-zero by the last-nibble guard
+    const events = chain([makeToolCall(0, undefined, { parent_id: "" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+    expect(span.parentSpanId).not.toBe("0000000000000000");
+  });
+
+  test("all-zero UUID parent_id produces non-zero parentSpanId", () => {
+    const events = chain([
+      makeToolCall(0, undefined, { parent_id: "00000000-0000-0000-0000-000000000000" }),
+    ]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toBe("0000000000000001");
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  test("tool_result uses metadata duration_ms for OTLP span timing when payload is 0", () => {
+    const events = chain([
+      makeToolResult(0, { duration_ms: 0 }, { timestamp: "2025-01-15T14:00:00.000Z" }),
+    ]);
+    // Inject metadata duration (as adapter does for replay determinism)
+    const event = { ...events[0], metadata: { ...events[0]?.metadata, "tool.duration_ms": 250 } };
+    const result = convertToOtlp([event as TraceEvent]);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    const startMs = new Date("2025-01-15T14:00:00.000Z").getTime();
+    const expectedEndNano = (BigInt(startMs + 250) * 1_000_000n).toString();
+    expect(span.endTimeUnixNano).toBe(expectedEndNano);
+    expect(BigInt(span.endTimeUnixNano)).toBeGreaterThan(BigInt(span.startTimeUnixNano));
   });
 });

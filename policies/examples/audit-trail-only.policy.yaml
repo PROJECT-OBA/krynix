@@ -1,0 +1,17 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: audit-trail-only
+  version: "1.0.0"
+  description: >
+    Logging-only mode: allow all events, zero enforcement.
+    Use this to generate a complete audit trail without blocking any
+    agent behavior. CI will always pass with this policy.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules: []
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

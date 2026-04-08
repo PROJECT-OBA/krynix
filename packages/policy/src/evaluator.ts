@@ -10,6 +10,7 @@
 import type { TraceEvent } from "@krynix/core";
 import type { Policy, PolicyRule, Severity } from "./schema.js";
 import { matchRule } from "./matcher.js";
+import { evaluateSequence } from "./sequence-matcher.js";
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -34,6 +35,7 @@ export interface EvaluationResult {
   verdict: PolicyVerdict;
   exitCode: number;
   violations: Violation[];
+  warnings: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +56,9 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
   const violations: Violation[] = [];
   const scope = policy.spec.scope;
   const defaults = policy.spec.defaults;
+
+  // Collect warnings for on_violation fields that are parsed but not yet implemented
+  const warnings = collectOnViolationWarnings(policy.spec.rules);
 
   for (const [eventIndex, event] of trace.entries()) {
     // Scope filtering: skip events outside scope
@@ -92,7 +97,10 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
     }
   }
 
-  return buildResult(violations);
+  // Evaluate sequence rules (cross-event patterns)
+  evaluateSequenceRules(trace, policy.spec.rules, violations, scope);
+
+  return buildResult(violations, warnings);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +115,8 @@ function isInScope(event: TraceEvent, agents: string[], eventTypes: string[]): b
 
 function findMatchingRule(event: TraceEvent, rules: readonly PolicyRule[]): PolicyRule | undefined {
   for (const rule of rules) {
+    // Skip sequence rules — they are evaluated separately after the per-event loop
+    if (rule.match.sequence !== undefined) continue;
     if (matchRule(event, rule)) {
       return rule;
     }
@@ -122,20 +132,95 @@ function resolveCiFailure(rule: PolicyRule): boolean {
   return rule.severity === "error" || rule.severity === "critical";
 }
 
-function buildResult(violations: Violation[]): EvaluationResult {
+function evaluateSequenceRules(
+  trace: readonly TraceEvent[],
+  rules: readonly PolicyRule[],
+  violations: Violation[],
+  scope: { agents: string[]; event_types: string[] },
+): void {
+  // Fast path: skip building the scoped trace when no sequence rules exist.
+  if (!rules.some((r) => r.match.sequence !== undefined)) return;
+
+  // Build scoped trace once, keeping a parallel array of original indices so
+  // violation reports reference positions in the full trace, not the filtered slice.
+  const originalIndices: number[] = [];
+  const scopedTrace: TraceEvent[] = [];
+  for (let i = 0; i < trace.length; i++) {
+    const ev = trace[i];
+    if (ev !== undefined && isInScope(ev, scope.agents, scope.event_types)) {
+      originalIndices.push(i);
+      scopedTrace.push(ev);
+    }
+  }
+
+  for (const rule of rules) {
+    if (rule.match.sequence === undefined) continue;
+
+    const result = evaluateSequence(scopedTrace, rule.match.sequence);
+    if (!result.matched) continue;
+
+    // Map the first matched scoped index back to the original trace position.
+    const firstScopedIdx = result.matchedEventIndices[0] ?? 0;
+    const firstOriginalIdx = originalIndices[firstScopedIdx] ?? firstScopedIdx;
+    const firstEvent = scopedTrace[firstScopedIdx];
+
+    if (rule.action === "deny" || rule.action === "require-approval") {
+      violations.push({
+        ruleId: rule.id,
+        eventIndex: firstOriginalIdx,
+        eventId: firstEvent?.event_id ?? "unknown",
+        action: rule.action,
+        severity: rule.severity,
+        message: rule.message,
+        ciFailure: resolveCiFailure(rule),
+      });
+    }
+  }
+}
+
+function collectOnViolationWarnings(rules: readonly PolicyRule[]): string[] {
+  const warnings: string[] = [];
+  const warned = new Set<string>();
+
+  for (const rule of rules) {
+    if (rule.on_violation === undefined) continue;
+
+    if (
+      rule.on_violation.notify !== undefined &&
+      rule.on_violation.notify.length > 0 &&
+      !warned.has(`notify:${rule.id}`)
+    ) {
+      warned.add(`notify:${rule.id}`);
+      warnings.push(
+        `Rule '${rule.id}' defines on_violation.notify but notification delivery is not yet implemented (PLANNED). If this rule triggers a violation, the violation will still be recorded.`,
+      );
+    }
+
+    if (rule.on_violation.create_issue === true && !warned.has(`issue:${rule.id}`)) {
+      warned.add(`issue:${rule.id}`);
+      warnings.push(
+        `Rule '${rule.id}' defines on_violation.create_issue but issue creation is not yet implemented (PLANNED). If this rule triggers a violation, the violation will still be recorded.`,
+      );
+    }
+  }
+
+  return warnings;
+}
+
+function buildResult(violations: Violation[], warnings: string[] = []): EvaluationResult {
   if (violations.length === 0) {
-    return { verdict: "pass", exitCode: 0, violations };
+    return { verdict: "pass", exitCode: 0, violations, warnings };
   }
 
   const hasRequireApproval = violations.some((v) => v.action === "require-approval");
   const ciViolations = violations.filter((v) => v.ciFailure);
 
   if (ciViolations.length === 0 && !hasRequireApproval) {
-    return { verdict: "pass", exitCode: 0, violations };
+    return { verdict: "pass", exitCode: 0, violations, warnings };
   }
 
   if (hasRequireApproval && ciViolations.length === 0) {
-    return { verdict: "require-approval", exitCode: 3, violations };
+    return { verdict: "require-approval", exitCode: 3, violations, warnings };
   }
 
   // CI failures take precedence over require-approval when both are present.
@@ -143,5 +228,5 @@ function buildResult(violations: Violation[]): EvaluationResult {
   const hasCritical = ciViolations.some((v) => v.severity === "critical");
   const exitCode = hasCritical ? 2 : 1;
 
-  return { verdict: "fail", exitCode, violations };
+  return { verdict: "fail", exitCode, violations, warnings };
 }

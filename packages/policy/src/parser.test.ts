@@ -83,7 +83,7 @@ describe("parsePolicy", () => {
     expect(rule?.ci_failure).toBe(true);
     expect(rule?.match.event_type).toBe("tool_call");
     expect(rule?.match.payload).toHaveLength(1);
-    const condition = rule?.match.payload[0];
+    const condition = rule?.match.payload?.[0];
     expect(condition?.field).toBe("tool_name");
     expect(condition?.operator).toBe("eq");
     expect(condition?.value).toBe("shell_exec");
@@ -357,5 +357,236 @@ spec:
 `;
     expect(() => parsePolicy(yaml)).toThrow("value");
     expect(() => parsePolicy(yaml)).toThrow("is required");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sequence rule parsing
+// ---------------------------------------------------------------------------
+
+describe("parsePolicy — sequence rules", () => {
+  test("parses a valid sequence rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: credential-exfil
+  version: "1.0.0"
+  description: Detect credential exfiltration
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: exfil-detect
+      description: Read sensitive file then external request
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload:
+                - field: arguments.path
+                  operator: matches
+                  value: "passwd|shadow|\\\\.env"
+            - event_type: tool_call
+              payload:
+                - field: tool_name
+                  operator: matches
+                  value: "curl|fetch|http"
+          window: 10
+      action: deny
+      severity: critical
+      message: "Agent read sensitive file then made external request"
+`;
+    const policy = parsePolicy(yaml);
+    expect(policy.spec.rules).toHaveLength(1);
+    const rule = policy.spec.rules[0];
+    expect(rule?.match.sequence).toBeDefined();
+    expect(rule?.match.sequence?.steps).toHaveLength(2);
+    expect(rule?.match.sequence?.window).toBe(10);
+    expect(rule?.match.sequence?.steps[0]?.event_type).toBe("tool_call");
+    expect(rule?.match.sequence?.steps[0]?.payload).toHaveLength(1);
+  });
+
+  test("rejects sequence with fewer than 2 steps", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: bad-seq
+  version: "1.0.0"
+  description: Bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: one-step
+      description: Only one step
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow("at least 2 steps");
+  });
+
+  test("rejects sequence with invalid window", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: bad-window
+  version: "1.0.0"
+  description: Bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad-w
+      description: Invalid window
+      match:
+        payload: []
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_call
+              payload: []
+          window: -1
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow("positive integer");
+  });
+
+  test("sequence rule without top-level payload field parses successfully (defaults to [])", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: no-payload-sequence
+  version: "1.0.0"
+  description: Sequence rule with no payload field
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: no-payload
+      description: Sequence rule omitting payload
+      match:
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_result
+              payload: []
+      action: deny
+      severity: error
+      message: "Pattern detected"
+`;
+    const policy = parsePolicy(yaml);
+    const rule = policy.spec.rules[0];
+    expect(rule?.match.payload).toEqual([]);
+    expect(rule?.match.sequence).toBeDefined();
+    expect(rule?.match.sequence?.steps).toHaveLength(2);
+  });
+
+  test("per-event rule without payload field throws", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: missing-payload
+  version: "1.0.0"
+  description: Missing payload
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad
+      description: No payload
+      match:
+        event_type: tool_call
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow("must be an array");
+  });
+
+  test("rejects sequence rule with non-empty payload (silently ignored at runtime)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: seq-with-payload
+  version: "1.0.0"
+  description: Payload + sequence conflict
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: conflicting
+      description: Has both payload conditions and sequence
+      match:
+        payload:
+          - field: tool_name
+            operator: eq
+            value: shell_exec
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_result
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow("must be omitted or empty when match.sequence is set");
+  });
+
+  test("rejects sequence rule with event_type (silently ignored at runtime)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: seq-with-event-type
+  version: "1.0.0"
+  description: event_type + sequence conflict
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: conflicting
+      description: Has event_type and sequence
+      match:
+        event_type: tool_call
+        sequence:
+          steps:
+            - event_type: tool_call
+              payload: []
+            - event_type: tool_result
+              payload: []
+      action: deny
+      severity: error
+      message: "bad"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow("cannot be set when match.sequence is present");
   });
 });

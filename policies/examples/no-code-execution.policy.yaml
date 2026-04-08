@@ -1,0 +1,39 @@
+apiVersion: krynix.dev/v1
+kind: Policy
+metadata:
+  name: no-code-execution
+  version: "1.0.0"
+  description: >
+    Deny dynamic code execution tool calls (eval, exec, compile).
+    Prevents agents from running arbitrary code at runtime.
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: block-eval-exec
+      description: Deny eval, exec, compile, and similar code execution tools
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(eval|exec|compile|run_code|execute_code|python_exec|js_eval|code_interpreter).*"
+      action: deny
+      severity: critical
+      message: "Dynamic code execution is not permitted"
+
+    - id: block-repl
+      description: Deny REPL/interpreter tool calls
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: matches
+            value: "^(repl|interpreter|sandbox_run|notebook_exec).*"
+      action: deny
+      severity: error
+      message: "REPL/interpreter access is not permitted"
+  defaults:
+    unmatched_action: allow
+    unmatched_severity: info

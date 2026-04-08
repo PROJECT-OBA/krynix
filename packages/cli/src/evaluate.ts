@@ -17,11 +17,15 @@ import type { Policy, EvaluationResult } from "@krynix/policy";
 import { getArg, getAllArgs } from "./arg-parser.js";
 import { buildEnvironmentContext } from "./env-flags.js";
 
+/** Supported output formats. */
+export type OutputFormat = "json" | "text";
+
 /** Result from the evaluate command. */
 export interface EvaluateResult {
   exitCode: number;
   output: AggregateOutput | null;
   error: string | null;
+  format: OutputFormat;
 }
 
 /** JSON output format for the evaluate command. */
@@ -51,12 +55,23 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   const filterAgents = getAllArgs(args, "--filter-agent");
   const afterArg = getArg(args, "--after");
   const beforeArg = getArg(args, "--before");
+  const formatArg = getArg(args, "--format") ?? "json";
+
+  if (formatArg !== "json" && formatArg !== "text") {
+    return {
+      exitCode: 1,
+      output: null,
+      error: `Unsupported format: ${formatArg}. Use "json" or "text".`,
+      format: "json",
+    };
+  }
+  const format: OutputFormat = formatArg;
 
   if (tracePath === undefined) {
-    return { exitCode: 1, output: null, error: "Missing required argument: --trace" };
+    return { exitCode: 1, output: null, error: "Missing required argument: --trace", format };
   }
   if (policyPath === undefined) {
-    return { exitCode: 1, output: null, error: "Missing required argument: --policy" };
+    return { exitCode: 1, output: null, error: "Missing required argument: --policy", format };
   }
 
   // Read trace
@@ -65,7 +80,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     trace = await readTrace(tracePath);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}` };
+    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}`, format };
   }
 
   // Apply filters
@@ -78,7 +93,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { exitCode: 1, output: null, error: `Invalid filter: ${message}` };
+    return { exitCode: 1, output: null, error: `Invalid filter: ${message}`, format };
   }
 
   // Resolve environment context from --env flags + auto-detection
@@ -87,7 +102,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     environment = buildEnvironmentContext(args);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { exitCode: 1, output: null, error: `Invalid --env flag: ${message}` };
+    return { exitCode: 1, output: null, error: `Invalid --env flag: ${message}`, format };
   }
 
   // Load policies
@@ -96,11 +111,11 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     policies = await loadPolicies(policyPath);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { exitCode: 1, output: null, error: `Failed to load policies: ${message}` };
+    return { exitCode: 1, output: null, error: `Failed to load policies: ${message}`, format };
   }
 
   if (policies.length === 0) {
-    return { exitCode: 1, output: null, error: `No policy files found at: ${policyPath}` };
+    return { exitCode: 1, output: null, error: `No policy files found at: ${policyPath}`, format };
   }
 
   // Evaluate each policy
@@ -112,7 +127,12 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
       policyResults.push({ policyName: name, result });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return { exitCode: 1, output: null, error: `Policy evaluation failed (${name}): ${message}` };
+      return {
+        exitCode: 1,
+        output: null,
+        error: `Policy evaluation failed (${name}): ${message}`,
+        format,
+      };
     }
   }
 
@@ -127,7 +147,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     ...(environment ? { environment } : {}),
   };
 
-  return { exitCode: maxExitCode, output, error: null };
+  return { exitCode: maxExitCode, output, error: null, format };
 }
 
 // ---------------------------------------------------------------------------
