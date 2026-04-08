@@ -321,7 +321,9 @@ export class LangChainAdapter implements TraceAdapter {
       session_id: this.config?.sessionId ?? "",
       sequence_num: 0,
       timestamp: new Date().toISOString(),
-      parent_id: parentRunId ?? null,
+      // Treat blank parentRunId as absent — empty string would emit parent_id: "" and
+      // produce a non-empty (but semantically "no parent") parentSpanId in OTLP export.
+      parent_id: parentRunId || null,
       redacted: false,
       prev_hash: "",
       event_hash: "",
@@ -330,7 +332,7 @@ export class LangChainAdapter implements TraceAdapter {
         "runtime.adapter": "langchain",
         "runtime.langchain.callback": callbackName,
         "runtime.langchain.run_id": runId,
-        ...(parentRunId !== undefined ? { "runtime.langchain.parent_run_id": parentRunId } : {}),
+        ...(parentRunId ? { "runtime.langchain.parent_run_id": parentRunId } : {}),
       },
       schema_version: SCHEMA_VERSION,
     };

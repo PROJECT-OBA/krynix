@@ -244,6 +244,27 @@ describe("convertToOtlp", () => {
     expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
   });
 
+  test("empty parent_id produces non-zero parentSpanId (OTel requires non-zero IDs)", () => {
+    // Empty string → all-zero hex → forced to non-zero by the last-nibble guard
+    const events = chain([makeToolCall(0, undefined, { parent_id: "" })]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+    expect(span.parentSpanId).not.toBe("0000000000000000");
+  });
+
+  test("all-zero UUID parent_id produces non-zero parentSpanId", () => {
+    const events = chain([
+      makeToolCall(0, undefined, { parent_id: "00000000-0000-0000-0000-000000000000" }),
+    ]);
+    const result = convertToOtlp(events);
+    const span = result.resourceSpans[0]?.scopeSpans[0]?.spans[0] as OtlpSpan;
+
+    expect(span.parentSpanId).toBe("0000000000000001");
+    expect(span.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+  });
+
   test("tool_result uses metadata duration_ms for OTLP span timing when payload is 0", () => {
     const events = chain([
       makeToolResult(0, { duration_ms: 0 }, { timestamp: "2025-01-15T14:00:00.000Z" }),
