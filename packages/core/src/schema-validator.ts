@@ -248,7 +248,7 @@ const POLICY_SCHEMA = {
           },
           // payload is always required (may be [] for sequence-only rules).
           // When sequence is present: payload must be empty and event_type must be absent.
-          // Ajv 8 (draft-2019-09) evaluates if/then as an additional constraint.
+          // Ajv 8 (draft-07) evaluates if/then as an additional constraint.
           required: ["payload"],
           if: { required: ["sequence"] },
           then: {
