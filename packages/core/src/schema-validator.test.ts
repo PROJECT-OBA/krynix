@@ -364,6 +364,38 @@ describe("validatePolicy", () => {
     expect(result.valid).toBe(true);
   });
 
+  test("sequence rule without top-level payload passes (matches parser behaviour)", () => {
+    const policy = {
+      ...VALID_POLICY,
+      spec: {
+        ...VALID_POLICY.spec,
+        rules: [
+          {
+            id: "sequence-no-payload",
+            description: "Sequence rule omitting payload",
+            match: {
+              // No top-level payload — parser defaults it to []
+              sequence: {
+                steps: [
+                  {
+                    event_type: "tool_call",
+                    payload: [{ field: "tool_name", operator: "eq", value: "read" }],
+                  },
+                  { event_type: "tool_result", payload: [] },
+                ],
+              },
+            },
+            action: "deny",
+            severity: "error",
+            message: "Sequence without payload field",
+          },
+        ],
+      },
+    };
+    const result = validatePolicy(policy);
+    expect(result.valid).toBe(true);
+  });
+
   test("sequence rule with malformed step (missing payload) → error", () => {
     const policy = {
       ...VALID_POLICY,
