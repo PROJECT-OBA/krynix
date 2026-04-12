@@ -1,6 +1,6 @@
 {
   "name": "@krynix/adapter-openclaw",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "OpenClaw adapter for Krynix: translates OpenClaw plugin hook events into Krynix trace events",
   "author": "PROJECT-OBA",
