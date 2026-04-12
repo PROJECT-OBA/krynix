@@ -115,19 +115,21 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
       continue;
     }
 
-    // First-match-wins: find the first matching rule and act on it.
-    const matchedRule = findMatchingRule(event, policy.spec.rules);
+    // Single pass: evaluate every per-event rule's predicate, recording ALL
+    // matches into matchedRuleIds (for the RULE_NEVER_MATCHED diagnostic) and
+    // remembering the first match for first-match-wins violation logic.
+    const firstMatch = findMatchingRuleAndTrackAll(event, policy.spec.rules, matchedRuleIds);
 
-    if (matchedRule !== undefined) {
-      if (matchedRule.action === "deny" || matchedRule.action === "require-approval") {
+    if (firstMatch !== undefined) {
+      if (firstMatch.action === "deny" || firstMatch.action === "require-approval") {
         violations.push({
-          ruleId: matchedRule.id,
+          ruleId: firstMatch.id,
           eventIndex,
           eventId: event.event_id,
-          action: matchedRule.action,
-          severity: matchedRule.severity,
-          message: matchedRule.message,
-          ciFailure: resolveCiFailure(matchedRule),
+          action: firstMatch.action,
+          severity: firstMatch.severity,
+          message: firstMatch.message,
+          ciFailure: resolveCiFailure(firstMatch),
         });
       }
       // "allow" → no violation
@@ -143,17 +145,6 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
         message: `No rule matched event; default action is deny`,
         ciFailure: false, // unmatched_severity is restricted to "info" | "warning" by schema
       });
-    }
-
-    // Separately track every per-event rule whose predicate matches this event
-    // (independent of first-match-wins selection) for the RULE_NEVER_MATCHED
-    // diagnostic. Shadowed rules are intentionally included here so they don't
-    // generate false-positive warnings.
-    for (const rule of policy.spec.rules) {
-      if (rule.match.sequence !== undefined) continue;
-      if (matchRule(event, rule)) {
-        matchedRuleIds.add(rule.id);
-      }
     }
   }
 
@@ -178,15 +169,28 @@ function isInScope(event: TraceEvent, agents: string[], eventTypes: string[]): b
   return agentMatch && typeMatch;
 }
 
-function findMatchingRule(event: TraceEvent, rules: readonly PolicyRule[]): PolicyRule | undefined {
+/**
+ * Single-pass rule evaluation: iterates all per-event rules (skipping sequence
+ * rules), evaluates each predicate exactly once, records every match into
+ * `matchedRuleIds` for the RULE_NEVER_MATCHED diagnostic, and returns the
+ * first matching rule for first-match-wins violation logic.
+ */
+function findMatchingRuleAndTrackAll(
+  event: TraceEvent,
+  rules: readonly PolicyRule[],
+  matchedRuleIds: Set<string>,
+): PolicyRule | undefined {
+  let firstMatch: PolicyRule | undefined;
   for (const rule of rules) {
-    // Skip sequence rules — they are evaluated separately after the per-event loop
     if (rule.match.sequence !== undefined) continue;
     if (matchRule(event, rule)) {
-      return rule;
+      matchedRuleIds.add(rule.id);
+      if (firstMatch === undefined) {
+        firstMatch = rule;
+      }
     }
   }
-  return undefined;
+  return firstMatch;
 }
 
 function resolveCiFailure(rule: PolicyRule): boolean {
