@@ -1,7 +1,7 @@
 {
   "captured_at": "2026-04-10",
   "langchain_core_version": "1.1.39",
-  "capture_script": "../lc-probe.mjs (run once, output committed verbatim with runIds scrubbed)",
+  "capture_script": "src/__fixtures__/capture-real-langchain.mjs (run once from packages/adapter-langchain, replace runIds with deterministic values, commit result)",
   "description": "Real LangChain callback invocations captured from `@langchain/core` 1.1.39. Used as a frozen snapshot of the wire shape so adapter tests can assert against ground truth without running LangChain on every test run. The `e2e-langchain.test.ts` suite exercises the real library dynamically and is the drift detector; this fixture is the offline reference.",
   "notes": [
     "tool.id.at(-1) === 'DynamicTool' (class name), NOT 'web_search' — the instance name lives only in `runName`. This was the root cause of the `unknown_tool` bug: the old adapter read `tool.name` which does not exist on real Serialized.",

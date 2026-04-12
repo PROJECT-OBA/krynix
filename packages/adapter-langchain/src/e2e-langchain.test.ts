@@ -179,7 +179,7 @@ describe("LangChain adapter — end-to-end against real @langchain/core", () => 
 
     // Every event on disk must still validate against the schema.
     for (const event of trace) {
-      validateTraceEvent(event);
+      expect(validateTraceEvent(event).valid).toBe(true);
     }
 
     // Hash chain must still cover the real-world payloads end-to-end.
@@ -194,8 +194,8 @@ describe("LangChain adapter — end-to-end against real @langchain/core", () => 
     const { handler, handle } = await createLangChainTracer({
       outputPath: tracePath,
       agentId: "e2e-agent",
+      replaySeed: 43,
     });
-
     const fakeLlm = new FakeListChatModel({ responses: ["the answer is 42"] });
     const result = await fakeLlm.invoke("what is the meaning of life", {
       callbacks: [handler],
@@ -238,6 +238,7 @@ describe("LangChain adapter — end-to-end against real @langchain/core", () => 
     const { handler, handle } = await createLangChainTracer({
       outputPath: tracePath,
       agentId: "e2e-agent",
+      replaySeed: 44,
     });
 
     const webSearchTool = new DynamicTool({

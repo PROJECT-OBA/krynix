@@ -47,9 +47,14 @@ export function formatEvaluateText(output: AggregateOutput): string {
     (sum, r) => sum + r.result.violations.length,
     0,
   );
+  const totalWarnings = output.policyResults.reduce((sum, r) => sum + r.result.warnings.length, 0);
   const verdictUpper = output.verdict.toUpperCase();
+  const warningsPart =
+    totalWarnings > 0
+      ? `, ${String(totalWarnings)} ${totalWarnings === 1 ? "warning" : "warnings"}`
+      : "";
   lines.push(
-    `Result: ${verdictUpper} — ${String(output.policyResults.length)} ${output.policyResults.length === 1 ? "policy" : "policies"}, ${String(totalViolations)} ${totalViolations === 1 ? "violation" : "violations"}`,
+    `Result: ${verdictUpper} — ${String(output.policyResults.length)} ${output.policyResults.length === 1 ? "policy" : "policies"}, ${String(totalViolations)} ${totalViolations === 1 ? "violation" : "violations"}${warningsPart}`,
   );
 
   return lines.join("\n");

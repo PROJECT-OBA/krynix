@@ -88,7 +88,7 @@ await webSearchTool.invoke("what is langchain", { callbacks: [rec] });
 const fakeLlm = new FakeListChatModel({ responses: ["the answer is 42"] });
 await fakeLlm.invoke("what is the meaning of life", { callbacks: [rec] });
 
-// Strip fields that vary per run (runId, parentRunId, any wall-clock data) so the
-// fixture is deterministic under re-capture. We keep the raw runId values inside
-// the fixture though — callers substitute deterministic ids when replaying.
+// Output the raw captured events as JSON. runIds are real UUIDs produced by this
+// run — manually replace them with deterministic values (e.g. "fixture-tool-run-1")
+// before committing the output as `real-langchain-callbacks.json`.
 console.log(JSON.stringify(rec.events, null, 2));

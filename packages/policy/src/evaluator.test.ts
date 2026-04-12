@@ -214,6 +214,37 @@ describe("evaluate — first-match-wins", () => {
     expect(result.verdict).toBe("fail");
     expect(result.violations).toHaveLength(1);
   });
+
+  test("shadowed rule does NOT get RULE_NEVER_MATCHED — its predicate matched even though it was not selected", () => {
+    // allow-reads (position 0) shadows deny-all (position 1) for the file_read event.
+    // deny-all's predicate (payload: []) matches every tool_call, including this one —
+    // it just loses first-match-wins to allow-reads. It must NOT be flagged as
+    // RULE_NEVER_MATCHED because the predicate is working correctly.
+    const trace = [makeEvent(0, "tool_call", { tool_name: "file_read", arguments: {} })];
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "allow-reads",
+          action: "allow",
+          match: { payload: [{ field: "tool_name", operator: "eq", value: "file_read" }] },
+        }),
+        makeRule({
+          id: "deny-all",
+          action: "deny",
+          severity: "error",
+          match: { payload: [] },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("pass");
+    expect(result.violations).toHaveLength(0);
+    // deny-all is shadowed by allow-reads for the file_read event —
+    // its predicate DID match, it was just not selected. No false-positive warning.
+    const neverMatched = result.warnings.filter((w) => w.code === "RULE_NEVER_MATCHED");
+    expect(neverMatched).toHaveLength(0);
+  });
 });
 
 describe("evaluate — default unmatched action", () => {

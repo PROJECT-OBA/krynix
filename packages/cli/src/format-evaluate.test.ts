@@ -100,6 +100,21 @@ describe("formatEvaluateText", () => {
 
     expect(text).toContain("Warnings:");
     expect(text).toContain("on_violation.notify");
+    // Summary line must include warning count when warnings are present.
+    expect(text).toContain("1 warning");
+  });
+
+  test("summary line omits warning count when there are no warnings", () => {
+    const output: AggregateOutput = {
+      verdict: "pass",
+      exitCode: 0,
+      policyResults: [{ policyName: "test.policy.yaml", result: makeResult() }],
+    };
+
+    const text = formatEvaluateText(output);
+
+    expect(text).toContain("Result: PASS");
+    expect(text).not.toContain("warning");
   });
 
   test("multiple policies", () => {

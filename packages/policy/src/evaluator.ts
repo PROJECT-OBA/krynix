@@ -31,6 +31,25 @@ export interface Violation {
 }
 
 /**
+ * Stable machine-readable codes emitted by `evaluate()`.
+ *
+ * Filter on these values rather than warning messages (message text is not
+ * guaranteed stable across versions).
+ */
+export type PolicyWarningCode =
+  /** `on_violation.notify` is parsed but notification delivery is not yet implemented. */
+  | "ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED"
+  /** `on_violation.create_issue` is parsed but issue creation is not yet implemented. */
+  | "ON_VIOLATION_ISSUE_NOT_IMPLEMENTED"
+  /**
+   * A rule's match predicate never satisfied any in-scope event (per-event
+   * rules) or never matched its sequence pattern across the trace (sequence
+   * rules). The most common cause is a typo in `match.payload` conditions or
+   * a scope filter that excludes every event the rule was meant to cover.
+   */
+  | "RULE_NEVER_MATCHED";
+
+/**
  * A structured evaluation warning.
  *
  * Warnings are diagnostic signals surfaced alongside the pass/fail verdict;
@@ -38,15 +57,10 @@ export interface Violation {
  * silent-failure modes like typo'd rule IDs that would otherwise pass CI
  * with false confidence. Each warning has a stable machine-readable `code`
  * so CLI / CI tooling can filter on it.
- *
- * Known codes:
- *   - `ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED`   — parsed `on_violation.notify` that has no delivery implementation.
- *   - `ON_VIOLATION_ISSUE_NOT_IMPLEMENTED`    — parsed `on_violation.create_issue` that has no delivery implementation.
- *   - `RULE_NEVER_MATCHED`                    — a rule (non-sequence) matched zero in-scope events across the trace.
  */
 export interface PolicyWarning {
-  /** Stable machine-readable identifier — see the interface doc for known codes. */
-  code: string;
+  /** Stable machine-readable identifier — see `PolicyWarningCode` for known values. */
+  code: PolicyWarningCode;
   /** Human-readable explanation. Stable text is not guaranteed; filter on `code` instead. */
   message: string;
   /** ID of the rule the warning relates to, when applicable. */
@@ -83,10 +97,16 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
   // Collect warnings for on_violation fields that are parsed but not yet implemented
   const warnings = collectOnViolationWarnings(policy.spec.rules);
 
-  // Track which non-sequence rules matched at least one in-scope event. Used
-  // at the end of the pass to emit `RULE_NEVER_MATCHED` diagnostics for rules
-  // that never fired — the most common silent-failure mode is a rule ID typo
-  // or a scope filter that excludes every event the rule was meant to cover.
+  // Track which rules had their predicate satisfied by at least one in-scope
+  // event (per-event rules) or matched their sequence pattern (sequence rules).
+  // Used to emit `RULE_NEVER_MATCHED` diagnostics at the end of evaluation.
+  //
+  // IMPORTANT: this uses predicate-level matching, not the first-match-wins
+  // winner. If rule A (at position 0) and rule B (at position 1) both match
+  // the same event, only A triggers a violation — but BOTH A and B are added
+  // to `matchedRuleIds`. Without this distinction, rule B would receive a
+  // false-positive `RULE_NEVER_MATCHED` warning even though its predicate is
+  // working correctly and is merely shadowed by A.
   const matchedRuleIds = new Set<string>();
 
   for (const [eventIndex, event] of trace.entries()) {
@@ -95,11 +115,10 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
       continue;
     }
 
-    // First-match-wins: find the first matching rule
+    // First-match-wins: find the first matching rule and act on it.
     const matchedRule = findMatchingRule(event, policy.spec.rules);
 
     if (matchedRule !== undefined) {
-      matchedRuleIds.add(matchedRule.id);
       if (matchedRule.action === "deny" || matchedRule.action === "require-approval") {
         violations.push({
           ruleId: matchedRule.id,
@@ -124,6 +143,17 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
         message: `No rule matched event; default action is deny`,
         ciFailure: false, // unmatched_severity is restricted to "info" | "warning" by schema
       });
+    }
+
+    // Separately track every per-event rule whose predicate matches this event
+    // (independent of first-match-wins selection) for the RULE_NEVER_MATCHED
+    // diagnostic. Shadowed rules are intentionally included here so they don't
+    // generate false-positive warnings.
+    for (const rule of policy.spec.rules) {
+      if (rule.match.sequence !== undefined) continue;
+      if (matchRule(event, rule)) {
+        matchedRuleIds.add(rule.id);
+      }
     }
   }
 
@@ -249,8 +279,12 @@ function collectOnViolationWarnings(rules: readonly PolicyRule[]): PolicyWarning
 }
 
 /**
- * Emit a `RULE_NEVER_MATCHED` warning for any rule that matched zero
- * in-scope events during the evaluation pass.
+ * Emit a `RULE_NEVER_MATCHED` warning for any rule that never fired during
+ * evaluation.
+ *
+ * For per-event rules: "never fired" means the rule's match predicate
+ * satisfied zero in-scope events across the entire trace. For sequence rules:
+ * "never fired" means the multi-event pattern was never completed.
  *
  * The most common failure mode this catches: a rule whose `match.payload`
  * field has a typo (`tool_nam` instead of `tool_name`), or whose scope
@@ -266,10 +300,14 @@ function collectNeverMatchedWarnings(
   const warnings: PolicyWarning[] = [];
   for (const rule of rules) {
     if (matchedRuleIds.has(rule.id)) continue;
+    const isSequence = rule.match.sequence !== undefined;
+    const detail = isSequence
+      ? "matched the sequence pattern zero times across the trace"
+      : "matched zero in-scope events";
     warnings.push({
       code: "RULE_NEVER_MATCHED",
       ruleId: rule.id,
-      message: `Rule '${rule.id}' matched zero in-scope events. This usually means a typo in match.payload, a scope filter that excludes the intended events, or that the rule is genuinely unused. Verify intent before shipping.`,
+      message: `Rule '${rule.id}' ${detail}. This usually means a typo in match conditions, a scope filter that excludes the intended events, or that the rule is genuinely unused. Verify intent before shipping.`,
     });
   }
   return warnings;
