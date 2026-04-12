@@ -282,7 +282,7 @@ export async function regenerateTrace(tracePath: string): Promise<void> {
     event_hash: "",
   })) as TraceEvent[];
 
-  const writer = new TraceWriter();
+  const writer = new TraceWriter({ validateOnWrite: true });
   await writer.open(tracePath);
   for (const event of stripped) {
     await writer.write(event);

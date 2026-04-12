@@ -29,5 +29,9 @@
   },
   "dependencies": {
     "@krynix/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@krynix/policy": "workspace:*",
+    "@langchain/core": "^1.1.39"
   }
 }

@@ -1,3 +1,25 @@
+/**
+ * Adapter unit tests.
+ *
+ * This file has two distinct layers:
+ *
+ * 1. **Legacy-shape compat tests** (most of the file). These use the old
+ *    Krynix-internal `{ _callback, tool: { name: "..." }, ... }` shape. Real
+ *    LangChain does NOT produce this shape (it uses
+ *    `{ lc, type, id: ["langchain","tools","ClassName"] }` + a separate
+ *    `runName` argument), but the adapter still understands the legacy shape
+ *    for backwards compatibility. These tests guard that fallback path.
+ *
+ * 2. **Real-LangChain cascade tests** at the bottom of the file. These use
+ *    the real `Serialized = { lc, type, id }` shape plus `runName`, and
+ *    cover the A1 fix for the `unknown_tool` chain-of-trust bug.
+ *
+ * The full end-to-end path against real `@langchain/core` is exercised
+ * separately by `e2e-langchain.test.ts`, which drives a real `DynamicTool`
+ * and `FakeListChatModel` through `createLangChainTracer`. That is the
+ * regression gate this package gained in A2; adapter.test.ts is the
+ * unit-level complement.
+ */
 import { describe, test, expect, beforeEach } from "vitest";
 import { LangChainAdapter } from "./adapter.js";
 import type { LangChainCallbackEvent } from "./langchain-types.js";
@@ -776,5 +798,182 @@ describe("LangChainAdapter.onEvent", () => {
 
     expect(result).not.toBeNull();
     expect(result?.parent_id).toBe("parent-run-100");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Name resolution cascade — regression coverage for the `unknown_tool` chain-
+// of-trust bug. Real LangChain `Serialized = { lc, type, id, kwargs }` has
+// NO `name` field; the canonical identifier is `id.at(-1)` (the class name)
+// or the user-supplied `runName`. The legacy `{ name: "..." }` shape is the
+// lowest-priority fallback, kept only so the older tests above keep passing.
+// ---------------------------------------------------------------------------
+
+describe("LangChainAdapter — name resolution cascade (real LangChain shapes)", () => {
+  let cascadeAdapter: LangChainAdapter;
+
+  beforeEach(async () => {
+    cascadeAdapter = new LangChainAdapter();
+    await cascadeAdapter.initialize({
+      agentId: "test-agent",
+      sessionId: "test-session",
+      replaySeed: 42,
+    });
+  });
+
+  test("handleToolStart resolves tool name from real Serialized.id (no legacy name field)", () => {
+    // This is the exact shape real langchain-core passes — no `name`, just `id`.
+    const event: LangChainCallbackEvent = {
+      _callback: "handleToolStart",
+      tool: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "tools", "Calculator"],
+        kwargs: {},
+      },
+      input: "2+2",
+      runId: "run-cascade-1",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+
+    expect(result).not.toBeNull();
+    expect(result?.event_type).toBe("tool_call");
+    const payload = asPayload(result as TraceEvent);
+    // Before the fix this would be "unknown_tool" — that was the bug.
+    expect(payload["tool_name"]).toBe("Calculator");
+  });
+
+  test("handleToolStart prefers runName over Serialized.id when both are present", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleToolStart",
+      tool: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "tools", "Calculator"],
+      },
+      input: "2+2",
+      runId: "run-cascade-2",
+      runName: "math_tool",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    // runName beats id — it's the user-supplied semantic name.
+    expect(payload["tool_name"]).toBe("math_tool");
+  });
+
+  test("handleToolStart falls back to legacy tool.name when neither runName nor id is present", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleToolStart",
+      tool: { name: "legacy_tool" },
+      input: "x",
+      runId: "run-cascade-3",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["tool_name"]).toBe("legacy_tool");
+  });
+
+  test("handleToolStart emits event with unknown_tool when tool name is unresolvable (not skipped)", () => {
+    // When the cascade finds no name, the event is still emitted with tool_name:
+    // "unknown_tool" — it is NOT dropped. onSkippedEvent must NOT be called because
+    // the event is observable in the trace (callers can detect this via tool_name ===
+    // "unknown_tool"). Calling onSkippedEvent here would violate the implied contract
+    // that it fires only when an event is dropped entirely.
+    const skipped: Array<{ reason: string; event: unknown }> = [];
+    cascadeAdapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
+
+    const event: LangChainCallbackEvent = {
+      _callback: "handleToolStart",
+      tool: { lc: 1, type: "constructor" }, // no id, no name, no runName
+      input: "x",
+      runId: "run-cascade-4",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["tool_name"]).toBe("unknown_tool");
+    // Event was emitted — not dropped — so onSkippedEvent must NOT fire.
+    expect(skipped.length).toBe(0);
+  });
+
+  test("handleChainStart resolves chain name from real Serialized.id", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleChainStart",
+      chain: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "chains", "RetrievalQA"],
+      },
+      inputs: { query: "?" },
+      runId: "run-cascade-5",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    const content = payload["content"] as Record<string, unknown>;
+    expect(content["chain_name"]).toBe("RetrievalQA");
+  });
+
+  test("handleLLMStart resolves model name from runName when present", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMStart",
+      serialized: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "chat_models", "anthropic", "ChatAnthropic"],
+      },
+      prompts: ["hello"],
+      runId: "run-cascade-6",
+      runName: "claude-sonnet-4-6",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    expect(payload["model"]).toBe("claude-sonnet-4-6");
+  });
+
+  test("handleLLMStart resolves model name from Serialized.id when runName is absent", () => {
+    const event: LangChainCallbackEvent = {
+      _callback: "handleLLMStart",
+      serialized: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "chat_models", "anthropic", "ChatAnthropic"],
+      },
+      prompts: ["hello"],
+      runId: "run-cascade-7",
+    };
+
+    const result = cascadeAdapter.onEvent(event);
+    const payload = asPayload(result as TraceEvent);
+    // Before the fix this would be "unknown" — same bug class as tool_name.
+    expect(payload["model"]).toBe("ChatAnthropic");
+  });
+
+  test("handleToolStart correlates tool_name across handleToolEnd via runId", () => {
+    // End-to-end: a real-shape tool start followed by a tool end. The
+    // resolved name from the start must propagate to the result.
+    cascadeAdapter.onEvent({
+      _callback: "handleToolStart",
+      tool: {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "tools", "WebSearch"],
+      },
+      input: "krynix docs",
+      runId: "run-cascade-corr",
+    } as LangChainCallbackEvent);
+
+    const endResult = cascadeAdapter.onEvent({
+      _callback: "handleToolEnd",
+      output: "results",
+      runId: "run-cascade-corr",
+    } as LangChainCallbackEvent);
+
+    const payload = asPayload(endResult as TraceEvent);
+    expect(payload["tool_name"]).toBe("WebSearch");
   });
 });

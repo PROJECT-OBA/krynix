@@ -214,6 +214,37 @@ describe("evaluate — first-match-wins", () => {
     expect(result.verdict).toBe("fail");
     expect(result.violations).toHaveLength(1);
   });
+
+  test("shadowed rule does NOT get RULE_NEVER_MATCHED — its predicate matched even though it was not selected", () => {
+    // allow-reads (position 0) shadows deny-all (position 1) for the file_read event.
+    // deny-all's predicate (payload: []) matches every tool_call, including this one —
+    // it just loses first-match-wins to allow-reads. It must NOT be flagged as
+    // RULE_NEVER_MATCHED because the predicate is working correctly.
+    const trace = [makeEvent(0, "tool_call", { tool_name: "file_read", arguments: {} })];
+    const policy = makePolicy({
+      rules: [
+        makeRule({
+          id: "allow-reads",
+          action: "allow",
+          match: { payload: [{ field: "tool_name", operator: "eq", value: "file_read" }] },
+        }),
+        makeRule({
+          id: "deny-all",
+          action: "deny",
+          severity: "error",
+          match: { payload: [] },
+        }),
+      ],
+    });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("pass");
+    expect(result.violations).toHaveLength(0);
+    // deny-all is shadowed by allow-reads for the file_read event —
+    // its predicate DID match, it was just not selected. No false-positive warning.
+    const neverMatched = result.warnings.filter((w) => w.code === "RULE_NEVER_MATCHED");
+    expect(neverMatched).toHaveLength(0);
+  });
 });
 
 describe("evaluate — default unmatched action", () => {
@@ -405,6 +436,7 @@ describe("evaluate — on_violation warnings", () => {
     const policy = makePolicy({ rules: [makeRule()] });
 
     const result = evaluate(trace, policy);
+    // makeRule matches the single event, so no RULE_NEVER_MATCHED either.
     expect(result.warnings).toEqual([]);
   });
 
@@ -417,9 +449,13 @@ describe("evaluate — on_violation warnings", () => {
 
     const result = evaluate(trace, policy);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("on_violation.notify");
-    expect(result.warnings[0]).toContain("not yet implemented");
-    expect(result.warnings[0]).toContain("rule-1");
+    const w = result.warnings[0];
+    expect(w).toBeDefined();
+    if (!w) return;
+    expect(w.code).toBe("ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED");
+    expect(w.ruleId).toBe("rule-1");
+    expect(w.message).toContain("on_violation.notify");
+    expect(w.message).toContain("not yet implemented");
   });
 
   test("warns when on_violation.create_issue is true", () => {
@@ -431,8 +467,12 @@ describe("evaluate — on_violation warnings", () => {
 
     const result = evaluate(trace, policy);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("on_violation.create_issue");
-    expect(result.warnings[0]).toContain("not yet implemented");
+    const w = result.warnings[0];
+    expect(w).toBeDefined();
+    if (!w) return;
+    expect(w.code).toBe("ON_VIOLATION_ISSUE_NOT_IMPLEMENTED");
+    expect(w.message).toContain("on_violation.create_issue");
+    expect(w.message).toContain("not yet implemented");
   });
 
   test("warns for both notify and create_issue on same rule", () => {
@@ -444,6 +484,10 @@ describe("evaluate — on_violation warnings", () => {
 
     const result = evaluate(trace, policy);
     expect(result.warnings).toHaveLength(2);
+    expect(result.warnings.map((w) => w.code)).toEqual([
+      "ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED",
+      "ON_VIOLATION_ISSUE_NOT_IMPLEMENTED",
+    ]);
   });
 
   test("no warning when on_violation.notify is empty array", () => {
@@ -466,6 +510,97 @@ describe("evaluate — on_violation warnings", () => {
 
     const result = evaluate(trace, policy);
     expect(result.warnings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RULE_NEVER_MATCHED diagnostic
+// ---------------------------------------------------------------------------
+
+describe("evaluate — RULE_NEVER_MATCHED diagnostic", () => {
+  test("emits warning when a rule matches zero in-scope events", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "web_search", arguments: {} })];
+    const rule = makeRule({
+      id: "deny-shell",
+      match: {
+        payload: [{ field: "tool_name", operator: "eq", value: "shell_exec" }],
+      },
+      action: "deny",
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    // Verdict unchanged — warnings are additive.
+    expect(result.verdict).toBe("pass");
+    expect(result.violations).toHaveLength(0);
+
+    const neverMatched = result.warnings.filter((w) => w.code === "RULE_NEVER_MATCHED");
+    expect(neverMatched).toHaveLength(1);
+    const nm = neverMatched[0];
+    expect(nm).toBeDefined();
+    if (!nm) return;
+    expect(nm.ruleId).toBe("deny-shell");
+    expect(nm.message).toContain("deny-shell");
+    expect(nm.message).toContain("zero");
+  });
+
+  test("does NOT emit warning for a rule that matched at least one event", () => {
+    const trace = [
+      makeEvent(0, "tool_call", { tool_name: "web_search", arguments: {} }),
+      makeEvent(1, "tool_call", { tool_name: "web_search", arguments: {} }),
+    ];
+    const rule = makeRule({
+      id: "allow-search",
+      match: {
+        payload: [{ field: "tool_name", operator: "eq", value: "web_search" }],
+      },
+      action: "allow",
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test("distinguishes never-matched rules from rules whose scope excludes all events", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "web_search", arguments: {} })];
+    const rule = makeRule({
+      id: "only-llm",
+      match: { payload: [] },
+      action: "allow",
+    });
+    const policy = makePolicy({
+      rules: [rule],
+      // Scope excludes tool_call so the rule cannot fire.
+      scope: { agents: ["*"], event_types: ["llm_request"] },
+    });
+
+    const result = evaluate(trace, policy);
+    const neverMatched = result.warnings.filter((w) => w.code === "RULE_NEVER_MATCHED");
+    expect(neverMatched).toHaveLength(1);
+    const nm = neverMatched[0];
+    expect(nm).toBeDefined();
+    if (!nm) return;
+    expect(nm.ruleId).toBe("only-llm");
+  });
+
+  test("never-matched diagnostic is purely additive — does not change verdict or exit code", () => {
+    const trace = [makeEvent(0, "tool_call", { tool_name: "web_search", arguments: {} })];
+    const rule = makeRule({
+      id: "deny-nonexistent",
+      match: {
+        payload: [{ field: "tool_name", operator: "eq", value: "shell_exec" }],
+      },
+      action: "deny",
+      severity: "critical",
+    });
+    const policy = makePolicy({ rules: [rule] });
+
+    const result = evaluate(trace, policy);
+    expect(result.verdict).toBe("pass");
+    expect(result.exitCode).toBe(0);
+    expect(result.violations).toHaveLength(0);
+    expect(result.warnings.some((w) => w.code === "RULE_NEVER_MATCHED")).toBe(true);
   });
 });
 

@@ -131,11 +131,11 @@ describe("TraceWriter", () => {
     await writer.close();
   });
 
-  test("validateOnWrite disabled by default — invalid events are persisted", async () => {
+  test("validateOnWrite: false allows invalid events to be persisted", async () => {
     const dir = await createTempDir();
     const path = join(dir, "trace.jsonl");
 
-    const writer = new TraceWriter(); // no options = validateOnWrite: false
+    const writer = new TraceWriter({ validateOnWrite: false });
     await writer.open(path);
 
     // Missing required payload fields — should NOT throw without validation
