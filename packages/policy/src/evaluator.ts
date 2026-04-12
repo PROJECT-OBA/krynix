@@ -175,13 +175,10 @@ function isInScope(event: TraceEvent, agents: string[], eventTypes: string[]): b
  * RULE_NEVER_MATCHED diagnostic, and returns the first matching rule for
  * first-match-wins violation logic.
  *
- * Optimisations:
- *  - Rules already in `matchedRuleIds` are skipped (they can't become
- *    "never-matched" regardless of this event, so no predicate evaluation
- *    is needed — only the first-match-wins check matters, and that only
- *    applies while `firstMatch` is still undefined).
- *  - Once `firstMatch` is set AND every per-event rule is in
- *    `matchedRuleIds`, the loop exits early.
+ * Optimisation: rules already in `matchedRuleIds` skip the diagnostic
+ * predicate evaluation (they can't become "never-matched" regardless of
+ * this event). They still participate in the first-match-wins check, but
+ * only while `firstMatch` is undefined.
  */
 function findMatchingRuleAndTrackAll(
   event: TraceEvent,

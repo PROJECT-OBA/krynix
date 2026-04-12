@@ -588,4 +588,36 @@ describe("validateReport", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
   });
+
+  test("valid report with structured PolicyWarning[] passes", () => {
+    const report = {
+      verdict: "pass",
+      exitCode: 0,
+      violations: [],
+      warnings: [
+        {
+          code: "RULE_NEVER_MATCHED",
+          ruleId: "deny-shell",
+          message: "Rule 'deny-shell' matched zero in-scope events.",
+        },
+        {
+          code: "ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED",
+          message: "Notification delivery is not yet implemented.",
+        },
+      ],
+    };
+    const result = validateReport(report);
+    expect(result.valid).toBe(true);
+  });
+
+  test("report with string warnings (old shape) is rejected", () => {
+    const report = {
+      verdict: "pass",
+      exitCode: 0,
+      violations: [],
+      warnings: ["some old string warning"],
+    };
+    const result = validateReport(report);
+    expect(result.valid).toBe(false);
+  });
 });
