@@ -447,12 +447,13 @@ describe("Session Manager", () => {
   // validatePayloads option (Task 9)
   // -------------------------------------------------------------------------
 
-  test("validatePayloads: false (default) allows mismatched payload", async () => {
+  test("validatePayloads: false allows mismatched payload", async () => {
     const outputPath = join(tempDir, "trace-no-validate.jsonl");
     const session = await startSession({
       agentId: "test-agent",
       replaySeed: 42,
       outputPath,
+      validatePayloads: false,
     });
 
     // tool_call payload missing required 'arguments' — should NOT throw

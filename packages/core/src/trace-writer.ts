@@ -23,7 +23,7 @@ export interface TraceWriterOptions {
    * before being written. Invalid events cause a `KrynixError("INVALID_EVENT")`
    * to be thrown, preventing malformed data from being persisted.
    *
-   * @default false
+   * @default true
    */
   validateOnWrite?: boolean;
 }
@@ -46,7 +46,7 @@ export class TraceWriter {
   private readonly validateOnWrite: boolean;
 
   constructor(options?: TraceWriterOptions) {
-    this.validateOnWrite = options?.validateOnWrite ?? false;
+    this.validateOnWrite = options?.validateOnWrite ?? true;
   }
 
   /**

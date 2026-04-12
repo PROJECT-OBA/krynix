@@ -3,6 +3,14 @@
  *
  * Verifies zero-friction flow, write queue serialization, shutdown
  * behavior, and error handling.
+ *
+ * NOTE: Most tests in this file use hand-crafted callback invocations (the
+ * legacy `{ name: "..." }` shape or the real `{ runName, serialized.id }`
+ * shape) to exercise specific plugin behaviors in isolation. The full
+ * integration against real `@langchain/core` lives in `e2e-langchain.test.ts`
+ * — that is the regression gate that drives a real `DynamicTool` through the
+ * real `callbacks/promises` queue with `awaitHandlers: true`, and asserts
+ * real tool names survive to the on-disk trace.
  */
 
 import { describe, test, expect, afterEach, vi } from "vitest";
@@ -351,6 +359,99 @@ describe("createLangChainTracer", () => {
     expect((observations.at(1)?.payload as { source: string }).source).toBe("langchain_chain_end");
 
     expect(validateHashChain(events).valid).toBe(true);
+  });
+
+  test("real LangChain shape: runName + Serialized.id flow through to trace", async () => {
+    // Regression for the unknown_tool chain-of-trust bug. Calls the public
+    // handler with the EXACT 7-arg shape real langchain-core uses, and asserts
+    // the resulting trace has real names — not "unknown_tool" or "unknown".
+    const dir = await createTempDir();
+    const tracePath = join(dir, "real-shape.jsonl");
+
+    const { handler, handle } = await createLangChainTracer({
+      outputPath: tracePath,
+      agentId: "real-shape-agent",
+      replaySeed: 17,
+    });
+
+    // Real LangChain LLM start: serialized has `id`, no `name`. The semantic
+    // model identifier arrives as `runName` (8th arg).
+    await handler.handleLLMStart(
+      {
+        lc: 1,
+        type: "constructor",
+        id: ["langchain", "chat_models", "anthropic", "ChatAnthropic"],
+      },
+      ["What is Krynix?"],
+      "llm-real-1",
+      undefined,
+      undefined, // extraParams
+      undefined, // tags
+      undefined, // metadata
+      "claude-sonnet-4-6", // runName
+    );
+
+    await handler.handleLLMEnd(
+      {
+        generations: [[{ text: "A trust spine.", generationInfo: { finish_reason: "stop" } }]],
+        llmOutput: {
+          tokenUsage: { promptTokens: 5, completionTokens: 3 },
+          model_name: "claude-sonnet-4-6",
+        },
+      },
+      "llm-real-1",
+    );
+
+    // Real LangChain tool start: tool has `id`, no `name`; runName is the
+    // user-supplied semantic name.
+    await handler.handleToolStart(
+      { lc: 1, type: "constructor", id: ["langchain", "tools", "WebSearch"] },
+      "krynix docs",
+      "tool-real-1",
+      "llm-real-1",
+      undefined, // tags
+      undefined, // metadata
+      "search_web", // runName
+    );
+
+    await handler.handleToolEnd("results", "tool-real-1", "llm-real-1");
+
+    await handle.shutdown();
+
+    const events = await readTrace(tracePath);
+    expect(validateHashChain(events).valid).toBe(true);
+
+    const llmRequest = events.find((e: TraceEvent) => e.event_type === "llm_request");
+    expect((llmRequest?.payload as { model: string }).model).toBe("claude-sonnet-4-6");
+
+    const toolCall = events.find((e: TraceEvent) => e.event_type === "tool_call");
+    // BEFORE the fix this was "unknown_tool" — that was the bug.
+    expect((toolCall?.payload as { tool_name: string }).tool_name).toBe("search_web");
+
+    const toolResult = events.find((e: TraceEvent) => e.event_type === "tool_result");
+    expect((toolResult?.payload as { tool_name: string }).tool_name).toBe("search_web");
+  });
+
+  test("real LangChain shape: handleAgentEnd alias routes to handleAgentFinish event", async () => {
+    // The TS LangChain method is `handleAgentEnd`. The legacy `handleAgentFinish`
+    // alias still exists for backwards compat. Both must produce the same event.
+    const dir = await createTempDir();
+    const tracePath = join(dir, "agent-end.jsonl");
+
+    const { handler, handle } = await createLangChainTracer({
+      outputPath: tracePath,
+      agentId: "agent-end-agent",
+      replaySeed: 21,
+    });
+
+    await handler.handleAgentEnd({ output: "the answer", log: "" }, "agent-1");
+
+    await handle.shutdown();
+
+    const events = await readTrace(tracePath);
+    const observations = events.filter((e: TraceEvent) => e.event_type === "observation");
+    expect(observations.length).toBe(1);
+    expect((observations[0]?.payload as { source: string }).source).toBe("langchain_agent_finish");
   });
 
   test("shutdown surfaces first write error", async () => {
