@@ -1,6 +1,6 @@
 {
   "name": "@krynix/replay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Replay and integrity verification engine for Krynix: hash chain verification, golden trace validation, and drift comparison",
   "author": "PROJECT-OBA",
