@@ -59,33 +59,120 @@ export interface LangChainTracerHandle {
  * Minimal interface matching LangChain's `BaseCallbackHandler` signature.
  *
  * Zero runtime dependency on LangChain — this is a plain object with
- * method signatures that are structurally compatible.
+ * method signatures that are structurally compatible with the real
+ * `langchain-core` `BaseCallbackHandler`. The trailing `tags`, `metadata`, and
+ * `runName` parameters are how LangChain communicates the canonical name of a
+ * tool/chain/LLM call; dropping them was the root cause of the
+ * `unknown_tool` chain-of-trust bug.
+ *
+ * `awaitHandlers: true` is load-bearing: LangChain's callback manager reads
+ * this flag to decide whether to `await` a handler inline or fire it through
+ * an internal p-queue (`callbacks/promises.ts`). With the default `false`
+ * semantics, callbacks like `handleToolEnd` run *after* `chain.invoke()`
+ * resolves — so calling `handle.shutdown()` immediately after invoke would
+ * race the in-flight callback and drop the `tool_result` event silently
+ * (another variant of the chain-of-trust bug). Setting this flag causes
+ * LangChain to await our handler inside its own call path, so by the time
+ * invoke returns, every event has already been recorded.
  */
 export interface LangChainCallbackHandlerMinimal {
+  /**
+   * Tell LangChain to await each handler call inline instead of queueing it
+   * for out-of-band draining. See the block comment on this interface for
+   * why this must be `true`.
+   */
+  awaitHandlers: boolean;
   handleLLMStart(
     serialized: unknown,
     prompts: string[],
     runId: string,
     parentRunId?: string,
     extraParams?: Record<string, unknown>,
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runName?: string,
   ): Promise<void>;
-  handleLLMEnd(output: unknown, runId: string, parentRunId?: string): Promise<void>;
-  handleLLMError(error: unknown, runId: string, parentRunId?: string): Promise<void>;
-  handleToolStart(tool: unknown, input: string, runId: string, parentRunId?: string): Promise<void>;
-  handleToolEnd(output: string, runId: string, parentRunId?: string): Promise<void>;
-  handleToolError(error: unknown, runId: string, parentRunId?: string): Promise<void>;
+  handleLLMEnd(
+    output: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  handleLLMError(
+    error: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  handleToolStart(
+    tool: unknown,
+    input: string,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runName?: string,
+  ): Promise<void>;
+  handleToolEnd(
+    output: string,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  handleToolError(
+    error: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
   handleChainStart(
     chain: unknown,
     inputs: Record<string, unknown>,
     runId: string,
     parentRunId?: string,
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runType?: string,
+    runName?: string,
   ): Promise<void>;
   handleChainEnd(
     outputs: Record<string, unknown>,
     runId: string,
     parentRunId?: string,
+    tags?: string[],
   ): Promise<void>;
-  handleChainError(error: unknown, runId: string, parentRunId?: string): Promise<void>;
+  handleChainError(
+    error: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  /** Agent action callback — emitted when a LangChain agent decides to call a tool. */
+  handleAgentAction(
+    action: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  /**
+   * Agent end callback — emitted when a LangChain agent finishes.
+   *
+   * Real TS LangChain calls this `handleAgentEnd`. The legacy alias
+   * `handleAgentFinish` is also exposed below for older callers.
+   */
+  handleAgentEnd(
+    finish: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
+  /** Legacy alias for `handleAgentEnd` — kept for backwards compatibility. */
+  handleAgentFinish(
+    finish: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void>;
 }
 
 /** Result returned by `createLangChainTracer`. */
@@ -189,13 +276,39 @@ export async function createLangChainTracer(
   // Callback handler — matches LangChain's BaseCallbackHandler signature
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // Agent end callback — defined as a standalone function so the public
+  // handler can expose it under both `handleAgentEnd` (real TS LangChain
+  // method) and `handleAgentFinish` (legacy alias) without duplicating the
+  // body or tripping the per-function line limit.
+  // -------------------------------------------------------------------------
+
+  async function feedAgentEnd(
+    finish: unknown,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+  ): Promise<void> {
+    feedEvent({ _callback: "handleAgentFinish", finish, runId, parentRunId, tags });
+    await awaitQueue();
+  }
+
   const handler: LangChainCallbackHandlerMinimal = {
+    // LangChain awaits our handlers inline when this flag is true. Without it,
+    // the callback manager fire-and-forgets and `handle.shutdown()` races the
+    // in-flight callbacks, silently dropping `tool_result` / `llm_response`
+    // events. See the block comment on `LangChainCallbackHandlerMinimal`.
+    awaitHandlers: true,
+
     async handleLLMStart(
       serialized: unknown,
       prompts: string[],
       runId: string,
       parentRunId?: string,
       extraParams?: Record<string, unknown>,
+      tags?: string[],
+      metadata?: Record<string, unknown>,
+      runName?: string,
     ): Promise<void> {
       feedEvent({
         _callback: "handleLLMStart",
@@ -203,21 +316,34 @@ export async function createLangChainTracer(
         prompts,
         runId,
         parentRunId,
+        extraParams,
+        tags,
+        metadata,
+        runName,
+        // Legacy `name` extraction kept so existing tests that pass the model
+        // name via extraParams.name continue to work.
         ...(typeof extraParams?.name === "string" ? { name: extraParams.name } : {}),
-        ...(extraParams?.metadata != null && typeof extraParams.metadata === "object"
-          ? { metadata: extraParams.metadata }
-          : {}),
       });
       await awaitQueue();
     },
 
-    async handleLLMEnd(output: unknown, runId: string, parentRunId?: string): Promise<void> {
-      feedEvent({ _callback: "handleLLMEnd", output, runId, parentRunId });
+    async handleLLMEnd(
+      output: unknown,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleLLMEnd", output, runId, parentRunId, tags });
       await awaitQueue();
     },
 
-    async handleLLMError(error: unknown, runId: string, parentRunId?: string): Promise<void> {
-      feedEvent({ _callback: "handleLLMError", error, runId, parentRunId });
+    async handleLLMError(
+      error: unknown,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleLLMError", error, runId, parentRunId, tags });
       await awaitQueue();
     },
 
@@ -226,18 +352,40 @@ export async function createLangChainTracer(
       input: string,
       runId: string,
       parentRunId?: string,
+      tags?: string[],
+      metadata?: Record<string, unknown>,
+      runName?: string,
     ): Promise<void> {
-      feedEvent({ _callback: "handleToolStart", tool, input, runId, parentRunId });
+      feedEvent({
+        _callback: "handleToolStart",
+        tool,
+        input,
+        runId,
+        parentRunId,
+        tags,
+        metadata,
+        runName,
+      });
       await awaitQueue();
     },
 
-    async handleToolEnd(output: string, runId: string, parentRunId?: string): Promise<void> {
-      feedEvent({ _callback: "handleToolEnd", output, runId, parentRunId });
+    async handleToolEnd(
+      output: string,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleToolEnd", output, runId, parentRunId, tags });
       await awaitQueue();
     },
 
-    async handleToolError(error: unknown, runId: string, parentRunId?: string): Promise<void> {
-      feedEvent({ _callback: "handleToolError", error, runId, parentRunId });
+    async handleToolError(
+      error: unknown,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleToolError", error, runId, parentRunId, tags });
       await awaitQueue();
     },
 
@@ -246,8 +394,22 @@ export async function createLangChainTracer(
       inputs: Record<string, unknown>,
       runId: string,
       parentRunId?: string,
+      tags?: string[],
+      metadata?: Record<string, unknown>,
+      runType?: string,
+      runName?: string,
     ): Promise<void> {
-      feedEvent({ _callback: "handleChainStart", chain, inputs, runId, parentRunId });
+      feedEvent({
+        _callback: "handleChainStart",
+        chain,
+        inputs,
+        runId,
+        parentRunId,
+        tags,
+        metadata,
+        runType,
+        runName,
+      });
       await awaitQueue();
     },
 
@@ -255,15 +417,34 @@ export async function createLangChainTracer(
       outputs: Record<string, unknown>,
       runId: string,
       parentRunId?: string,
+      tags?: string[],
     ): Promise<void> {
-      feedEvent({ _callback: "handleChainEnd", outputs, runId, parentRunId });
+      feedEvent({ _callback: "handleChainEnd", outputs, runId, parentRunId, tags });
       await awaitQueue();
     },
 
-    async handleChainError(error: unknown, runId: string, parentRunId?: string): Promise<void> {
-      feedEvent({ _callback: "handleChainError", error, runId, parentRunId });
+    async handleChainError(
+      error: unknown,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleChainError", error, runId, parentRunId, tags });
       await awaitQueue();
     },
+
+    async handleAgentAction(
+      action: unknown,
+      runId: string,
+      parentRunId?: string,
+      tags?: string[],
+    ): Promise<void> {
+      feedEvent({ _callback: "handleAgentAction", action, runId, parentRunId, tags });
+      await awaitQueue();
+    },
+
+    handleAgentEnd: feedAgentEnd,
+    handleAgentFinish: feedAgentEnd,
   };
 
   // -------------------------------------------------------------------------
