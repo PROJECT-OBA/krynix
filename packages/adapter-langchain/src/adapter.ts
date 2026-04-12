@@ -14,9 +14,10 @@
  * // In a LangChain callback handler:
  * const traceEvent = adapter.onEvent({
  *   _callback: "handleToolStart",
- *   tool: { name: "search" },
+ *   tool: { lc: 1, type: "not_implemented", id: ["langchain", "tools", "Calculator"] },
  *   input: "query string",
  *   runId: "run-123",
+ *   runName: "my_calculator",
  * });
  * ```
  *
@@ -146,8 +147,16 @@ export class LangChainAdapter implements TraceAdapter {
       return null;
     }
 
+    // Normalize `handleAgentEnd` (the real TS LangChain method name) to the
+    // adapter's internal `handleAgentFinish` name. Both are in KNOWN_CALLBACKS
+    // so direct adapter callers can use either form without a silent drop.
+    const normalizedEvent: unknown =
+      raw["_callback"] === "handleAgentEnd"
+        ? { ...raw, _callback: "handleAgentFinish" }
+        : externalEvent;
+
     try {
-      const event = externalEvent as LangChainCallbackEvent;
+      const event = normalizedEvent as LangChainCallbackEvent;
       return this.mapCallbackEvent(event);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -175,10 +184,17 @@ export class LangChainAdapter implements TraceAdapter {
 
     switch (event._callback) {
       case "handleLLMStart": {
-        // Model name resolution cascade: runName → serialized.id[-1] → legacy
-        // event.name → serialized.name → "unknown". `event.name` is kept as a
-        // mid-priority fallback so existing tests using `{ name: "gpt-4" }`
-        // still resolve correctly.
+        // Model name resolution cascade (highest priority first):
+        //   1. event.runName  — user-supplied name for this invocation
+        //   2. event.name     — legacy Krynix-internal field (kept for back-compat tests)
+        //   3. serialized.id[-1] — class name from real LangChain Serialized
+        //   4. serialized.name   — fictional Krynix field (back-compat only)
+        //   5. "unknown"         — last resort
+        //
+        // Note: steps 1 and 2 are folded into a single `runName ?? name`
+        // argument to `resolveSerializedName` because `event.name` was the
+        // field legacy tests set; real LangChain passes the model class name
+        // via `serialized.id[-1]` instead.
         const model = resolveSerializedName(
           event.serialized,
           event.runName ?? event.name,
@@ -222,13 +238,13 @@ export class LangChainAdapter implements TraceAdapter {
         // tool.name → "unknown_tool". This is the central fix for the
         // chain-of-trust bug — real LangChain Serialized has no `name` field,
         // so the old `event.tool?.name` lookup always fell back.
+        //
+        // If all cascade steps fail (no runName, no tool.id, no legacy name),
+        // the event is still emitted with tool_name: "unknown_tool" rather than
+        // dropped. This is a degraded-but-observable emission — not a skip —
+        // so onSkippedEvent is intentionally NOT called. Integrators can detect
+        // this case by checking for tool_name === "unknown_tool" in the trace.
         const toolName = resolveSerializedName(event.tool, event.runName, "unknown_tool");
-        if (toolName === "unknown_tool") {
-          this.onSkippedEvent?.(
-            "tool name unresolved (no runName, no tool.id, no legacy tool.name)",
-            event,
-          );
-        }
         this.runIdToToolName.set(event.runId, toolName);
         this.runIdToStartTime.set(event.runId, Date.now());
         return {
