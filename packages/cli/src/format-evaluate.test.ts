@@ -84,7 +84,12 @@ describe("formatEvaluateText", () => {
           policyName: "test.policy.yaml",
           result: makeResult({
             warnings: [
-              "Rule 'r1' defines on_violation.notify but notification delivery is not yet implemented (PLANNED).",
+              {
+                code: "ON_VIOLATION_NOTIFY_NOT_IMPLEMENTED",
+                ruleId: "r1",
+                message:
+                  "Rule 'r1' defines on_violation.notify but notification delivery is not yet implemented (PLANNED). If this rule triggers a violation, the violation will still be recorded.",
+              },
             ],
           }),
         },

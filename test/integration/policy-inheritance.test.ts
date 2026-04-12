@@ -333,8 +333,7 @@ describe("Streaming validator pipeline", () => {
       session,
       makePartial("tool_result", {
         tool_name: "file_read",
-        result: "contents",
-        success: true,
+        output: "contents",
         duration_ms: 100,
       }),
     );
