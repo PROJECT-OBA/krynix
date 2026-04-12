@@ -21,6 +21,8 @@ Define the canonical, decision-making architecture for the Krynix platform direc
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/replay/src/golden-validator.ts`
 - [CURRENT] Deterministic trace production exists through canonical JSON + hash chain + seeded session/event generation (when seed is provided).
   Evidence: `packages/core/src/canonical-json.ts`, `packages/core/src/session.ts`, `packages/core/src/trace-writer.ts`
+- [CURRENT] Hash chain validation proves tamper-detection of recorded data. Correctness of recorded data (e.g. that `tool_name` reflects the real tool, not a fallback) is the responsibility of the adapter layer and must be verified by integration tests against real framework output.
+  Evidence: `packages/core/src/hash-chain.ts`, `packages/adapter-langchain/src/e2e-langchain.test.ts`
 - [CURRENT] Closed-assistant integrations (Copilot/Claude/Codex style) follow an observable-only contract and do not claim hidden internal reasoning access.
   Evidence: `docs/10_architecture/integration_blueprints.md`, `docs/10_architecture/determinism_spec.md`
 - [PARTIAL] Replay behavior assurance is comparison-based and does not execute live agent logic today.

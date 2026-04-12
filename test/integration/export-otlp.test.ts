@@ -79,8 +79,7 @@ describe("OTLP export pipeline", () => {
       session,
       makePartial("tool_result", {
         tool_name: "file_read",
-        result: "file contents",
-        success: true,
+        output: "file contents",
         duration_ms: 150,
       }),
     );

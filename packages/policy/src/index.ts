@@ -37,6 +37,7 @@ export {
   evaluate,
   type PolicyVerdict,
   type Violation,
+  type PolicyWarning,
   type EvaluationResult,
 } from "./evaluator.js";
 

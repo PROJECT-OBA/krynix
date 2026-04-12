@@ -34,7 +34,8 @@ export function formatEvaluateText(output: AggregateOutput): string {
       lines.push("");
       lines.push("Warnings:");
       for (const w of result.warnings) {
-        lines.push(`  - ${w}`);
+        const prefix = w.ruleId !== undefined ? `${w.code} (${w.ruleId})` : w.code;
+        lines.push(`  - [${prefix}] ${w.message}`);
       }
     }
 

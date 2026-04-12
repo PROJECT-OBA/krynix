@@ -45,7 +45,7 @@ export interface SessionConfig {
 
   /**
    * When true, `recordEvent` validates that payloads have the required fields
-   * for their declared `event_type`. Default: false (no validation).
+   * for their declared `event_type`. Default: true.
    */
   validatePayloads?: boolean;
 }
@@ -106,7 +106,8 @@ export async function startSession(config: SessionConfig): Promise<Session> {
   const rng = new SeededRandom(seed);
   const sessionId = rng.nextUUID();
 
-  const writer = new TraceWriter();
+  const shouldValidate = config.validatePayloads !== false;
+  const writer = new TraceWriter({ validateOnWrite: shouldValidate });
   await writer.open(config.outputPath);
 
   const internal: SessionInternal = {
@@ -114,7 +115,7 @@ export async function startSession(config: SessionConfig): Promise<Session> {
     writer,
     sequenceNum: 0,
     closed: false,
-    validatePayloads: config.validatePayloads === true,
+    validatePayloads: shouldValidate,
   };
 
   sessions.set(sessionId, internal);
