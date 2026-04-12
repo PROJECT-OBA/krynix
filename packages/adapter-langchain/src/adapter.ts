@@ -26,7 +26,7 @@
 import { SCHEMA_VERSION, KrynixError } from "@krynix/core";
 import type { TraceAdapter, AdapterConfig, TraceEvent, FinishReason } from "@krynix/core";
 import { KNOWN_CALLBACKS } from "./langchain-types.js";
-import type { LangChainCallbackEvent } from "./langchain-types.js";
+import type { LangChainCallbackEvent, Serialized } from "./langchain-types.js";
 
 /**
  * Maps a raw LangChain finish_reason string to the canonical FinishReason type.
@@ -42,6 +42,37 @@ function normalizeFinishReason(raw: unknown): FinishReason {
   if (raw === "length") return "max_tokens";
   if (raw === "tool_calls" || raw === "function_call") return "tool_use";
   return "stop";
+}
+
+/**
+ * Resolve the canonical name of a LangChain Serialized object.
+ *
+ * Cascade (highest priority first):
+ *   1. `runName`         — user-supplied via `invoke({ runName: "..." })`; most semantic
+ *   2. `serialized.id`   — class identity from real LangChain Serialized; e.g.
+ *                          `["langchain","tools","Calculator"]` → `"Calculator"`
+ *   3. `serialized.name` — legacy Krynix-fictional field; only for back-compat tests
+ *   4. `fallback`        — sentinel like `"unknown_tool"`
+ *
+ * This is the central fix for the `unknown_tool` chain-of-trust bug: real
+ * LangChain `Serialized = { lc, type, id, kwargs }` has no `name` field, so the
+ * old `serialized.name` lookup always fell back. Now `id.at(-1)` is the
+ * primary path for the real shape, with `runName` overriding when present.
+ */
+function resolveSerializedName(
+  serialized: Serialized | undefined,
+  runName: string | undefined,
+  fallback: string,
+): string {
+  if (typeof runName === "string" && runName.length > 0) return runName;
+  if (Array.isArray(serialized?.id) && serialized.id.length > 0) {
+    const last = serialized.id[serialized.id.length - 1];
+    if (typeof last === "string" && last.length > 0) return last;
+  }
+  if (typeof serialized?.name === "string" && serialized.name.length > 0) {
+    return serialized.name;
+  }
+  return fallback;
 }
 
 /**
@@ -143,18 +174,28 @@ export class LangChainAdapter implements TraceAdapter {
     const base = this.makeBase(event._callback, event.runId, event.parentRunId);
 
     switch (event._callback) {
-      case "handleLLMStart":
+      case "handleLLMStart": {
+        // Model name resolution cascade: runName → serialized.id[-1] → legacy
+        // event.name → serialized.name → "unknown". `event.name` is kept as a
+        // mid-priority fallback so existing tests using `{ name: "gpt-4" }`
+        // still resolve correctly.
+        const model = resolveSerializedName(
+          event.serialized,
+          event.runName ?? event.name,
+          "unknown",
+        );
         return {
           ...base,
           event_type: "llm_request",
           payload: {
-            model: event.name ?? event.serialized?.name ?? "unknown",
+            model,
             messages: (event.prompts ?? []).map((p) => ({ role: "user", content: p })),
             parameters: {
               ...(event.metadata ?? {}),
             },
           },
         } as unknown as TraceEvent;
+      }
 
       case "handleLLMEnd": {
         const texts = (event.output?.generations ?? []).flat().map((g) => g.text);
@@ -177,7 +218,17 @@ export class LangChainAdapter implements TraceAdapter {
       }
 
       case "handleToolStart": {
-        const toolName = event.tool?.name ?? "unknown_tool";
+        // Tool name resolution cascade: runName → tool.id[-1] → legacy
+        // tool.name → "unknown_tool". This is the central fix for the
+        // chain-of-trust bug — real LangChain Serialized has no `name` field,
+        // so the old `event.tool?.name` lookup always fell back.
+        const toolName = resolveSerializedName(event.tool, event.runName, "unknown_tool");
+        if (toolName === "unknown_tool") {
+          this.onSkippedEvent?.(
+            "tool name unresolved (no runName, no tool.id, no legacy tool.name)",
+            event,
+          );
+        }
         this.runIdToToolName.set(event.runId, toolName);
         this.runIdToStartTime.set(event.runId, Date.now());
         return {
@@ -213,18 +264,22 @@ export class LangChainAdapter implements TraceAdapter {
         } as unknown as TraceEvent;
       }
 
-      case "handleChainStart":
+      case "handleChainStart": {
+        // Chain name resolution cascade: runName → chain.id[-1] → legacy
+        // chain.name → "unknown_chain". Same fix as handleToolStart.
+        const chainName = resolveSerializedName(event.chain, event.runName, "unknown_chain");
         return {
           ...base,
           event_type: "observation",
           payload: {
             source: "langchain_chain_start",
             content: {
-              chain_name: event.chain?.name ?? "unknown_chain",
+              chain_name: chainName,
               inputs: event.inputs,
             },
           },
         } as unknown as TraceEvent;
+      }
 
       case "handleChainEnd":
         return {

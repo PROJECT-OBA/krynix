@@ -5,8 +5,39 @@
  * They are self-contained — no imports from or runtime dependency on LangChain.
  * They exist so the adapter can validate and cast incoming `unknown` events.
  *
+ * Real LangChain (langchain-core) passes a `Serialized` object whose meaningful
+ * identifier lives in `id` (e.g. `["langchain", "tools", "Calculator"]`) and a
+ * separate `runName` parameter to start callbacks. The legacy `{ name }` shape
+ * was a Krynix-internal invention and is kept here only as a lowest-priority
+ * fallback for backwards compatibility — the adapter must NOT rely on it for
+ * real LangChain output.
+ *
  * @module
  */
+
+// ---------------------------------------------------------------------------
+// LangChain Serialized shape
+// ---------------------------------------------------------------------------
+
+/**
+ * The shape LangChain passes as the first argument of `handleLLMStart`,
+ * `handleToolStart`, and `handleChainStart`.
+ *
+ * Real LangChain `Serialized` has `lc`, `type`, `id`, `kwargs`. The class name
+ * (e.g. `"Calculator"`, `"ChatOpenAI"`) is the LAST element of `id`.
+ *
+ * `name` is the legacy Krynix-fictional field and is preserved only so existing
+ * mock-shape tests continue to pass — it should not appear in real LangChain
+ * traffic.
+ */
+export interface Serialized {
+  lc?: number;
+  type?: string;
+  id?: string[];
+  kwargs?: Record<string, unknown>;
+  /** Legacy/test compatibility — real LangChain Serialized does not include `name`. */
+  name?: string;
+}
 
 // ---------------------------------------------------------------------------
 // LangChain callback event shapes
@@ -15,11 +46,15 @@
 /** Matches the shape of LangChain's handleLLMStart callback data. */
 export interface LangChainLlmStartEvent {
   _callback: "handleLLMStart";
-  serialized: { name?: string; id?: string[] };
+  serialized: Serialized;
   prompts: string[];
   runId: string;
   parentRunId?: string;
+  extraParams?: Record<string, unknown>;
+  tags?: string[];
   metadata?: Record<string, unknown>;
+  runName?: string;
+  /** Legacy field — superseded by `runName`. */
   name?: string;
 }
 
@@ -39,16 +74,19 @@ export interface LangChainLlmEndEvent {
   };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleToolStart callback data. */
 export interface LangChainToolStartEvent {
   _callback: "handleToolStart";
-  tool: { name?: string; id?: string[] };
+  tool: Serialized;
   input: string;
   runId: string;
   parentRunId?: string;
+  tags?: string[];
   metadata?: Record<string, unknown>;
+  runName?: string;
 }
 
 /** Matches the shape of LangChain's handleToolEnd callback data. */
@@ -57,16 +95,20 @@ export interface LangChainToolEndEvent {
   output: string;
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleChainStart callback data. */
 export interface LangChainChainStartEvent {
   _callback: "handleChainStart";
-  chain: { name?: string; id?: string[] };
+  chain: Serialized;
   inputs: Record<string, unknown>;
   runId: string;
   parentRunId?: string;
+  tags?: string[];
   metadata?: Record<string, unknown>;
+  runType?: string;
+  runName?: string;
 }
 
 /** Matches the shape of LangChain's handleChainEnd callback data. */
@@ -75,6 +117,7 @@ export interface LangChainChainEndEvent {
   outputs: Record<string, unknown>;
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleChainError callback data. */
@@ -83,6 +126,7 @@ export interface LangChainChainErrorEvent {
   error: { message: string; name?: string; stack?: string };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleLLMError callback data. */
@@ -91,6 +135,7 @@ export interface LangChainLlmErrorEvent {
   error: { message: string; name?: string; stack?: string };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleToolError callback data. */
@@ -99,6 +144,7 @@ export interface LangChainToolErrorEvent {
   error: { message: string; name?: string; stack?: string };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 /** Matches the shape of LangChain's handleAgentAction callback data. */
@@ -107,14 +153,23 @@ export interface LangChainAgentActionEvent {
   action: { tool: string; toolInput: unknown; log: string };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
-/** Matches the shape of LangChain's handleAgentFinish callback data. */
+/**
+ * Matches the shape of LangChain's `handleAgentEnd` callback data.
+ *
+ * Internally tagged as `handleAgentFinish` so the discriminated-union switch in
+ * the adapter can handle it under a single name. The TS LangChain method is
+ * named `handleAgentEnd`; the public handler exposes both names so any version
+ * of LangChain (or any consumer using the legacy name) routes correctly.
+ */
 export interface LangChainAgentFinishEvent {
   _callback: "handleAgentFinish";
   finish: { output: unknown; log: string };
   runId: string;
   parentRunId?: string;
+  tags?: string[];
 }
 
 // ---------------------------------------------------------------------------
