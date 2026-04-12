@@ -171,9 +171,17 @@ function isInScope(event: TraceEvent, agents: string[], eventTypes: string[]): b
 
 /**
  * Single-pass rule evaluation: iterates all per-event rules (skipping sequence
- * rules), evaluates each predicate exactly once, records every match into
- * `matchedRuleIds` for the RULE_NEVER_MATCHED diagnostic, and returns the
- * first matching rule for first-match-wins violation logic.
+ * rules), records every predicate match into `matchedRuleIds` for the
+ * RULE_NEVER_MATCHED diagnostic, and returns the first matching rule for
+ * first-match-wins violation logic.
+ *
+ * Optimisations:
+ *  - Rules already in `matchedRuleIds` are skipped (they can't become
+ *    "never-matched" regardless of this event, so no predicate evaluation
+ *    is needed — only the first-match-wins check matters, and that only
+ *    applies while `firstMatch` is still undefined).
+ *  - Once `firstMatch` is set AND every per-event rule is in
+ *    `matchedRuleIds`, the loop exits early.
  */
 function findMatchingRuleAndTrackAll(
   event: TraceEvent,
@@ -183,6 +191,18 @@ function findMatchingRuleAndTrackAll(
   let firstMatch: PolicyRule | undefined;
   for (const rule of rules) {
     if (rule.match.sequence !== undefined) continue;
+
+    // Already known to have matched a prior event — skip predicate work.
+    // We still need to check for first-match-wins, but only if we haven't
+    // found one yet (rules are ordered, so the first match is always the
+    // earliest rule whose predicate matches).
+    if (matchedRuleIds.has(rule.id)) {
+      if (firstMatch === undefined && matchRule(event, rule)) {
+        firstMatch = rule;
+      }
+      continue;
+    }
+
     if (matchRule(event, rule)) {
       matchedRuleIds.add(rule.id);
       if (firstMatch === undefined) {
