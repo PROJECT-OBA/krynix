@@ -1,6 +1,6 @@
 {
   "name": "@krynix/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Core primitives for Krynix: trace events, hash chains, sessions, canonical JSON, and schema validation",
   "author": "PROJECT-OBA",
