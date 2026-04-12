@@ -1,6 +1,6 @@
 {
   "name": "@krynix/policy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Policy evaluation engine for Krynix: YAML policy parsing, rule matching, and trace evaluation",
   "author": "PROJECT-OBA",
