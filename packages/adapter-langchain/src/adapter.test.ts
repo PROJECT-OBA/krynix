@@ -876,7 +876,12 @@ describe("LangChainAdapter — name resolution cascade (real LangChain shapes)",
     expect(payload["tool_name"]).toBe("legacy_tool");
   });
 
-  test("handleToolStart emits onSkippedEvent when tool name is unresolvable", () => {
+  test("handleToolStart emits event with unknown_tool when tool name is unresolvable (not skipped)", () => {
+    // When the cascade finds no name, the event is still emitted with tool_name:
+    // "unknown_tool" — it is NOT dropped. onSkippedEvent must NOT be called because
+    // the event is observable in the trace (callers can detect this via tool_name ===
+    // "unknown_tool"). Calling onSkippedEvent here would violate the implied contract
+    // that it fires only when an event is dropped entirely.
     const skipped: Array<{ reason: string; event: unknown }> = [];
     cascadeAdapter.onSkippedEvent = (reason, event) => skipped.push({ reason, event });
 
@@ -890,8 +895,8 @@ describe("LangChainAdapter — name resolution cascade (real LangChain shapes)",
     const result = cascadeAdapter.onEvent(event);
     const payload = asPayload(result as TraceEvent);
     expect(payload["tool_name"]).toBe("unknown_tool");
-    expect(skipped.length).toBe(1);
-    expect(skipped[0]?.reason).toContain("tool name unresolved");
+    // Event was emitted — not dropped — so onSkippedEvent must NOT fire.
+    expect(skipped.length).toBe(0);
   });
 
   test("handleChainStart resolves chain name from real Serialized.id", () => {

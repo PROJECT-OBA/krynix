@@ -203,4 +203,8 @@ export const KNOWN_CALLBACKS = new Set([
   "handleToolError",
   "handleAgentAction",
   "handleAgentFinish",
+  // Real TS LangChain method is `handleAgentEnd`; the adapter normalises it to
+  // the internal `handleAgentFinish` name. Both are accepted here so direct
+  // adapter callers don't get a silent drop.
+  "handleAgentEnd",
 ]);

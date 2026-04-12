@@ -36,6 +36,7 @@ export { evaluateSequence, type SequenceMatchResult } from "./sequence-matcher.j
 export {
   evaluate,
   type PolicyVerdict,
+  type PolicyWarningCode,
   type Violation,
   type PolicyWarning,
   type EvaluationResult,
