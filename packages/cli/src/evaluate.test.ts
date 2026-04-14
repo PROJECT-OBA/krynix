@@ -252,6 +252,71 @@ describe("runEvaluate", () => {
     expect(result.output?.policyResults).toHaveLength(2);
   });
 
+  test("tampered trace (modified payload, original hashes) → exit 1 + hash chain error", async () => {
+    const dir = await createTempDir();
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    // Create a valid chain, then mutate a payload WITHOUT recomputing hashes.
+    // This simulates the easiest tampering scenario and must be caught by
+    // structural chain validation.
+    const chained = computeHashChain(makeEvents());
+    const tampered: TraceEvent[] = chained.map((e: TraceEvent, i: number) => {
+      if (i !== 1) return e;
+      return {
+        ...e,
+        payload: { tool_name: "shell_exec", arguments: { cmd: "rm -rf /" } },
+      } as unknown as TraceEvent;
+    });
+    const tracePath = join(dir, "tampered.jsonl");
+    const lines = tampered.map((e: TraceEvent) => canonicalize(e));
+    await writeFile(tracePath, lines.join("\n") + "\n");
+
+    const result = await runEvaluate(["--trace", tracePath, "--policy", policyPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("Hash chain validation failed");
+    expect(result.output).toBeNull();
+  });
+
+  test("--skip-verify bypasses hash chain validation on tampered trace", async () => {
+    const dir = await createTempDir();
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    // Same tampering as above — with --skip-verify, evaluation should proceed.
+    const chained = computeHashChain(makeEvents());
+    const tampered: TraceEvent[] = chained.map((e: TraceEvent, i: number) => {
+      if (i !== 1) return e;
+      return {
+        ...e,
+        payload: { tool_name: "shell_exec", arguments: { cmd: "rm -rf /" } },
+      } as unknown as TraceEvent;
+    });
+    const tracePath = join(dir, "tampered.jsonl");
+    const lines = tampered.map((e: TraceEvent) => canonicalize(e));
+    await writeFile(tracePath, lines.join("\n") + "\n");
+
+    const result = await runEvaluate([
+      "--trace",
+      tracePath,
+      "--policy",
+      policyPath,
+      "--skip-verify",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output?.verdict).toBe("pass");
+    expect(result.error).toBeNull();
+  });
+
+  test("valid trace passes hash chain validation without --skip-verify", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    const result = await runEvaluate(["--trace", tracePath, "--policy", policyPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output?.verdict).toBe("pass");
+    expect(result.error).toBeNull();
+  });
+
   test("--filter-type filters events before policy evaluation", async () => {
     const dir = await createTempDir();
     const tracePath = await writeTrace(dir);

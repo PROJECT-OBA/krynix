@@ -1,0 +1,135 @@
+/**
+ * CLI `sign` and `keygen` commands.
+ *
+ * `keygen` produces an Ed25519 keypair as two files (public + private PEM).
+ * `sign` reads a trace, computes signs its hash chain tip with a private key,
+ * and writes a `.sig` sidecar.
+ *
+ * Verification lives in `evaluate --public-key` (no separate verify command;
+ * the evaluate gate is where verification matters for CI).
+ *
+ * @module
+ */
+
+import { readFile, writeFile } from "node:fs/promises";
+import { readTrace, validateHashChain, signHashChain, generateSigningKeypair } from "@krynix/core";
+import { getArg } from "./arg-parser.js";
+
+/** Result of the sign command. */
+export interface SignResult {
+  exitCode: number;
+  output: { signaturePath: string; signature: string } | null;
+  error: string | null;
+}
+
+/** Result of the keygen command. */
+export interface KeygenResult {
+  exitCode: number;
+  output: { publicKeyPath: string; privateKeyPath: string } | null;
+  error: string | null;
+}
+
+/**
+ * Sign a trace's hash chain with an Ed25519 private key and write a sidecar.
+ *
+ * @param args - `["--trace", path, "--private-key", path, ?"--output", path]`
+ *               `--output` defaults to `<trace>.sig`.
+ */
+export async function runSign(args: string[]): Promise<SignResult> {
+  const tracePath = getArg(args, "--trace");
+  const privateKeyPath = getArg(args, "--private-key");
+  const outputPath = getArg(args, "--output");
+
+  if (tracePath === undefined) {
+    return { exitCode: 1, output: null, error: "Missing required argument: --trace" };
+  }
+  if (privateKeyPath === undefined) {
+    return { exitCode: 1, output: null, error: "Missing required argument: --private-key" };
+  }
+
+  let trace;
+  try {
+    trace = await readTrace(tracePath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}` };
+  }
+
+  // Always verify chain integrity before signing — signing a broken chain
+  // would produce a signature that will never verify, and silently too.
+  const chainResult = validateHashChain(trace);
+  if (!chainResult.valid) {
+    return {
+      exitCode: 1,
+      output: null,
+      error: `Refusing to sign: hash chain is not valid (${chainResult.error ?? "unknown error"})`,
+    };
+  }
+
+  let privateKeyPem: string;
+  try {
+    privateKeyPem = await readFile(privateKeyPath, "utf-8");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      exitCode: 1,
+      output: null,
+      error: `Failed to read private key at ${privateKeyPath}: ${message}`,
+    };
+  }
+
+  let signature: string;
+  try {
+    signature = signHashChain(trace, privateKeyPem);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Signing failed: ${message}` };
+  }
+
+  const signaturePath = outputPath ?? `${tracePath}.sig`;
+  try {
+    await writeFile(signaturePath, signature + "\n", "utf-8");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      exitCode: 1,
+      output: null,
+      error: `Failed to write signature to ${signaturePath}: ${message}`,
+    };
+  }
+
+  return { exitCode: 0, output: { signaturePath, signature }, error: null };
+}
+
+/**
+ * Generate an Ed25519 keypair and write the two PEM files.
+ *
+ * @param args - `["--out-private", path, "--out-public", path]`
+ */
+export async function runKeygen(args: string[]): Promise<KeygenResult> {
+  const privateOut = getArg(args, "--out-private");
+  const publicOut = getArg(args, "--out-public");
+
+  if (privateOut === undefined) {
+    return { exitCode: 1, output: null, error: "Missing required argument: --out-private" };
+  }
+  if (publicOut === undefined) {
+    return { exitCode: 1, output: null, error: "Missing required argument: --out-public" };
+  }
+
+  const { privateKey, publicKey } = generateSigningKeypair();
+
+  try {
+    await writeFile(privateOut, privateKey, { encoding: "utf-8", mode: 0o600 });
+    await writeFile(publicOut, publicKey, "utf-8");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Failed to write key file: ${message}` };
+  }
+
+  return {
+    exitCode: 0,
+    output: { publicKeyPath: publicOut, privateKeyPath: privateOut },
+    error: null,
+  };
+}

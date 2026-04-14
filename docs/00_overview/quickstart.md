@@ -143,7 +143,7 @@ node krynix.cjs evaluate \
   run: node krynix.cjs evaluate --trace ./traces/my-agent-session.trace.jsonl --policy ./policies/
 ```
 
-That's it. Your agent now has tamper-proof trace logging and policy enforcement in CI.
+That's it. Your agent now has integrity-checked trace logging and policy enforcement in CI. For full tamper-evidence against intentional modification, generate a signing keypair (`krynix keygen`), sign traces after capture (`krynix sign`), and verify them during evaluation (`krynix evaluate --public-key`). See [Security & Integrity](security-and-integrity.md).
 
 ## What's Next
 
