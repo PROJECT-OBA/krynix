@@ -41,7 +41,7 @@ Revenue hypotheses (not validated):
 ## Competitive Positioning
 
 - **Primary wedge:** "Agent Evals + Guardrails in CI"
-- **Differentiation:** [PLANNED] Deterministic execution replay (provable reproducibility), [CURRENT] hash-chain tamper evidence, [CURRENT] CI-first enforcement
+- **Differentiation:** [PLANNED] Deterministic execution replay (provable reproducibility), [CURRENT] hash-chain structural integrity + [CURRENT] opt-in Ed25519 tamper-evidence (signed traces verified via `evaluate --public-key`), [CURRENT] CI-first enforcement
 - **What Krynix is NOT (OSS default):** A universal runtime gateway, SOC dashboard, or execution sandbox. OSS default is post-hoc verification and CI enforcement. In sidecar/hybrid deployments, a control surface may provide inline enforcement, but this is deployment-specific and not the OSS default posture.
 
 ---

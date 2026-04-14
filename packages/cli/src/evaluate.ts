@@ -10,11 +10,16 @@
 
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { readTrace, filterTraceEvents } from "@krynix/core";
+import {
+  readTrace,
+  filterTraceEvents,
+  validateHashChain,
+  verifyHashChainSignature,
+} from "@krynix/core";
 import type { EnvironmentContext } from "@krynix/core";
 import { parsePolicy, evaluate } from "@krynix/policy";
 import type { Policy, EvaluationResult } from "@krynix/policy";
-import { getArg, getAllArgs } from "./arg-parser.js";
+import { getArg, getAllArgs, hasFlag } from "./arg-parser.js";
 import { buildEnvironmentContext } from "./env-flags.js";
 
 /** Supported output formats. */
@@ -81,6 +86,67 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { exitCode: 1, output: null, error: `Failed to read trace: ${message}`, format };
+  }
+
+  // Verify hash chain integrity before evaluating policy (default ON).
+  // Use --skip-verify to bypass (e.g., for manually constructed test traces).
+  //
+  // Note (CLAIMS): this verifies STRUCTURAL integrity only — catches naive
+  // tampering and corruption. A full chain regeneration over tampered data
+  // will still pass. For cryptographic tamper-evidence against intentional
+  // modification, also pass --public-key (verified below).
+  if (!hasFlag(args, "--skip-verify")) {
+    const chainResult = validateHashChain(trace);
+    if (!chainResult.valid) {
+      return {
+        exitCode: 1,
+        output: null,
+        error: `Hash chain validation failed: ${chainResult.error ?? "unknown error"}. Use --skip-verify to bypass (not recommended for production).`,
+        format,
+      };
+    }
+  }
+
+  // Optional Ed25519 signature verification. When --public-key is provided,
+  // read the signature (sidecar `<trace>.sig` by default, or --signature path)
+  // and verify the chain tip matches. This is the tamper-evidence primitive
+  // that structural chain validation alone cannot provide.
+  const publicKeyPath = getArg(args, "--public-key");
+  if (publicKeyPath !== undefined) {
+    const signaturePath = getArg(args, "--signature") ?? `${tracePath}.sig`;
+    let publicKeyPem: string;
+    let signatureHex: string;
+    try {
+      publicKeyPem = await readFile(publicKeyPath, "utf-8");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        exitCode: 1,
+        output: null,
+        error: `Failed to read public key at ${publicKeyPath}: ${message}`,
+        format,
+      };
+    }
+    try {
+      signatureHex = (await readFile(signaturePath, "utf-8")).trim();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        exitCode: 1,
+        output: null,
+        error: `Failed to read signature at ${signaturePath}: ${message}`,
+        format,
+      };
+    }
+    const sigValid = verifyHashChainSignature(trace, signatureHex, publicKeyPem);
+    if (!sigValid) {
+      return {
+        exitCode: 1,
+        output: null,
+        error: `Signature verification failed: trace tip does not match the signature under the provided public key. The trace may have been tampered with, signed by a different key, or the signature file may be corrupted.`,
+        format,
+      };
+    }
   }
 
   // Apply filters

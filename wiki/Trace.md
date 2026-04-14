@@ -4,7 +4,7 @@ A **Trace** is an ordered, immutable sequence of **TraceEvents** representing on
 
 ## Overview
 
-Every action, decision, and observation an agent makes is recorded as a `TraceEvent`. Events are linked together with a SHA-256 hash chain, making the entire trace tamper-evident. Traces are stored as `.trace.jsonl` files (JSON Lines, one event per line, UTF-8 encoded).
+Every action, decision, and observation an agent makes is recorded as a `TraceEvent`. Events are linked together with a SHA-256 hash chain, giving the trace **structural integrity** (naive tampering and corruption are caught by `validateHashChain`). For **cryptographic tamper-evidence** against intentional modification including chain regeneration, sign the trace with an Ed25519 key (`krynix sign`) and verify on evaluation (`krynix evaluate --public-key`). Traces are stored as `.trace.jsonl` files (JSON Lines, one event per line, UTF-8 encoded). Signatures are stored as `<trace>.jsonl.sig` sidecars (schema v2.0.0 will promote these into the envelope).
 
 ```
 Agent Framework  -->  Trace Adapter  -->  Redaction  -->  Hash Chain  -->  .trace.jsonl
