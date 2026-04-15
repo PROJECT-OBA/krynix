@@ -1,6 +1,8 @@
 import { describe, test, expect } from "vitest";
+import { sign as cryptoSign, createPrivateKey } from "node:crypto";
 import { computeHashChain } from "./hash-chain.js";
 import { generateSigningKeypair, signHashChain, verifyHashChainSignature } from "./signing.js";
+import { KrynixError } from "./errors.js";
 import type { TraceEvent } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -125,15 +127,105 @@ describe("signHashChain / verifyHashChainSignature", () => {
   test("signing empty chain throws EMPTY_CHAIN", () => {
     const { privateKey } = generateSigningKeypair();
     expect(() => signHashChain([], privateKey)).toThrow(/empty/i);
+    try {
+      signHashChain([], privateKey);
+    } catch (err) {
+      expect(err).toBeInstanceOf(KrynixError);
+      expect((err as KrynixError).code).toBe("EMPTY_CHAIN");
+    }
   });
 
-  test("signing chain without computed hashes throws EMPTY_CHAIN", () => {
+  test("signing chain whose tip is missing event_hash throws HASH_CHAIN_NOT_COMPUTED", () => {
+    // Distinct from EMPTY_CHAIN: the array is non-empty but the tip never
+    // had hashes computed. A separate code makes this programmatically
+    // distinguishable from the truly-empty case.
     const { privateKey } = generateSigningKeypair();
     expect(() => signHashChain(makeEvents(), privateKey)).toThrow(/computeHashChain/);
+    try {
+      signHashChain(makeEvents(), privateKey);
+    } catch (err) {
+      expect(err).toBeInstanceOf(KrynixError);
+      expect((err as KrynixError).code).toBe("HASH_CHAIN_NOT_COMPUTED");
+    }
+  });
+
+  test("signing chain whose tip event_hash is malformed (wrong length) throws HASH_CHAIN_NOT_COMPUTED", () => {
+    const { privateKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const corrupted = [
+      ...chain.slice(0, -1),
+      { ...chain[chain.length - 1], event_hash: "abc" } as unknown as TraceEvent,
+    ];
+    try {
+      signHashChain(corrupted, privateKey);
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(KrynixError);
+      expect((err as KrynixError).code).toBe("HASH_CHAIN_NOT_COMPUTED");
+    }
+  });
+
+  test("signing chain whose tip event_hash is uppercase hex throws (strict lowercase contract)", () => {
+    // computeHashChain emits lowercase hex; uppercase indicates corruption
+    // or a non-canonical writer. Reject so the signature primitive's input
+    // stays strictly defined.
+    const { privateKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const tip = chain[chain.length - 1] as TraceEvent;
+    const upperTip = { ...tip, event_hash: tip.event_hash.toUpperCase() } as TraceEvent;
+    const corrupted = [...chain.slice(0, -1), upperTip];
+    try {
+      signHashChain(corrupted, privateKey);
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(KrynixError);
+      expect((err as KrynixError).code).toBe("HASH_CHAIN_NOT_COMPUTED");
+    }
   });
 
   test("signing with malformed private key throws INVALID_KEY", () => {
     expect(() => signHashChain(makeChain(), "not-a-pem-key")).toThrow(/private key/);
+    try {
+      signHashChain(makeChain(), "not-a-pem-key");
+    } catch (err) {
+      expect(err).toBeInstanceOf(KrynixError);
+      expect((err as KrynixError).code).toBe("INVALID_KEY");
+    }
+  });
+
+  test("signs the raw 32-byte digest, not the textual hex encoding", () => {
+    // This is the language-agnostic invariant: a verifier in any language can
+    // reproduce the signature input by hex-decoding the tip's event_hash, with
+    // no dependence on case, encoding, or whitespace of the textual form.
+    // If anyone ever reverts the implementation to sign UTF-8 of the hex
+    // string, this test fails.
+    const { privateKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const tip = chain[chain.length - 1] as TraceEvent;
+
+    const sigFromImpl = signHashChain(chain, privateKey);
+
+    // Independently sign the raw digest bytes via node:crypto.
+    const keyObject = createPrivateKey(privateKey);
+    const expectedSig = cryptoSign(null, Buffer.from(tip.event_hash, "hex"), keyObject).toString(
+      "hex",
+    );
+
+    expect(sigFromImpl).toBe(expectedSig);
+  });
+
+  test("verification of malformed tip event_hash returns false (does not throw)", () => {
+    // verifyHashChainSignature must never throw on attacker-controlled trace
+    // shape — it returns false instead. Tests both missing and malformed cases.
+    const { publicKey, privateKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const goodSig = signHashChain(chain, privateKey);
+
+    const tip = chain[chain.length - 1] as TraceEvent;
+    const malformedTip = { ...tip, event_hash: "not-hex-and-wrong-length" } as TraceEvent;
+    const corrupted = [...chain.slice(0, -1), malformedTip];
+
+    expect(verifyHashChainSignature(corrupted, goodSig, publicKey)).toBe(false);
   });
 
   test("verification of empty chain returns false", () => {
