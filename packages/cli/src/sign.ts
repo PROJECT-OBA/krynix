@@ -2,8 +2,8 @@
  * CLI `sign` and `keygen` commands.
  *
  * `keygen` produces an Ed25519 keypair as two files (public + private PEM).
- * `sign` reads a trace, computes signs its hash chain tip with a private key,
- * and writes a `.sig` sidecar.
+ * `sign` reads a trace, validates its hash chain, signs the tip with a
+ * private key, and writes a `.sig` sidecar.
  *
  * Verification lives in `evaluate --public-key` (no separate verify command;
  * the evaluate gate is where verification matters for CI).
@@ -11,7 +11,7 @@
  * @module
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, chmod } from "node:fs/promises";
 import { readTrace, validateHashChain, signHashChain, generateSigningKeypair } from "@krynix/core";
 import { getArg } from "./arg-parser.js";
 
@@ -120,7 +120,12 @@ export async function runKeygen(args: string[]): Promise<KeygenResult> {
   const { privateKey, publicKey } = generateSigningKeypair();
 
   try {
+    // writeFile's `mode` option only applies when the file is newly created.
+    // Explicit chmod ensures 0600 even if --out-private points to a pre-existing
+    // file with looser permissions. Failing the chmod is a hard error: the
+    // private key must not be left readable to other users.
     await writeFile(privateOut, privateKey, { encoding: "utf-8", mode: 0o600 });
+    await chmod(privateOut, 0o600);
     await writeFile(publicOut, publicKey, "utf-8");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

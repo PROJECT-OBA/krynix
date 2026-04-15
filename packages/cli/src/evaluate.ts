@@ -88,6 +88,25 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     return { exitCode: 1, output: null, error: `Failed to read trace: ${message}`, format };
   }
 
+  // Reject the incoherent --skip-verify + --public-key combination.
+  // Signature verification only authenticates the chain tip's event_hash
+  // value. Without structural chain validation, an attacker can mutate
+  // earlier event payloads without recomputing the chain — the tip's
+  // event_hash field still matches the signature, but the event payloads
+  // no longer hash to those values. Allowing this combo would silently
+  // weaken the signing guarantee.
+  const publicKeyPath = getArg(args, "--public-key");
+  const skipVerify = hasFlag(args, "--skip-verify");
+  if (skipVerify && publicKeyPath !== undefined) {
+    return {
+      exitCode: 1,
+      output: null,
+      error:
+        "--skip-verify cannot be combined with --public-key: signature verification requires structural chain validation to be meaningful.",
+      format,
+    };
+  }
+
   // Verify hash chain integrity before evaluating policy (default ON).
   // Use --skip-verify to bypass (e.g., for manually constructed test traces).
   //
@@ -95,7 +114,7 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   // tampering and corruption. A full chain regeneration over tampered data
   // will still pass. For cryptographic tamper-evidence against intentional
   // modification, also pass --public-key (verified below).
-  if (!hasFlag(args, "--skip-verify")) {
+  if (!skipVerify) {
     const chainResult = validateHashChain(trace);
     if (!chainResult.valid) {
       return {
@@ -111,7 +130,6 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
   // read the signature (sidecar `<trace>.sig` by default, or --signature path)
   // and verify the chain tip matches. This is the tamper-evidence primitive
   // that structural chain validation alone cannot provide.
-  const publicKeyPath = getArg(args, "--public-key");
   if (publicKeyPath !== undefined) {
     const signaturePath = getArg(args, "--signature") ?? `${tracePath}.sig`;
     let publicKeyPem: string;

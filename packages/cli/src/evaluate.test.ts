@@ -317,6 +317,33 @@ describe("runEvaluate", () => {
     expect(result.error).toBeNull();
   });
 
+  test("--skip-verify combined with --public-key is rejected", async () => {
+    // Allowing both would silently weaken the signing guarantee: the signature
+    // only authenticates the tip's event_hash value, not that earlier event
+    // payloads still hash to the chained values. Without chain validation, an
+    // attacker can mutate earlier payloads without recomputing the chain and
+    // still pass signature verification. Reject the combo with a clear error.
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+    // The public key file does not need to exist — the rejection happens
+    // before any file IO on the signing inputs.
+    const publicKeyPath = `${dir}/public.pem`;
+
+    const result = await runEvaluate([
+      "--trace",
+      tracePath,
+      "--policy",
+      policyPath,
+      "--skip-verify",
+      "--public-key",
+      publicKeyPath,
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBeNull();
+    expect(result.error).toContain("--skip-verify cannot be combined with --public-key");
+  });
+
   test("--filter-type filters events before policy evaluation", async () => {
     const dir = await createTempDir();
     const tracePath = await writeTrace(dir);
