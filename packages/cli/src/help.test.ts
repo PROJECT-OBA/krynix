@@ -186,6 +186,35 @@ describe("getCommandHelp", () => {
     expect(help).toContain("auth create-key");
   });
 
+  test("evaluate help documents signing-related flags", () => {
+    const help = getCommandHelp("evaluate");
+    expect(help).toBeDefined();
+    expect(help).toContain("--skip-verify");
+    expect(help).toContain("--public-key");
+    expect(help).toContain("--signature");
+  });
+
+  test("sign help mentions --trace and --private-key", () => {
+    const help = getCommandHelp("sign");
+    expect(help).toBeDefined();
+    expect(help).toContain("--trace");
+    expect(help).toContain("--private-key");
+    expect(help).toContain("--output");
+  });
+
+  test("keygen help mentions --out-private and --out-public", () => {
+    const help = getCommandHelp("keygen");
+    expect(help).toBeDefined();
+    expect(help).toContain("--out-private");
+    expect(help).toContain("--out-public");
+  });
+
+  test("main help lists sign and keygen", () => {
+    const help = getMainHelp();
+    expect(help).toContain("sign");
+    expect(help).toContain("keygen");
+  });
+
   test("policy namespace includes pull and push subcommands", () => {
     const help = getCommandHelp("policy");
     expect(help).toBeDefined();

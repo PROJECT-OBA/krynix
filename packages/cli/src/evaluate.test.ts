@@ -252,6 +252,118 @@ describe("runEvaluate", () => {
     expect(result.output?.policyResults).toHaveLength(2);
   });
 
+  test("tampered trace (modified payload, original hashes) → exit 1 + hash chain error", async () => {
+    const dir = await createTempDir();
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    // Create a valid chain, then mutate a payload WITHOUT recomputing hashes.
+    // This simulates the easiest tampering scenario and must be caught by
+    // structural chain validation.
+    const chained = computeHashChain(makeEvents());
+    const tampered: TraceEvent[] = chained.map((e: TraceEvent, i: number) => {
+      if (i !== 1) return e;
+      return {
+        ...e,
+        payload: { tool_name: "shell_exec", arguments: { cmd: "rm -rf /" } },
+      } as unknown as TraceEvent;
+    });
+    const tracePath = join(dir, "tampered.jsonl");
+    const lines = tampered.map((e: TraceEvent) => canonicalize(e));
+    await writeFile(tracePath, lines.join("\n") + "\n");
+
+    const result = await runEvaluate(["--trace", tracePath, "--policy", policyPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("Hash chain validation failed");
+    expect(result.output).toBeNull();
+  });
+
+  test("--skip-verify bypasses hash chain validation on tampered trace", async () => {
+    const dir = await createTempDir();
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    // Same tampering as above — with --skip-verify, evaluation should proceed.
+    const chained = computeHashChain(makeEvents());
+    const tampered: TraceEvent[] = chained.map((e: TraceEvent, i: number) => {
+      if (i !== 1) return e;
+      return {
+        ...e,
+        payload: { tool_name: "shell_exec", arguments: { cmd: "rm -rf /" } },
+      } as unknown as TraceEvent;
+    });
+    const tracePath = join(dir, "tampered.jsonl");
+    const lines = tampered.map((e: TraceEvent) => canonicalize(e));
+    await writeFile(tracePath, lines.join("\n") + "\n");
+
+    const result = await runEvaluate([
+      "--trace",
+      tracePath,
+      "--policy",
+      policyPath,
+      "--skip-verify",
+    ]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output?.verdict).toBe("pass");
+    expect(result.error).toBeNull();
+  });
+
+  test("valid trace passes hash chain validation without --skip-verify", async () => {
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+
+    const result = await runEvaluate(["--trace", tracePath, "--policy", policyPath]);
+    expect(result.exitCode).toBe(0);
+    expect(result.output?.verdict).toBe("pass");
+    expect(result.error).toBeNull();
+  });
+
+  test("--skip-verify + --public-key rejection happens before reading the trace (fail-fast)", async () => {
+    // The coherence check must run before readTrace so that very large or
+    // non-existent traces don't incur I/O before the incoherent flag combo
+    // is rejected. Point --trace at a path that definitely does not exist
+    // and assert we still get the flag-combo error, NOT a "Failed to read
+    // trace" error.
+    const result = await runEvaluate([
+      "--trace",
+      "/nonexistent/path/definitely/does/not/exist.jsonl",
+      "--policy",
+      "/nonexistent/policy.yaml",
+      "--skip-verify",
+      "--public-key",
+      "/nonexistent/pub.pem",
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--skip-verify cannot be combined with --public-key");
+    expect(result.error).not.toContain("Failed to read trace");
+  });
+
+  test("--skip-verify combined with --public-key is rejected", async () => {
+    // Allowing both would silently weaken the signing guarantee: the signature
+    // only authenticates the tip's event_hash value, not that earlier event
+    // payloads still hash to the chained values. Without chain validation, an
+    // attacker can mutate earlier payloads without recomputing the chain and
+    // still pass signature verification. Reject the combo with a clear error.
+    const dir = await createTempDir();
+    const tracePath = await writeTrace(dir);
+    const policyPath = await writePolicy(dir, "allow.policy.yaml", ALLOW_POLICY);
+    // The public key file does not need to exist — the rejection happens
+    // before any file IO on the signing inputs.
+    const publicKeyPath = `${dir}/public.pem`;
+
+    const result = await runEvaluate([
+      "--trace",
+      tracePath,
+      "--policy",
+      policyPath,
+      "--skip-verify",
+      "--public-key",
+      publicKeyPath,
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBeNull();
+    expect(result.error).toContain("--skip-verify cannot be combined with --public-key");
+  });
+
   test("--filter-type filters events before policy evaluation", async () => {
     const dir = await createTempDir();
     const tracePath = await writeTrace(dir);

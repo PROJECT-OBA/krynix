@@ -13,15 +13,15 @@ These aren't hypothetical problems. They're blockers for any team that wants to 
 
 ## What Krynix Does
 
-Krynix is a trust and observability toolkit for AI agents. It records what your agent does, checks it against your rules, and proves the records haven't been tampered with.
+Krynix is a trust and observability toolkit for AI agents. It records what your agent does, checks it against your rules, and gives you cryptographic evidence that the records are authentic.
 
 Four capabilities, each solving one of the problems above:
 
 | Capability | What It Does | Analogy |
 |-----------|-------------|---------|
-| **Trace** | Records every action your agent takes — tool calls, LLM requests, decisions, errors — into a structured, tamper-evident log | A flight recorder for your AI agent |
+| **Trace** | Records every action your agent takes — tool calls, LLM requests, decisions, errors — into a structured, integrity-checked log (SHA-256 hash chain; optional Ed25519 signing for tamper-evidence) | A flight recorder for your AI agent |
 | **Evaluate** | Checks that log against rules you define in YAML: "never call shell commands," "only use approved models," "require approval for database writes" | ESLint for agent behavior, not code |
-| **Verify** | Proves the log hasn't been altered. Each event is cryptographically chained to the previous one using SHA-256 hashes. Break one link, and verification fails instantly | A wax seal on every page of a ledger |
+| **Verify** | Structural integrity via the hash chain catches naive tampering and corruption. Ed25519 signing (`krynix sign` + `evaluate --public-key`) catches intentional tampering including full chain regeneration. | A numbered ledger with a wax seal on the last page |
 | **Replay** | Verifies trace integrity — proves the log hasn't been altered or reordered. A library-level comparator (`PARTIAL`) can detect structural drift between two traces | Integrity seal + snapshot testing (planned for CLI) |
 
 ## How It Works

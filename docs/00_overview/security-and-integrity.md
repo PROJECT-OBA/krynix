@@ -18,14 +18,19 @@ Event 3: event.prev_hash = event2.hash, event.event_hash = "" → hash = SHA-256
 ...
 ```
 
-**What this detects:**
+**What the chain alone detects (structural integrity):**
 
-- **Modification** — Change any field in any event and its hash no longer matches. Every subsequent hash also breaks.
-- **Deletion** — Remove an event and the chain has a gap. The next event's `prev_hash` points to a hash that no longer exists in sequence.
-- **Reordering** — Swap two events and both their hashes break, because each depends on the previous event's hash.
-- **Insertion** — Add a fabricated event and the chain breaks at the insertion point.
+- **Naive modification** — Change any field in any event and its hash no longer matches, unless the attacker also rebuilds the chain.
+- **Naive deletion / insertion / reordering** — Any change that leaves the original hashes in place is caught.
+- **Accidental corruption** — Bit flips, truncation, and disk errors all break the chain.
 
-**Analogy:** Like a wax seal on each page of a ledger — break one seal, and you know the book was tampered with.
+**What the chain alone does NOT detect (this is the important caveat):**
+
+An attacker with write access to a trace file can mutate an event's payload and re-run `computeHashChain` over the result. The chain is self-consistent again; `validateHashChain` returns `valid: true`. There is no root of trust in the chain alone — it proves internal consistency, not authenticity.
+
+**What closes the gap: Ed25519 signing.** `krynix sign --trace <path> --private-key <path>` writes a cryptographic signature over the chain tip. `krynix evaluate --public-key <path>` verifies it. Because the attacker does not have the private key, they cannot produce a signature that verifies under the trusted public key — no matter how they rebuild the chain. This defeats regeneration, deletion + rebuild, insertion + rebuild, reorder + rebuild, and truncation.
+
+**Analogy:** The hash chain is numbered pages in a ledger — you can see if any page was torn out or substituted naively. The Ed25519 signature is the auditor's wax seal on the last page — if the ledger was rewritten from scratch, the seal still proves nothing in it is authentic.
 
 **Verification command:**
 
@@ -66,7 +71,7 @@ krynix replay --verify --trace session.trace.jsonl
 ```
 
 Checks:
-- Hash chain is unbroken (no tampering)
+- Hash chain is structurally unbroken (see caveat above — for tamper-evidence against regeneration, also verify the Ed25519 signature via `krynix evaluate --public-key`)
 - Events are ordered by `sequence_num`
 - Session is properly bookended (`session_start` and `session_end` lifecycle events)
 - Schema version is consistent
@@ -129,7 +134,7 @@ Krynix addresses six primary threats. Full details in [threat_model.md](../10_ar
 | **Privilege escalation** | Critical | External policy evaluation — the agent cannot modify its own policies. Hash chain proves the trace wasn't altered to hide escalation. |
 | **Secret exfiltration** | Critical | Redaction engine strips sensitive fields. Policies can deny network-capable tool calls. |
 | **Policy tampering** | Critical | Policies are version-controlled files reviewed via PR. CI enforces the committed version. |
-| **Trace tampering** | High | SHA-256 hash chain. Golden trace integrity verification in CI (`--golden-dir`). Any modification breaks the chain. |
+| **Trace tampering** | High | SHA-256 hash chain catches naive tampering and corruption. Ed25519 signing (`krynix sign` + `evaluate --public-key`) catches regeneration and other rebuild attacks — enforce `--public-key` in CI for tamper-evident guarantees. Golden trace integrity verification runs in CI (`--golden-dir`). |
 
 ### Effects-Based Security Model
 

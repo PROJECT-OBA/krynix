@@ -25,24 +25,32 @@
 
 Your AI agent runs autonomously — calling tools, querying LLMs, making decisions. But you can't answer:
 
-- **What did it do?** No structured, tamper-proof audit trail.
+- **What did it do?** No structured, integrity-checked audit trail.
 - **Did it follow the rules?** No automated policy enforcement.
 - **Has it changed?** No way to detect behavioral drift between runs.
 
 ## The Solution
 
-Krynix records every agent action into a tamper-proof trace, evaluates it against your policies, and verifies nothing was altered.
+Krynix records every agent action into a structured, integrity-checked trace, evaluates it against your policies, and — when signed — gives you cryptographic tamper-evidence.
 
 ```bash
 # 1. Your agent runs normally — adapter captures every event automatically
 #    → session.trace.jsonl (SHA-256 hash-chained log)
 
-# 2. Check policy compliance — exits non-zero on CI-failing violations
+# 2. Check policy compliance — exits non-zero on CI-failing violations.
+#    Hash-chain structural integrity is verified automatically; pass
+#    --public-key to also verify an Ed25519 signature (tamper-evident).
 krynix evaluate --trace session.trace.jsonl --policy policies/
 
-# 3. Verify integrity — prove the trace hasn't been tampered with
-krynix replay --verify --trace session.trace.jsonl
+# 3. (Optional) Sign traces for tamper-evidence against intentional modification:
+krynix keygen --out-private id.priv --out-public id.pub
+krynix sign --trace session.trace.jsonl --private-key id.priv
+krynix evaluate --trace session.trace.jsonl --policy policies/ --public-key id.pub
 ```
+
+Integrity model:
+- [CURRENT] **Structural integrity** (SHA-256 hash chain): detects naive tampering and corruption. Does **not** catch full-chain regeneration by an attacker with write access — use signing for that.
+- [CURRENT] **Tamper-evidence** (Ed25519 signing, optional): catches regeneration, deletion, insertion, and reorder attacks when `krynix sign` is used and `evaluate --public-key` is enforced.
 
 Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing critical · `3` needs approval. Wire into any CI pipeline.
 

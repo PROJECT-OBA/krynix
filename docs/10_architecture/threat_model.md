@@ -229,17 +229,19 @@ An attacker modifies trace files to hide malicious activity, make harmful action
 
 ### Mitigations
 
-1. **Hash Chain** — Every TraceEvent includes `prev_hash` (the hash of the previous event) and `event_hash` (the hash of the current event). Any modification to any event invalidates all subsequent hashes. Verification recomputes all hashes and checks the chain. See [trace_spec hash chain](trace_spec.md#hash-chain).
+1. **Hash Chain (structural integrity)** — Every TraceEvent includes `prev_hash` and `event_hash`. Any modification that does not also rebuild the chain is caught by `validateHashChain`. **Scope:** defeats naive tampering and accidental corruption only. An attacker with write access who runs `computeHashChain` over modified events produces a structurally valid chain — this is NOT caught by hash chain validation alone. See [trace_spec hash chain](trace_spec.md#hash-chain).
 
-2. **Golden Trace CI verification** — Golden Traces are committed to version control and verified on every CI build. Modifying a golden trace changes the file in Git, which is reviewable in the PR. See [determinism_spec golden trace testing](determinism_spec.md#golden-trace-testing).
+2. **Ed25519 hash-chain signing (cryptographic tamper-evidence)** — `krynix sign` produces an Ed25519 signature over the chain tip; `krynix evaluate --public-key` verifies it. Because the attacker lacks the private key, they cannot forge a signature that verifies under the trusted public key, no matter how they rebuild the chain. This is the mitigation that defeats regeneration, deletion, insertion, reorder, and truncation attacks. Signing is opt-in in v1.0.0 (callers must run `krynix sign` and verifiers must pass `--public-key`); a first-class envelope field and an auto-sign workflow on writer close are PLANNED for schema v2.0.0. See `packages/core/src/signing.ts`.
 
-3. **Trace validation on load** — Before policy evaluation or replay, the trace is validated: hash chain integrity, required fields, contiguous sequence numbers, proper lifecycle events. Invalid traces are rejected entirely.
+3. **Golden Trace CI verification** — Golden Traces are committed to version control and verified on every CI build. Modifying a golden trace changes the file in Git, which is reviewable in the PR. See [determinism_spec golden trace testing](determinism_spec.md#golden-trace-testing).
 
-4. **Future: cryptographic signing** — Hash chain signing with Ed25519 keys (planned for schema version `2.0.0`) will provide non-repudiation — proving not just that the trace is unmodified, but that it was produced by a specific trusted agent. See [trace_spec future work](trace_spec.md#future-work).
+4. **Trace validation on load** — Before policy evaluation or replay, the trace is validated: hash chain integrity, required fields, contiguous sequence numbers, proper lifecycle events. Invalid traces are rejected entirely. `krynix evaluate` runs structural validation by default (bypassable with `--skip-verify`) and additionally runs signature verification when `--public-key` is provided.
 
 ### Residual Risk
 
-Tampering at the point of trace creation (before the first hash is computed). If the trace capture mechanism itself is compromised, the hash chain protects fabricated data. Mitigation: trace capture runs in a trusted environment, separate from the agent runtime.
+- **Tampering at the point of trace creation** (before the first hash is computed and signed). If the trace capture mechanism itself is compromised, the hash chain and signature both endorse fabricated data. Mitigation: trace capture runs in a trusted environment, separate from the agent runtime; signing keys are held by the capturer, not the agent.
+- **Private-key compromise.** If the signing private key leaks, an attacker can produce forged signatures that verify. Mitigation: key rotation (planned for schema v2.0.0 via `public_key_id`), HSM/secret-manager storage, least-privilege access to signing keys.
+- **Unsigned traces.** When signing is not in use, only structural integrity is verified. Downgrade attacks (stripping a sidecar signature) are detectable only if policy requires `--public-key` — enforce this in CI for any workload with tamper-evidence requirements.
 
 ---
 
