@@ -29,7 +29,8 @@ The OSS engine is everything in this repository. Core trust checks (`evaluate`, 
 ### Capabilities
 
 - [CURRENT] Trace capture and local storage (`.trace.jsonl` files)
-- [CURRENT] SHA-256 hash chain integrity — tamper detection for every event
+- [CURRENT] SHA-256 hash chain — structural integrity verification (catches naive tampering and corruption; does NOT catch full-chain regeneration without signing)
+- [CURRENT] Ed25519 hash-chain signing (opt-in via `krynix sign` / `evaluate --public-key`) — cryptographic tamper-evidence against intentional modification
 - [CURRENT] Policy evaluation in CI — deterministic exit codes (0/1/2/3)
 - [CURRENT] Replay integrity verification — chain, ordering, session bookends
 - [CURRENT] Framework-agnostic policies — write once, apply to any agent

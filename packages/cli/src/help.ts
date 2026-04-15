@@ -31,6 +31,8 @@ Local Commands (work offline, no auth required):
   validate           Validate policy file syntax
   stats              Compute per-session analytics from a trace
   export             Export a trace to external formats (e.g., OpenTelemetry)
+  sign               Sign a trace's hash chain with an Ed25519 private key
+  keygen             Generate an Ed25519 signing keypair
   policy test        Test a policy against a sample trace
   policy diff        Compare two policies and detect regressions
   compliance export  Generate a compliance evidence bundle
@@ -76,11 +78,21 @@ Options:
   --after <timestamp>   Include events at or after this ISO-8601 time
   --before <timestamp>  Include events at or before this ISO-8601 time
   --env <key>=<value>   Set environment context (repeatable)
+  --skip-verify         Skip hash-chain structural validation (bypasses tamper detection)
+  --public-key <file>   Verify Ed25519 signature against this public key (PEM)
+  --signature <file>    Override signature path (default: <trace>.sig sidecar)
   --help                Show this help
+
+Integrity:
+  By default, evaluate verifies the trace's SHA-256 hash chain structural
+  integrity before evaluating policy. For cryptographic tamper-evidence
+  against intentional modification (chain regeneration, event deletion/
+  insertion, reorder, truncation), also pass --public-key. Sign traces
+  with 'krynix sign --trace <file> --private-key <key>' first.
 
 Exit codes:
   0   All policies pass (including non-CI-failing violations)
-  1   CI-failing error-severity violation or runtime error
+  1   CI-failing error-severity violation, integrity failure, or runtime error
   2   CI-failing critical-severity violation
   3   Requires approval (no CI-failing violations)`;
 
@@ -448,6 +460,44 @@ Options:
 Exit codes:
   0   Trace downloaded successfully
   1   Runtime error or auth failure`;
+
+    case "sign":
+      return `krynix sign — Sign a trace's hash chain with an Ed25519 private key
+
+Usage: krynix sign --trace <file> --private-key <key> [--output <file>]
+
+Options:
+  --trace <file>         Path to a .trace.jsonl file
+  --private-key <file>   Path to an Ed25519 private key (PEM)
+  --output <file>        Signature output path (default: <trace>.sig sidecar)
+  --help                 Show this help
+
+Verifies the hash chain structurally before signing. Refuses to sign a
+broken chain. The signature binds the chain tip under the private key.
+Attach the matching public key to 'krynix evaluate --public-key' to
+detect chain regeneration, event deletion/insertion, and reorder.
+
+Exit codes:
+  0   Signature written successfully
+  1   Invalid chain, missing key, or runtime error`;
+
+    case "keygen":
+      return `krynix keygen — Generate an Ed25519 signing keypair
+
+Usage: krynix keygen --out-private <file> --out-public <file>
+
+Options:
+  --out-private <file>   Destination path for the private key (PEM, mode 0600)
+  --out-public <file>    Destination path for the public key (PEM)
+  --help                 Show this help
+
+Produces a fresh Ed25519 keypair encoded as PKCS#8 (private) and SPKI
+(public) PEM files. The private key is written with mode 0600. Distribute
+only the public key to verifiers.
+
+Exit codes:
+  0   Keypair written successfully
+  1   Runtime error (e.g., unwritable output path)`;
 
     default:
       return undefined;

@@ -39,6 +39,13 @@ export { readTrace } from "./trace-reader.js";
 
 export { computeHashChain, validateHashChain } from "./hash-chain.js";
 
+export {
+  generateSigningKeypair,
+  signHashChain,
+  verifyHashChainSignature,
+  type SigningKeypair,
+} from "./signing.js";
+
 export { TraceWriter, type TraceWriterOptions } from "./trace-writer.js";
 
 export { validateTraceEvent, validatePolicy, validateReport } from "./schema-validator.js";

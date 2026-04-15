@@ -227,7 +227,9 @@ Every valid Trace must satisfy:
 
 ## Hash Chain
 
-The Hash Chain provides tamper-evidence for the entire Trace. Any modification to a single event breaks the chain for all subsequent events.
+The Hash Chain provides **structural integrity verification** for a Trace. Any modification to a single event that does not also rebuild the chain breaks the chain for all subsequent events, and `validateHashChain` will report `brokenAt` at that index.
+
+**Scope of protection (important):** the chain alone catches naive tampering and accidental corruption. It does **not** defeat an attacker who rebuilds the full chain over modified data — `validateHashChain` will return `valid: true` on a regenerated chain. Cryptographic tamper-evidence against intentional modification requires the Ed25519 signing layer (see `@krynix/core/signing`): `krynix sign` writes a signature over the chain tip with a private key; `krynix evaluate --public-key` verifies it. When signing is enforced in CI, regeneration, deletion, insertion, reorder, and truncation attacks are all detected.
 
 ### Algorithm
 
@@ -423,6 +425,6 @@ These are advisory only — per the enforcement hierarchy, advisory signals must
 
 ## Future Work
 
-- **Hash Chain Signing:** Extend `event_hash` with cryptographic signatures (Ed25519) for non-repudiation. The current hash chain provides tamper-evidence but not attribution. Signature support will be introduced in schema version `2.0.0`.
+- **Embedded Hash Chain Signatures (schema v2.0.0 PLANNED):** Ed25519 signatures are today stored as a sidecar `<trace>.jsonl.sig` file produced by `krynix sign` and verified by `krynix evaluate --public-key`. Schema v2.0.0 will promote this to a first-class envelope field (`chain_signature`) alongside `public_key_id` for attribution/key-rotation support, removing the need for a sidecar.
 - **Streaming Validation:** Real-time hash chain verification during trace capture, enabling immediate detection of integrity violations.
 - **Binary Wire Format:** Protocol Buffers or CBOR encoding for high-throughput scenarios where JSON parsing overhead is prohibitive.

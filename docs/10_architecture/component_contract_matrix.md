@@ -3,7 +3,8 @@
 | Component | Responsibility | Trust Property | Current Status | Evidence (Code/Test/Doc) |
 |---|---|---|---|---|
 | `@krynix/core` trace model | Canonical TraceEvent handling and validation pipeline helpers | Structural consistency for traces | CURRENT | `packages/core/src/types.ts`, `packages/core/src/trace-reader.ts`, `docs/10_architecture/trace_spec.md` |
-| `@krynix/core` hash chain | Compute/validate `prev_hash` + `event_hash` | Tamper evidence | CURRENT | `packages/core/src/hash-chain.ts`, `packages/core/src/hash-chain.test.ts`, `docs/10_architecture/trace_spec.md` |
+| `@krynix/core` hash chain | Compute/validate `prev_hash` + `event_hash` | Structural integrity (catches naive tampering and corruption; does NOT defeat full-chain regeneration) | CURRENT | `packages/core/src/hash-chain.ts`, `packages/core/src/hash-chain.test.ts` (adversarial suite), `docs/10_architecture/trace_spec.md` |
+| `@krynix/core` signing | Ed25519 sign/verify over hash-chain tip | Cryptographic tamper-evidence (catches regeneration, deletion, insertion, reorder, truncation) — opt-in via `krynix sign` + `evaluate --public-key` | CURRENT | `packages/core/src/signing.ts`, `packages/core/src/signing.test.ts`, `packages/cli/src/sign.ts`, `packages/cli/src/sign.test.ts` |
 | `@krynix/core` redaction | Field-name-pattern secret redaction with deterministic placeholders | Secret minimization in artifacts | PARTIAL | `packages/core/src/redaction.ts`, `packages/core/src/redaction.test.ts`, `docs/10_architecture/trace_spec.md` |
 | `@krynix/policy` parser | Parse/validate policy YAML | Deterministic policy interpretation | CURRENT | `packages/policy/src/parser.ts`, `packages/policy/src/parser.test.ts`, `docs/10_architecture/policy_spec.md` |
 | `@krynix/policy` matcher/evaluator | Match rules and compute verdicts | Policy decision correctness | CURRENT | `packages/policy/src/matcher.ts`, `packages/policy/src/evaluator.ts`, tests in same package |
