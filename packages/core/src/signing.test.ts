@@ -118,6 +118,34 @@ describe("signHashChain / verifyHashChainSignature", () => {
     expect(verifyHashChainSignature(makeChain(), "abcd", publicKey)).toBe(false);
   });
 
+  test("verification fails on signature with trailing junk (strict hex contract)", () => {
+    // Buffer.from(x, "hex") is permissive: it stops at non-hex characters and
+    // can decode a valid prefix even when the file contains appended junk.
+    // The strict HEX128 regex guards against that class of bug.
+    const { privateKey, publicKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const sig = signHashChain(chain, privateKey);
+    const withJunk = sig + "ZZZ-not-hex";
+    expect(verifyHashChainSignature(chain, withJunk, publicKey)).toBe(false);
+  });
+
+  test("verification fails on uppercase signature (strict lowercase contract)", () => {
+    const { privateKey, publicKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const sig = signHashChain(chain, privateKey);
+    expect(verifyHashChainSignature(chain, sig.toUpperCase(), publicKey)).toBe(false);
+  });
+
+  test("verification tolerates surrounding whitespace (trimmed before validation)", () => {
+    // The CLI reads <trace>.sig and trims, but library callers may pass
+    // raw file content. Accept trimmed whitespace so round-trip with a
+    // newline-terminated sidecar works.
+    const { privateKey, publicKey } = generateSigningKeypair();
+    const chain = makeChain();
+    const sig = signHashChain(chain, privateKey);
+    expect(verifyHashChainSignature(chain, `  \n${sig}\n\t`, publicKey)).toBe(true);
+  });
+
   test("verification fails on malformed public key", () => {
     const { privateKey } = generateSigningKeypair();
     const sig = signHashChain(makeChain(), privateKey);

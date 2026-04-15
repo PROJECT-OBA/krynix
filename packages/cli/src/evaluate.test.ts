@@ -317,6 +317,26 @@ describe("runEvaluate", () => {
     expect(result.error).toBeNull();
   });
 
+  test("--skip-verify + --public-key rejection happens before reading the trace (fail-fast)", async () => {
+    // The coherence check must run before readTrace so that very large or
+    // non-existent traces don't incur I/O before the incoherent flag combo
+    // is rejected. Point --trace at a path that definitely does not exist
+    // and assert we still get the flag-combo error, NOT a "Failed to read
+    // trace" error.
+    const result = await runEvaluate([
+      "--trace",
+      "/nonexistent/path/definitely/does/not/exist.jsonl",
+      "--policy",
+      "/nonexistent/policy.yaml",
+      "--skip-verify",
+      "--public-key",
+      "/nonexistent/pub.pem",
+    ]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("--skip-verify cannot be combined with --public-key");
+    expect(result.error).not.toContain("Failed to read trace");
+  });
+
   test("--skip-verify combined with --public-key is rejected", async () => {
     // Allowing both would silently weaken the signing guarantee: the signature
     // only authenticates the tip's event_hash value, not that earlier event

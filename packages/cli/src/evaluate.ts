@@ -79,22 +79,14 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
     return { exitCode: 1, output: null, error: "Missing required argument: --policy", format };
   }
 
-  // Read trace
-  let trace;
-  try {
-    trace = await readTrace(tracePath);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}`, format };
-  }
-
-  // Reject the incoherent --skip-verify + --public-key combination.
-  // Signature verification only authenticates the chain tip's event_hash
-  // value. Without structural chain validation, an attacker can mutate
-  // earlier event payloads without recomputing the chain — the tip's
-  // event_hash field still matches the signature, but the event payloads
-  // no longer hash to those values. Allowing this combo would silently
-  // weaken the signing guarantee.
+  // Reject the incoherent --skip-verify + --public-key combination BEFORE
+  // any file I/O. Signature verification only authenticates the chain tip's
+  // event_hash value. Without structural chain validation, an attacker can
+  // mutate earlier event payloads without recomputing the chain — the tip's
+  // event_hash field still matches the signature, but the event payloads no
+  // longer hash to those values. Allowing this combo would silently weaken
+  // the signing guarantee. Fail fast: don't read a potentially large trace
+  // before rejecting an incoherent flag combination.
   const publicKeyPath = getArg(args, "--public-key");
   const skipVerify = hasFlag(args, "--skip-verify");
   if (skipVerify && publicKeyPath !== undefined) {
@@ -105,6 +97,15 @@ export async function runEvaluate(args: string[]): Promise<EvaluateResult> {
         "--skip-verify cannot be combined with --public-key: signature verification requires structural chain validation to be meaningful.",
       format,
     };
+  }
+
+  // Read trace
+  let trace;
+  try {
+    trace = await readTrace(tracePath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { exitCode: 1, output: null, error: `Failed to read trace: ${message}`, format };
   }
 
   // Verify hash chain integrity before evaluating policy (default ON).
