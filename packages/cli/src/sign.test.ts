@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from "vitest";
 import { join } from "node:path";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { runSign, runKeygen } from "./sign.js";
 import { runEvaluate } from "./evaluate.js";
@@ -139,6 +139,25 @@ describe("runKeygen", () => {
     const result = await runKeygen(["--out-public", "/tmp/x"]);
     expect(result.exitCode).toBe(1);
     expect(result.error).toContain("--out-private");
+  });
+
+  test("private key file ends up with mode 0600 even when overwriting an existing looser-mode file", async () => {
+    // writeFile's `mode` option only applies on create, so a pre-existing file
+    // with looser permissions would silently keep them. The implementation
+    // must explicit-chmod after write to guarantee the documented 0600.
+    const dir = await createTempDir();
+    const priv = join(dir, "id.priv");
+    const pub = join(dir, "id.pub");
+
+    // Pre-create the private key path with permissive mode.
+    await writeFile(priv, "placeholder", { encoding: "utf-8", mode: 0o644 });
+
+    const result = await runKeygen(["--out-private", priv, "--out-public", pub]);
+    expect(result.exitCode).toBe(0);
+
+    const info = await stat(priv);
+    // Mask to permission bits (file mode also encodes type).
+    expect(info.mode & 0o777).toBe(0o600);
   });
 });
 
