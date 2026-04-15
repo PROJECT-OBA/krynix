@@ -12,6 +12,14 @@
  * Keys are PEM-encoded (standard OpenSSL format). Node's built-in `crypto`
  * supports Ed25519 natively — no new dependencies.
  *
+ * ## Signing input
+ * Signs the raw 32 bytes of the chain-tip SHA-256 digest, NOT the textual hex
+ * encoding. This makes the primitive language-agnostic: any verifier with the
+ * 32-byte digest and the public key produces the same result regardless of
+ * how their language formats hex (case, whitespace, prefix). The
+ * implementation parses the tip's `event_hash` field (a 64-char lowercase hex
+ * string per `hash-chain.ts`) into bytes before signing.
+ *
  * ## Threat model
  * - Defeats: event mutation + chain regeneration, event deletion/insertion
  *   followed by chain rebuild, chain truncation (tip differs), reorder attacks.
@@ -47,6 +55,36 @@ export function generateSigningKeypair(): SigningKeypair {
 }
 
 /**
+ * SHA-256 produces 32-byte digests, encoded in `event_hash` as 64 lowercase
+ * hex characters. Validate strictly so signing/verification use the digest
+ * bytes deterministically, independent of any textual representation.
+ */
+const HEX64 = /^[0-9a-f]{64}$/;
+
+/**
+ * Decode a chain tip's `event_hash` field into its 32 raw digest bytes,
+ * throwing a typed error on shape violations. Used by both sign and verify
+ * so that signing input is always the bytes of a SHA-256 digest, never the
+ * textual encoding.
+ */
+function decodeTipDigest(tip: TraceEvent): Buffer {
+  const tipHash = tip.event_hash;
+  if (!tipHash) {
+    throw new KrynixError(
+      "HASH_CHAIN_NOT_COMPUTED",
+      "final event has no event_hash — did you call computeHashChain first?",
+    );
+  }
+  if (!HEX64.test(tipHash)) {
+    throw new KrynixError(
+      "HASH_CHAIN_NOT_COMPUTED",
+      `final event's event_hash is not a 64-char lowercase hex SHA-256 digest (got length ${String(tipHash.length)})`,
+    );
+  }
+  return Buffer.from(tipHash, "hex");
+}
+
+/**
  * Sign a hash chain's tip with an Ed25519 private key.
  *
  * Produces a hex-encoded signature over the final event's `event_hash`. Because
@@ -55,8 +93,9 @@ export function generateSigningKeypair(): SigningKeypair {
  *
  * @param events - Ordered events with a fully-computed hash chain
  * @param privateKeyPem - PEM-encoded Ed25519 private key
- * @returns Hex-encoded Ed25519 signature
+ * @returns Hex-encoded Ed25519 signature (128 hex chars / 64 bytes)
  * @throws {KrynixError} EMPTY_CHAIN if events is empty
+ * @throws {KrynixError} HASH_CHAIN_NOT_COMPUTED if the tip lacks a valid event_hash
  * @throws {KrynixError} INVALID_KEY if the private key cannot be parsed
  */
 export function signHashChain(events: readonly TraceEvent[], privateKeyPem: string): string {
@@ -67,13 +106,7 @@ export function signHashChain(events: readonly TraceEvent[], privateKeyPem: stri
   if (tip === undefined) {
     throw new KrynixError("EMPTY_CHAIN", "cannot sign an empty hash chain");
   }
-  const tipHash = tip.event_hash;
-  if (!tipHash) {
-    throw new KrynixError(
-      "EMPTY_CHAIN",
-      "final event has no event_hash — did you call computeHashChain first?",
-    );
-  }
+  const digestBytes = decodeTipDigest(tip);
 
   let keyObject;
   try {
@@ -83,7 +116,7 @@ export function signHashChain(events: readonly TraceEvent[], privateKeyPem: stri
     throw new KrynixError("INVALID_KEY", `failed to parse private key: ${message}`);
   }
 
-  const signature = sign(null, Buffer.from(tipHash, "utf-8"), keyObject);
+  const signature = sign(null, digestBytes, keyObject);
   return signature.toString("hex");
 }
 
@@ -114,8 +147,14 @@ export function verifyHashChainSignature(
   if (tip === undefined) {
     return false;
   }
-  const tipHash = tip.event_hash;
-  if (!tipHash) {
+
+  // Decode the tip digest defensively. A malformed or missing event_hash is
+  // a verification failure (false), not an exception — verify must never
+  // throw on attacker-controlled input.
+  let digestBytes: Buffer;
+  try {
+    digestBytes = decodeTipDigest(tip);
+  } catch {
     return false;
   }
 
@@ -136,7 +175,7 @@ export function verifyHashChainSignature(
   }
 
   try {
-    return verify(null, Buffer.from(tipHash, "utf-8"), keyObject, signatureBuf);
+    return verify(null, digestBytes, keyObject, signatureBuf);
   } catch {
     return false;
   }
