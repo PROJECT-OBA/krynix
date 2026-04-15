@@ -210,6 +210,24 @@ describe("runSign", () => {
     expect(result.error).toContain("--private-key");
   });
 
+  test("refuses to sign an empty trace with a clear message", async () => {
+    // validateHashChain([]) returns valid:true, so without an explicit length
+    // check this would fall through to signHashChain and surface a generic
+    // "Signing failed: cannot sign an empty hash chain" message. The CLI
+    // should refuse up front with a clearer error that names the file.
+    const dir = await createTempDir();
+    const emptyPath = join(dir, "empty.jsonl");
+    await writeFile(emptyPath, "");
+    const { privateKey } = generateSigningKeypair();
+    const privPath = join(dir, "id.priv");
+    await writeFile(privPath, privateKey);
+
+    const result = await runSign(["--trace", emptyPath, "--private-key", privPath]);
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toMatch(/Refusing to sign/);
+    expect(result.error).toContain("no events");
+  });
+
   test("--output overrides sidecar path", async () => {
     const dir = await createTempDir();
     const tracePath = await writeTrace(dir);

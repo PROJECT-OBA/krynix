@@ -62,6 +62,14 @@ export function generateSigningKeypair(): SigningKeypair {
 const HEX64 = /^[0-9a-f]{64}$/;
 
 /**
+ * Ed25519 signatures are 64 bytes = 128 lowercase hex chars. Validate
+ * strictly: `Buffer.from(x, "hex")` is permissive and will silently drop
+ * invalid characters / truncate at the first odd nibble, which would
+ * allow malformed signature files to verify unexpected prefixes.
+ */
+const HEX128 = /^[0-9a-f]{128}$/;
+
+/**
  * Decode a chain tip's `event_hash` field into its 32 raw digest bytes,
  * throwing a typed error on shape violations. Used by both sign and verify
  * so that signing input is always the bytes of a SHA-256 digest, never the
@@ -165,10 +173,18 @@ export function verifyHashChainSignature(
     return false;
   }
 
+  // Strictly validate the textual signature format BEFORE decoding.
+  // Buffer.from(..., "hex") silently drops non-hex characters and
+  // truncates at the first odd nibble, so a file like
+  // "ab\n<128 valid hex chars>" would decode to a valid buffer by
+  // accident. Require exactly 128 lowercase hex chars, trimmed.
+  const trimmed = typeof signatureHex === "string" ? signatureHex.trim() : "";
+  if (!HEX128.test(trimmed)) {
+    return false;
+  }
   let signatureBuf: Buffer;
   try {
-    signatureBuf = Buffer.from(signatureHex, "hex");
-    // Ed25519 signatures are always 64 bytes
+    signatureBuf = Buffer.from(trimmed, "hex");
     if (signatureBuf.length !== 64) return false;
   } catch {
     return false;

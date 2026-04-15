@@ -55,6 +55,18 @@ export async function runSign(args: string[]): Promise<SignResult> {
     return { exitCode: 1, output: null, error: `Failed to read trace: ${message}` };
   }
 
+  // validateHashChain([]) returns {valid: true} — empty chains are
+  // structurally valid. Reject here with a clearer message than the
+  // generic "Signing failed: cannot sign an empty hash chain" that
+  // would otherwise surface from signHashChain.
+  if (trace.length === 0) {
+    return {
+      exitCode: 1,
+      output: null,
+      error: `Refusing to sign: trace at ${tracePath} contains no events`,
+    };
+  }
+
   // Always verify chain integrity before signing — signing a broken chain
   // would produce a signature that will never verify, and silently too.
   const chainResult = validateHashChain(trace);
