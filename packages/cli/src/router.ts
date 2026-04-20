@@ -26,6 +26,7 @@ import { runPolicyPull } from "./policy-pull.js";
 import { runPolicyPush } from "./policy-push.js";
 import { runGoldenPromote, runGoldenList, runGoldenPull } from "./golden.js";
 import { runSign, runKeygen } from "./sign.js";
+import { runDiff } from "./diff.js";
 
 /** Sensitive flags whose values must not appear in error messages. */
 const SENSITIVE_FLAGS = new Set(["--password", "--email", "--token", "--api-key", "--env"]);
@@ -433,6 +434,13 @@ export async function routeCommand(argv: string[]): Promise<CommandOutput> {
         stdout: "",
         stderr: `Unknown golden subcommand: ${sub.token}\n\n${getCommandHelp("golden") ?? ""}`,
       };
+    }
+
+    case "diff": {
+      const result = await runDiff(rest);
+      const stdout = result.output !== null ? JSON.stringify(result.output, null, 2) : "";
+      const stderr = result.error ?? "";
+      return { exitCode: result.exitCode, stdout, stderr };
     }
 
     case "sign": {
