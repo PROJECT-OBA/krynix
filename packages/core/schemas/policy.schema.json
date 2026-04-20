@@ -1,0 +1,270 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://krynix.dev/schemas/policy.schema.json",
+  "title": "Policy",
+  "description": "A Krynix ARTL policy document conforming to apiVersion krynix.dev/v1.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "krynix.dev/v1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "Policy"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "extends": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "object",
+          "properties": {
+            "agents": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "event_types": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "agents",
+            "event_types"
+          ],
+          "additionalProperties": false
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PolicyRule"
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "unmatched_action": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "deny"
+              ]
+            },
+            "unmatched_severity": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "scope",
+        "rules"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "PolicyRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "match": {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string"
+            },
+            "payload": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PayloadCondition"
+              }
+            },
+            "sequence": {
+              "type": "object",
+              "properties": {
+                "steps": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "event_type": {
+                        "type": "string"
+                      },
+                      "payload": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/definitions/PayloadCondition"
+                        }
+                      }
+                    },
+                    "required": [
+                      "payload"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "window": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "steps"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "if": {
+            "required": [
+              "sequence"
+            ]
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "maxItems": 0
+              }
+            },
+            "not": {
+              "required": [
+                "event_type"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "payload"
+            ]
+          },
+          "additionalProperties": false
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny",
+            "require-approval"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "critical"
+          ]
+        },
+        "ci_failure": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "on_violation": {
+          "type": "object",
+          "properties": {
+            "notify": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "create_issue": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "match",
+        "action",
+        "severity",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "PayloadCondition": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "not_in",
+            "matches",
+            "contains",
+            "exists"
+          ]
+        },
+        "value": {}
+      },
+      "required": [
+        "field",
+        "operator",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

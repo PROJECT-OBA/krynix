@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from "vitest";
 import { join } from "node:path";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { TraceWriter } from "./trace-writer.js";
 import { readTrace } from "./trace-reader.js";
@@ -147,8 +147,14 @@ describe("TraceWriter", () => {
     await writer.write(badEvent);
     await writer.close();
 
-    // Event was written (even though it's invalid)
-    const events = await readTrace(path);
-    expect(events).toHaveLength(1);
+    // Event was written (even though it's invalid) — read raw bytes to
+    // confirm, since readTrace now performs schema validation and would
+    // reject this malformed event.
+    const raw = await readFile(path, "utf-8");
+    const lines = raw.split("\n").filter((l) => l.trim() !== "");
+    expect(lines).toHaveLength(1);
+    const firstLine = lines[0] ?? "";
+    const parsed = JSON.parse(firstLine) as Record<string, unknown>;
+    expect(parsed.event_type).toBe("tool_call");
   });
 });
