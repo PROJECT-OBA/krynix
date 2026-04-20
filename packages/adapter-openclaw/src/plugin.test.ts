@@ -8,7 +8,7 @@ import {
   type KrynixPluginHandle,
   type KrynixPluginOptions,
 } from "./plugin.js";
-import { readTrace, validateHashChain } from "@krynix/core";
+import { readTrace, validateHashChain, type TraceEvent } from "@krynix/core";
 
 // ---------------------------------------------------------------------------
 // Controllable mock for @krynix/core — only recordEvent and endSession are
@@ -194,6 +194,68 @@ describe("createKrynixPlugin", () => {
     expect(events[0]?.event_type).toBe("lifecycle");
     // Last event is session_end from session manager
     expect(events[events.length - 1]?.event_type).toBe("lifecycle");
+  });
+
+  test("event type sequence matches expected contract", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "trace.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    await fireStandardHookSequence(hooks);
+
+    const events = await readTrace(outputPath);
+    const types = events.map((e: TraceEvent) => e.event_type);
+    expect(types).toEqual([
+      "lifecycle", // session_start (auto)
+      "lifecycle", // session_start (hook)
+      "tool_call", // before_tool_call
+      "tool_result", // after_tool_call
+      "llm_request", // llm_input
+      "llm_response", // llm_output
+      "lifecycle", // session_end (hook)
+      "lifecycle", // session_end (auto)
+    ]);
+  });
+
+  test("tool_call and tool_result tool_name match", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "trace.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    await fireStandardHookSequence(hooks);
+
+    const events = await readTrace(outputPath);
+    const toolCall = events.find((e: TraceEvent) => e.event_type === "tool_call");
+    const toolResult = events.find((e: TraceEvent) => e.event_type === "tool_result");
+    expect(toolCall).toBeDefined();
+    expect(toolResult).toBeDefined();
+    const callPayload = toolCall?.payload as { tool_name: string };
+    const resultPayload = toolResult?.payload as { tool_name: string };
+    expect(callPayload.tool_name).toBe("file_read");
+    expect(resultPayload.tool_name).toBe("file_read");
+    expect(callPayload.tool_name).toBe(resultPayload.tool_name);
+  });
+
+  test("sequence numbers are contiguous starting from 0", async () => {
+    const dir = await createTempDir();
+    const outputPath = join(dir, "trace.jsonl");
+    const { api, hooks } = createMockApi();
+
+    const initPlugin = createKrynixPlugin({ outputPath, replaySeed: 42 });
+    handle = await initPlugin(api);
+
+    await fireStandardHookSequence(hooks);
+
+    const events = await readTrace(outputPath);
+    for (let i = 0; i < events.length; i++) {
+      expect(events.at(i)?.sequence_num).toBe(i);
+    }
   });
 
   test("hash chain valid after session", async () => {
