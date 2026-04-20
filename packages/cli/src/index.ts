@@ -61,4 +61,5 @@ export {
   type GoldenResult,
   type GoldenDeps,
 } from "./golden.js";
+export { runDiff, type DiffResult } from "./diff.js";
 export { parseEnvFlags, buildEnvironmentContext } from "./env-flags.js";
