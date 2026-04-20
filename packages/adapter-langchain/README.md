@@ -1,43 +1,49 @@
 # @krynix/adapter-langchain
 
-LangChain adapter for Krynix. Translates LangChain callback events into Krynix trace events with zero runtime dependency on LangChain.
+LangChain adapter for [Krynix](https://github.com/PROJECT-OBA/krynix) — translates LangChain callback events into Krynix trace events.
 
-## Integration Modes
+## Install
 
-### 1. Zero-friction plugin (recommended)
+```bash
+npm install @krynix/adapter-langchain
+```
+
+## Usage
+
+### Zero-friction plugin (recommended)
 
 ```typescript
 import { createLangChainTracer } from "@krynix/adapter-langchain";
 
-const { handler, handle } = await createLangChainTracer({
-  agentId: "my-agent",
-  outputPath: "./traces/my-agent.trace.jsonl",
+const tracer = createLangChainTracer({
+  outputPath: "./traces/run.jsonl",
 });
 
-// Pass handler to LangChain — all events captured automatically
+// Pass as a callback to any LangChain component
 const result = await chain.invoke(input, {
-  callbacks: [handler],
+  callbacks: [tracer],
 });
-
-await handle.shutdown();
 ```
 
-### 2. Manual adapter (fine-grained control)
+### Manual adapter (fine-grained control)
 
 ```typescript
 import { LangChainAdapter } from "@krynix/adapter-langchain";
 
-// Constructor takes no arguments; config goes to initialize()
-// AdapterConfig requires agentId and sessionId (from startSession())
-const adapter = new LangChainAdapter();
-await adapter.initialize({ agentId: "my-agent", sessionId: "your-session-id" });
-const traceEvent = adapter.onEvent(langchainCallbackEvent);
+const adapter = new LangChainAdapter(config);
+const traceEvent = adapter.handleLLMStart(runId, input);
 ```
 
 ## Callbacks Handled
 
-`handleLLMStart`, `handleLLMEnd`, `handleLLMError`, `handleToolStart`, `handleToolEnd`, `handleToolError`, `handleChainStart`, `handleChainEnd`, `handleChainError`
+`handleLLMStart`, `handleLLMEnd`, `handleLLMError`, `handleToolStart`, `handleToolEnd`, `handleToolError`, `handleChainStart`, `handleChainEnd`, `handleChainError`, `handleAgentAction`, `handleAgentFinish`
 
-## Part of Krynix
+## Key Behavior
 
-This package is part of the [Krynix](https://github.com/PROJECT-OBA/krynix) monorepo. See the root README for full documentation.
+- Zero runtime dependency on LangChain — accepts `unknown` input, validates shape
+- `normalizeFinishReason()` maps provider-specific strings to canonical finish reasons
+- Tool call timing tracked via `metadata["tool.duration_ms"]` for replay determinism
+
+## License
+
+MIT

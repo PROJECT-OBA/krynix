@@ -1,34 +1,34 @@
 # @krynix/replay
 
-Replay and integrity verification engine for Krynix. Verifies hash chain integrity, validates golden traces, and provides library-level drift comparison.
+Replay and integrity verification engine for [Krynix](https://github.com/PROJECT-OBA/krynix) — hash chain verification, golden trace validation, and behavioral drift comparison.
+
+## Install
+
+```bash
+npm install @krynix/replay
+```
 
 ## Key Exports
 
-- `verifyTrace()` — verify hash chain integrity for a single trace
-- `verifyGoldenDir()` — verify all traces in a golden directory
-- `validateGoldenTraces()` — validate golden trace files
-- `regenerateTrace()` — regenerate hash chains in a trace file
-- `compareTraces()` — structural drift comparison between two traces (library function, not CLI-accessible)
-- `extractEnvelope()` — extract replay metadata from session_start events
+- **`verifyTrace(trace, options)`** — verify hash chain integrity for a single trace
+- **`verifyGoldenDir(directory)`** — verify all traces in a golden-directory tree
+- **`compareTraces(baseline, candidate)`** — diff two traces for behavioral drift detection
+- **`extractEnvelope(events)`** — extract replay envelope from session_start event
 
 ## Usage
 
 ```typescript
-import { verifyTrace, verifyGoldenDir } from "@krynix/replay";
+import { verifyTrace, compareTraces } from "@krynix/replay";
 
-// Verify a single trace — takes a file path directly
-const result = await verifyTrace("./traces/session.trace.jsonl");
-// result.status: "pass" | "diverged" | "error"
+// Verify trace integrity
+const result = await verifyTrace("/path/to/trace.jsonl");
+// result.valid === true if hash chain is intact
 
-// Verify all golden traces in a directory
-const results = await verifyGoldenDir("./test/golden/");
+// Compare two traces for behavioral drift
+const diff = compareTraces(baselineEvents, candidateEvents);
+// diff.status: "pass" | "diverged"
 ```
 
-## Current Status
+## License
 
-- **CURRENT**: Hash chain integrity verification, golden trace validation
-- **PARTIAL**: Structural drift comparison exists as library function (`compareTraces`) but is not yet CLI-integrated
-
-## Part of Krynix
-
-This package is part of the [Krynix](https://github.com/PROJECT-OBA/krynix) monorepo. See the root README for full documentation.
+MIT
