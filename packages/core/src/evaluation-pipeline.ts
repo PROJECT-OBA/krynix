@@ -11,6 +11,7 @@
  */
 
 import type { TraceEvent, ValidationResult } from "./types.js";
+import { KrynixError } from "./errors.js";
 import type { TraceFilterCriteria } from "./trace-filter.js";
 import type { TraceStats } from "./trace-stats.js";
 import type { ComplianceBundle, ComplianceBundleOptions } from "./compliance-bundle.js";
@@ -122,10 +123,10 @@ export async function runEvaluationPipeline(
 ): Promise<EvaluationPipelineResult> {
   // Validate input source
   if (options.tracePath !== undefined && options.events !== undefined) {
-    throw new Error("Cannot provide both tracePath and events");
+    throw new KrynixError("INVALID_INPUT", "Cannot provide both tracePath and events");
   }
   if (options.tracePath === undefined && options.events === undefined) {
-    throw new Error("Must provide either tracePath or events");
+    throw new KrynixError("INVALID_INPUT", "Must provide either tracePath or events");
   }
 
   // Step 1: Load trace
