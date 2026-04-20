@@ -88,12 +88,14 @@ export interface DecisionPayload {
   action: string;
   reasoning: string;
   confidence?: number;
+  alternatives?: string[];
 }
 
 /** Payload for `observation` events — records data observed from the environment. */
 export interface ObservationPayload {
   source: string;
   content: unknown;
+  category?: string;
 }
 
 /** Payload for `error` events — records an error encountered during execution. */

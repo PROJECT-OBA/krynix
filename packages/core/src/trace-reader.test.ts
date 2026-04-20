@@ -78,4 +78,68 @@ describe("readTrace", () => {
     expect(resultWithout).toHaveLength(1);
     expect(resultWith[0]?.event_id).toBe(resultWithout[0]?.event_id);
   });
+
+  // -------------------------------------------------------------------------
+  // Schema validation (type checking, not just presence)
+  // -------------------------------------------------------------------------
+
+  test("rejects sequence_num with wrong type (string instead of integer)", async () => {
+    const event = { ...makeSessionStart(), sequence_num: "not-a-number" };
+    const path = tracePath("bad-seq.trace.jsonl");
+    await writeFile(path, JSON.stringify(event) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("rejects redacted with wrong type (string instead of boolean)", async () => {
+    const event = { ...makeSessionStart(), redacted: "yes" };
+    const path = tracePath("bad-redacted.trace.jsonl");
+    await writeFile(path, JSON.stringify(event) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("rejects invalid event_type", async () => {
+    const event = { ...makeSessionStart(), event_type: "nonexistent_type" };
+    const path = tracePath("bad-type.trace.jsonl");
+    await writeFile(path, JSON.stringify(event) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("rejects tool_call missing required payload fields", async () => {
+    const event = makeToolCall(0);
+    // Remove tool_name from payload
+    const mangled = { ...event, payload: { arguments: {} } };
+    const path = tracePath("bad-payload.trace.jsonl");
+    await writeFile(path, JSON.stringify(mangled) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("rejects negative sequence_num", async () => {
+    const event = { ...makeSessionStart(), sequence_num: -1 };
+    const path = tracePath("neg-seq.trace.jsonl");
+    await writeFile(path, JSON.stringify(event) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("rejects float sequence_num (must be integer)", async () => {
+    const event = { ...makeSessionStart(), sequence_num: 1.5 };
+    const path = tracePath("float-seq.trace.jsonl");
+    await writeFile(path, JSON.stringify(event) + "\n", "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("Invalid TraceEvent on line 1");
+  });
+
+  test("reports correct line number for schema error on second event", async () => {
+    const good = makeSessionStart();
+    const bad = { ...makeToolCall(1), sequence_num: "wrong" };
+    const content = JSON.stringify(good) + "\n" + JSON.stringify(bad) + "\n";
+    const path = tracePath("bad-line2.trace.jsonl");
+    await writeFile(path, content, "utf-8");
+
+    await expect(readTrace(path)).rejects.toThrow("line 2");
+  });
 });

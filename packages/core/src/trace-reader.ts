@@ -11,6 +11,7 @@
 import { readFile } from "node:fs/promises";
 import type { TraceEvent } from "./types.js";
 import { KrynixError } from "./errors.js";
+import { validateTraceEvent } from "./schema-validator.js";
 
 /** Required top-level fields on every TraceEvent. */
 const REQUIRED_FIELDS = [
@@ -65,6 +66,14 @@ export async function readTrace(path: string): Promise<TraceEvent[]> {
           `Missing required field "${field}" on line ${String(lineNum)}`,
         );
       }
+    }
+
+    const validation = validateTraceEvent(obj);
+    if (!validation.valid) {
+      throw new KrynixError(
+        "TRACE_READ_ERROR",
+        `Invalid TraceEvent on line ${String(lineNum)}: ${validation.error ?? "unknown error"}`,
+      );
     }
 
     return parsed as TraceEvent;
