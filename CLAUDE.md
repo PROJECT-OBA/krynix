@@ -50,20 +50,10 @@ Topic-specific rules in `.claude/rules/`:
 5. **No unsupported claims** in docs, PR text, or generated artifacts.
 6. **Run full CI locally** before committing. No exceptions.
 
-## Source Priority
+## Current Capabilities
 
-1. `docs/10_architecture/platform_architecture_spec.md`
-2. `docs/10_architecture/*` specs
-3. `README.md` and `wiki/*`
-4. `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`
-
-If documents conflict, update the lower-priority source.
-
-## Current Product Contract
-
-- `CURRENT`: trace integrity, policy evaluation, replay integrity checks.
-- `PARTIAL`: replay baseline drift comparison and runtime integrations.
-- `PLANNED`: deterministic execution replay, full layered guard platform, profile-based enforcement.
+- `CURRENT`: trace integrity, policy evaluation, replay integrity checks, behavioral drift comparison (CLI `diff` command).
+- `PLANNED`: deterministic execution replay, runtime guard integrations, centralized governance.
 
 ## Skills
 

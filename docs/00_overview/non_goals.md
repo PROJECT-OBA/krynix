@@ -2,9 +2,9 @@
 
 This document explicitly defines what Krynix does **not** do. These boundaries prevent scope creep and clarify where Krynix ends and other systems begin.
 
-> **Scope:** These non-goals apply to the OSS engine (this repository). The planned [Krynix Control Plane](product_model.md) extends capabilities in some areas (e.g., centralized trace storage, org-level visibility) while preserving the same core boundaries (no agent execution, no LLM inference, no CI replacement).
+> **Scope:** These non-goals apply to the OSS engine (this repository).
 
-See [vision](vision.md) for what Krynix does. See [architecture](../10_architecture/architecture.md) for system boundaries.
+See [What Is Krynix](what-is-krynix.md) for what Krynix does. See [architecture](../10_architecture/architecture.md) for system boundaries.
 
 ---
 
@@ -12,7 +12,7 @@ See [vision](vision.md) for what Krynix does. See [architecture](../10_architect
 
 Krynix does not provide an agent execution runtime. It does not define how agents are structured, how they make decisions, or how they interact with the world. Agent frameworks (LangChain, OpenClaw, custom implementations) handle execution. Krynix handles trust.
 
-**Boundary:** The Krynix OSS core receives events from agent frameworks via [Trace Adapters](../10_architecture/integration_contracts.md). It does not execute or orchestrate agents. In sidecar/gateway deployment modes, Krynix-integrated control surfaces may perform tool pre-checks and approval gating, but this is deployment-specific and not a universal OSS guarantee.
+**Boundary:** The Krynix OSS core receives events from agent frameworks via Trace Adapters. It does not execute or orchestrate agents. In sidecar/gateway deployment modes, Krynix-integrated control surfaces may perform tool pre-checks and approval gating, but this is deployment-specific and not a universal OSS guarantee.
 
 ## 2. Krynix Does NOT Implement LLM Inference
 
@@ -22,7 +22,7 @@ Krynix does not host models, make API calls to LLM providers, or manage inferenc
 
 ## 3. Krynix Does NOT Provide Real-Time Agent Monitoring UI
 
-Krynix does not include a dashboard, web interface, or real-time visualization for observing running agents. Trace data can be exported to external observability platforms (see [observability](../20_development/observability.md)), but the Krynix OSS engine is a CLI and library, not a monitoring application. A future [Control Plane](product_model.md) may provide centralized visibility, but it will integrate with external observability platforms rather than replacing them.
+Krynix does not include a dashboard, web interface, or real-time visualization for observing running agents. Trace data can be exported to external observability platforms, but the Krynix OSS engine is a CLI and library, not a monitoring application.
 
 **Boundary:** Krynix produces structured trace data. Visualization is the responsibility of external observability tools (Grafana, Datadog, etc.).
 

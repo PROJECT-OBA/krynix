@@ -13,24 +13,23 @@ Describe how Krynix functions as the trust spine in a layered agent platform and
   Evidence: `packages/core/src/hash-chain.ts`, `packages/cli/src/evaluate.ts`, `packages/replay/src/replay-runner.ts`
 - [CURRENT] CI/post-run enforcement is the primary OSS control boundary.  
   Evidence: `packages/cli/src/evaluate.ts`, `docs/10_architecture/policy_spec.md`
-- [CURRENT] Artifacts remain usable offline; Control Plane is additive.  
-  Evidence: `docs/00_overview/product_model.md`, `docs/10_architecture/control_plane_spec.md`
-- [PARTIAL] Baseline trace diff library function exists (`compareTraces`) for behavior drift detection; not yet integrated into the CLI.
+- [CURRENT] Artifacts remain usable offline; Control Plane is additive.
+  Evidence: `packages/core/src/session.ts`, `packages/cli/src/evaluate.ts`
+- [PARTIAL] Baseline trace diff library function exists (`compareTraces`) for behavior drift detection; CLI `diff` command available.
 - [PARTIAL] Runtime controls are integration-driven and not a built-in full inline gateway in OSS.
 
 ## Planned Guarantees (Future)
 - [PLANNED] Execution replay mode for deterministic re-run contracts.
 - [PLANNED] Deeper runtime preventative controls via input/runtime/output guard integrations.
-- [PLANNED] Expanded provenance and response mapping contracts.
 - [PLANNED] Profile-based enforcement modes (`dev`, `staging`, `prod`) for sidecar and hybrid deployments.
 
 ## Non-Goals
-- [CURRENT] Krynix does not execute agents.  
-  Evidence: `docs/10_architecture/integration_contracts.md`
-- [CURRENT] Krynix does not host LLM inference.  
+- [CURRENT] Krynix does not execute agents.
+  Evidence: `docs/00_overview/non_goals.md`
+- [CURRENT] Krynix does not host LLM inference.
   Evidence: `docs/00_overview/non_goals.md`
 - [CURRENT] Krynix does not replace CI platforms.
-  Evidence: `docs/20_development/ci_cd.md`
+  Evidence: `docs/00_overview/non_goals.md`
 - [CURRENT] Krynix does not universally own the request ingress point.
   Evidence: `docs/10_architecture/platform_architecture_spec.md`
 - [CURRENT] Krynix does not treat inferred intent alone as the primary trust control.
@@ -56,7 +55,6 @@ core  <- adapters
 - Policy contract: `docs/10_architecture/policy_spec.md`
 - Replay contract: `docs/10_architecture/determinism_spec.md`
 - Integration blueprints: `docs/10_architecture/integration_blueprints.md`
-- Component responsibility matrix: `docs/10_architecture/component_contract_matrix.md`
 
 ## Operational Usage
 Primary CI trust gate:

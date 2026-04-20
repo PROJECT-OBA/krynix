@@ -33,7 +33,7 @@ Define the canonical, decision-making architecture for the Krynix platform direc
 - [CURRENT] Runtime blocking is external to Krynix OSS today; Krynix is primarily CI/post-run enforcement unless integrated into a deployment-specific control surface.
   Evidence: `docs/10_architecture/policy_spec.md`, `packages/cli/src/evaluate.ts`
 - [CURRENT] Krynix does not universally receive user input first. Request-ingress ownership depends on deployment mode.
-  Evidence: `docs/10_architecture/integration_contracts.md`, `docs/00_overview/non_goals.md`
+  Evidence: `docs/00_overview/non_goals.md`
 
 ## Planned Guarantees (Future)
 - [PLANNED] Execution-mode replay that re-runs deterministic agent decision/tool paths via a replay executor interface.
@@ -44,7 +44,7 @@ Define the canonical, decision-making architecture for the Krynix platform direc
 
 ## Non-Goals
 - [CURRENT] Krynix does not replace agent frameworks or orchestration runtimes.
-  Evidence: `docs/10_architecture/integration_contracts.md`
+  Evidence: `docs/00_overview/non_goals.md`
 - [CURRENT] Krynix does not host LLM inference.
   Evidence: `docs/00_overview/non_goals.md`
 - [CURRENT] Krynix does not guarantee perfect malicious-intent detection.
@@ -52,7 +52,7 @@ Define the canonical, decision-making architecture for the Krynix platform direc
 - [CURRENT] Krynix does not claim deterministic execution replay as implemented behavior today.
   Evidence: `packages/replay/src/replay-runner.ts`, `packages/cli/src/replay.ts`
 - [CURRENT] Krynix does not universally own the request ingress point.
-  Evidence: `docs/10_architecture/integration_contracts.md`
+  Evidence: `docs/00_overview/non_goals.md`
 - [CURRENT] Krynix does not treat inferred intent alone as the primary trust control. Observable actions and delivery decisions are stronger enforcement points.
   Evidence: `docs/10_architecture/threat_model.md`, `docs/10_architecture/policy_spec.md`
 

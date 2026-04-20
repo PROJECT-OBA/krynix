@@ -1,23 +1,5 @@
 # Architecture Rules
 
-## Source of Truth
-
-Primary source: `docs/10_architecture/platform_architecture_spec.md`.
-
-If documents conflict, update the lower-priority source per this precedence:
-1. `docs/10_architecture/platform_architecture_spec.md`
-2. `docs/10_architecture/*` specs
-3. `README.md` and `wiki/*`
-4. `AGENTS.md`, `CLAUDE.md`, `.claude/rules/*`
-
-## Product Position
-
-Krynix is the trust spine for agentic systems.
-
-- `CURRENT`: trace integrity, policy CI evaluation, replay integrity checks.
-- `PARTIAL`: baseline drift comparison (library only, not CLI-integrated) and integration-specific runtime controls.
-- `PLANNED`: deterministic execution replay, richer guard integrations, profile-based enforcement modes.
-
 ## Boundary Rules
 
 - Krynix does not execute agents.

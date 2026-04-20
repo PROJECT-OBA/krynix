@@ -1,10 +1,10 @@
 # CI Checker Memory
 
 ## Last Known Passing State
-- Branch: chore/production-readiness
-- All 6 CI steps passed cleanly on 2026-04-04
-- Test count: 1058 tests across 75 test files
-- Test duration: ~3.3s
+- Branch: feat/production-readiness
+- All 6 CI steps passed cleanly on 2026-04-08
+- Test count: 1163 tests across 78 test files
+- Test duration: ~3.60s
 
 ## Step Behavior Notes
 
@@ -21,14 +21,15 @@
 - Clean on current branch
 
 ### docs:check
-- 5 sub-checks: links, terminology, claim-tags, readme-consistency, phase1-backlog
+- 4 sub-checks: links, terminology, claim-tags, readme-consistency
 - All pass on current branch (69 markdown files checked)
 
 ### test
-- Vitest v3.2.4; 75 test files, 1058 tests
+- Vitest v3.2.4; 78 test files, 1163 tests
 - Includes type checking via `tsc` and `vue-tsc` (experimental)
 - Integration tests in `test/integration/` cover CLI binary, full pipeline, e2e scenarios
-- cli-binary.test.ts is slowest (~1.6s)
+- cli-binary.test.ts is slowest (~1.85s)
+- stderr warning from schema-validator.test.ts about strict mode missing type "array" for keyword maxItems — expected, does not cause failure
 
 ### build
 - Uses tsup for all 6 packages (core, policy, replay, adapter-langchain, adapter-openclaw, cli)
