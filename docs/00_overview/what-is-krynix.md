@@ -96,8 +96,8 @@ For current integrations, use a pre-built adapter or the SDK. HTTP ingest is `PL
 | Trace capture and storage | Yes | Yes |
 | Policy evaluation in CI | Yes | Yes |
 | Hash chain integrity verification | Yes | Yes |
-| Baseline drift detection | `PARTIAL` (library only, not in CLI) | Full |
-| CLI tooling (evaluate, replay, export) | Yes | Yes |
+| Behavioral drift detection (`krynix diff`) | Yes | Yes |
+| CLI tooling (evaluate, replay, diff, export) | Yes | Yes |
 | Centralized policy registry | No | Yes |
 | Team dashboards and compliance reports | No | Yes |
 | Org-wide governance controls | No | Yes |
@@ -108,9 +108,8 @@ The OSS engine is production-ready for CI-based trust workflows. The Control Pla
 
 Be explicit about what works today and what's planned:
 
-- **`CURRENT`**: Trace integrity, policy CI evaluation, replay integrity checks, CLI workflows — production-ready.
-- **`PARTIAL`**: Behavioral drift comparison exists as a library function (`compareTraces` in `@krynix/replay`), but is not yet integrated into the CLI.
-- **`PLANNED`**: Deterministic execution replay, runtime blocking (sidecar mode), centralized governance.
+- **`CURRENT`**: Trace integrity, policy CI evaluation, replay integrity checks, behavioral drift comparison (`krynix diff`), CLI workflows — production-ready.
+- **`PLANNED`**: Deterministic execution replay, runtime guard integrations, centralized governance.
 
 ## Quick Start
 
@@ -135,5 +134,4 @@ Exit codes: `0` = pass, `1` = error-severity violation or runtime error, `2` = c
 
 - [How Policies Work](how-policies-work.md) — policy universality, the 8 event types, all integration paths
 - [Security and Integrity](security-and-integrity.md) — what the hash chain guarantees, limitations, data protection
-- [Product Model](product_model.md) — OSS vs Control Plane boundary
 - [Platform Architecture Spec](../10_architecture/platform_architecture_spec.md) — canonical architecture reference
