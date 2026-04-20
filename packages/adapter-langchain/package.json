@@ -1,7 +1,9 @@
 {
   "name": "@krynix/adapter-langchain",
   "version": "0.1.1",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "LangChain adapter for Krynix: translates LangChain callback events into Krynix trace events",
   "author": "PROJECT-OBA",
   "license": "MIT",
