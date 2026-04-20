@@ -1,44 +1,36 @@
 # @krynix/adapter-openclaw
 
-OpenClaw adapter for Krynix. Translates OpenClaw plugin hook events into Krynix trace events with zero runtime dependency on OpenClaw.
+OpenClaw adapter for [Krynix](https://github.com/PROJECT-OBA/krynix) — translates OpenClaw plugin hook events into Krynix trace events.
 
-## Integration Modes
+## Install
 
-### 1. Zero-friction plugin (recommended)
-
-```typescript
-import { createKrynixPlugin } from "@krynix/adapter-openclaw";
-
-// createKrynixPlugin returns a plugin initializer function.
-// Export it as the default from your OpenClaw extensions file:
-//   extensions/krynix/index.ts
-export default createKrynixPlugin({
-  outputPath: "./traces/my-agent.trace.jsonl",
-  agentId: "my-agent",
-});
-
-// OpenClaw calls the initializer with its plugin API.
-// To get the handle for programmatic shutdown:
-//   const handle = await initPlugin(api);
-//   await handle.shutdown();
+```bash
+npm install @krynix/adapter-openclaw
 ```
 
-### 2. Manual adapter (fine-grained control)
+## Usage
 
 ```typescript
-import { OpenClawAdapter } from "@krynix/adapter-openclaw";
+import { createOpenClawPlugin } from "@krynix/adapter-openclaw";
 
-// Constructor takes no arguments; config goes to initialize()
-// AdapterConfig requires agentId and sessionId (from startSession())
-const adapter = new OpenClawAdapter();
-await adapter.initialize({ agentId: "my-agent", sessionId: "your-session-id" });
-const traceEvent = adapter.onEvent(hookEvent);
+const plugin = createOpenClawPlugin({
+  outputPath: "./traces/run.jsonl",
+});
+
+// Register with OpenClaw
+agent.use(plugin);
 ```
 
 ## Hooks Handled
 
 `before_tool_call`, `after_tool_call`, `llm_input`, `llm_output`, `session_start`, `session_end`
 
-## Part of Krynix
+## Key Behavior
 
-This package is part of the [Krynix](https://github.com/PROJECT-OBA/krynix) monorepo. See the root README for full documentation.
+- Zero runtime dependency on OpenClaw — accepts `unknown` input, validates shape
+- `onSkippedEvent` callback for diagnostics on dropped events
+- `exit_code: 1` emitted in `tool_result` payload when `hookEvent.event.error` is set
+
+## License
+
+MIT
