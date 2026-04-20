@@ -5,8 +5,7 @@
  * replay reports, stats, and OTLP exports. Produces a manifest with
  * SHA-256 digests for integrity verification.
  *
- * See `docs/10_architecture/control_plane_spec.md` Section 6 for the
- * bundle format specification.
+ * Produces a self-contained directory with manifest and SHA-256 digests.
  *
  * @module
  */
@@ -15,6 +14,7 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile, realpath, lstat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { TraceEvent, ValidationResult } from "./types.js";
+import { KrynixError } from "./errors.js";
 import { computeTraceStats, type TraceStats } from "./trace-stats.js";
 import { convertToOtlp, type OtlpExportData } from "./otlp-export.js";
 import { validateHashChain } from "./hash-chain.js";
@@ -150,7 +150,7 @@ export function generateComplianceBundle(options: ComplianceBundleOptions): Comp
       return code <= 0x1f || code === 0x7f;
     });
     if (sid.length === 0 || /[/\\]/.test(sid) || sid.includes("..") || hasControlChar) {
-      throw new Error("Invalid session_id for bundle artifact");
+      throw new KrynixError("INVALID_SESSION_ID", "Invalid session_id for bundle artifact");
     }
 
     // 1. Trace file (.trace.jsonl) — canonical JSON lines, matching TraceWriter format
@@ -284,7 +284,7 @@ export async function writeComplianceBundleToDir(
     // Reject degenerate artifact paths that resolve to the output directory itself
     const p = artifact.path;
     if (p === "" || p === "." || p === "./" || p.endsWith("/")) {
-      throw new Error(`Invalid artifact path: ${JSON.stringify(p)}`);
+      throw new KrynixError("BUNDLE_ERROR", `Invalid artifact path: ${JSON.stringify(p)}`);
     }
 
     // Lexical guard against path traversal (catches ".." components)
@@ -294,7 +294,10 @@ export async function writeComplianceBundleToDir(
       !resolvedTarget.startsWith(resolvedOutputDir + sep) &&
       resolvedTarget !== resolvedOutputDir
     ) {
-      throw new Error(`Path traversal detected in artifact path: ${artifact.path}`);
+      throw new KrynixError(
+        "PATH_TRAVERSAL",
+        `Path traversal detected in artifact path: ${artifact.path}`,
+      );
     }
 
     const dir = artifact.path.split("/").slice(0, -1).join("/");
@@ -309,7 +312,10 @@ export async function writeComplianceBundleToDir(
     await mkdir(subdirPath, { recursive: true });
     const realSubdir = await realpath(subdirPath);
     if (!realSubdir.startsWith(realOutputDir + sep) && realSubdir !== realOutputDir) {
-      throw new Error(`Symbolic link escape detected in directory: ${subdir}`);
+      throw new KrynixError(
+        "PATH_TRAVERSAL",
+        `Symbolic link escape detected in directory: ${subdir}`,
+      );
     }
   }
 
@@ -336,7 +342,7 @@ async function rejectSymlinkTarget(filePath: string, label: string): Promise<voi
   try {
     const s = await lstat(filePath);
     if (s.isSymbolicLink()) {
-      throw new Error(`Symbolic link detected at file path: ${label}`);
+      throw new KrynixError("PATH_TRAVERSAL", `Symbolic link detected at file path: ${label}`);
     }
   } catch (err: unknown) {
     if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {

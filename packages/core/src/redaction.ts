@@ -10,6 +10,7 @@
 
 import { createHash } from "node:crypto";
 import type { TraceEvent } from "./types.js";
+import { KrynixError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -84,7 +85,8 @@ export function redactWithPatterns(
     try {
       return new RegExp(p.pattern, "i");
     } catch (err) {
-      throw new Error(
+      throw new KrynixError(
+        "INVALID_PATTERN",
         `Invalid redaction pattern "${p.pattern}": ${err instanceof Error ? err.message : String(err)}`,
       );
     }
