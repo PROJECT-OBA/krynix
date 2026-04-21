@@ -25,13 +25,11 @@ packages/cli/                       @krynix/maintainers
 docs/10_architecture/trace_spec.md  @krynix/maintainers
 docs/10_architecture/policy_spec.md @krynix/maintainers
 docs/10_architecture/threat_model.md @krynix/maintainers
-spec/                               @krynix/maintainers
 
-# CI and agent infrastructure
+# CI infrastructure
 .github/                            @krynix/maintainers
-scripts/agent/                      @krynix/maintainers
 
-# Policy files (if/when policies are committed to repo)
+# Policy files
 policies/                           @krynix/maintainers
 
 # Claude Code configuration
