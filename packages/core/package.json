@@ -12,6 +12,8 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/core#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "trace", "hash-chain", "ai-agent", "trust", "observability"],
   "type": "module",
   "main": "./dist/index.cjs",

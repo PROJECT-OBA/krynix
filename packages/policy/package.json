@@ -12,6 +12,8 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/policy"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/policy#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "policy", "evaluation", "ai-agent", "trust", "compliance"],
   "type": "module",
   "main": "./dist/index.cjs",

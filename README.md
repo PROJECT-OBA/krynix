@@ -61,15 +61,22 @@ Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing 
 ### Install
 
 ```bash
-# Option 1: Standalone binary (no npm dependencies, requires Node.js >= 20)
+# Option 1: npm packages (recommended for TypeScript/Node.js projects)
+npm install @krynix/core @krynix/policy
+# Plus adapters for your framework:
+npm install @krynix/adapter-langchain  # or @krynix/adapter-openclaw
+
+# Option 2: CLI only (for CI pipelines)
+npm install -g @krynix/cli
+krynix --version
+
+# Option 3: Standalone binary (no npm dependencies, requires Node.js >= 20)
 curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
-chmod +x krynix.cjs
 node krynix.cjs --version
 
-# Option 2: Build from source
+# Option 4: Build from source
 git clone https://github.com/PROJECT-OBA/krynix.git
-cd krynix
-pnpm install && pnpm build
+cd krynix && pnpm install && pnpm build
 ```
 
 See [Quickstart Guide](docs/00_overview/quickstart.md) for full integration instructions.
@@ -129,6 +136,26 @@ krynix replay --verify --golden-dir test/golden/
 ```bash
 krynix diff --baseline traces/v1.trace.jsonl --candidate traces/v2.trace.jsonl
 # Detects behavioral changes between two traces — field-level diff at first divergence point
+```
+
+### Programmatic Usage (TypeScript)
+
+```typescript
+import { createLangChainTracer } from "@krynix/adapter-langchain";
+import { parsePolicy, evaluate } from "@krynix/policy";
+import { readTrace } from "@krynix/core";
+
+// 1. Attach to your LangChain agent — captures events automatically
+const tracer = createLangChainTracer({ outputPath: "./session.trace.jsonl" });
+// pass `tracer` as a callback to your LangChain chain/agent
+
+// 2. After the agent run, evaluate the trace against your policy
+const events = await readTrace("./session.trace.jsonl");
+const policy = parsePolicy(await fs.readFile("policies/no-shell.policy.yaml", "utf-8"));
+const result = evaluate(events, policy);
+
+console.log(result.verdict); // "pass" | "fail" | "require-approval"
+console.log(result.violations); // detailed violation info
 ```
 
 ---
@@ -208,6 +235,16 @@ packages/
 - Does not treat inferred intent alone as a trust control
 
 See [non_goals.md](docs/00_overview/non_goals.md) for full boundaries.
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+[MIT](LICENSE)
 
 <!-- machine-readable consistency markers (checked by docs:check:readme)
 REPLAY_CURRENT_MODE=integrity_verification

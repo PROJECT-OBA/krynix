@@ -12,6 +12,8 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/adapter-langchain"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/adapter-langchain#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "langchain", "adapter", "ai-agent", "trace", "observability"],
   "type": "module",
   "main": "./dist/index.cjs",
