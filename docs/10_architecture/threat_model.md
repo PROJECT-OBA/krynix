@@ -196,7 +196,7 @@ An attacker modifies policy files to weaken enforcement, allowing previously den
 
 1. **Version control** — All policy files are committed to Git. Every change is tracked with full history and attribution.
 
-2. **PR review requirement** — Policy changes require PR review. Reviewers should specifically check for severity downgrades, rule reordering, and scope changes. See [PR review process](../20_development/pr_review.md).
+2. **PR review requirement** — Policy changes require PR review. Reviewers should specifically check for severity downgrades, rule reordering, and scope changes.
 
 3. **Policy diff in CI (recommended)** — CI can be configured to output a structured diff of policy changes in the PR, making it easier for reviewers to identify weakening changes. This is a recommended CI configuration enhancement, not a built-in Krynix feature.
 
@@ -264,4 +264,3 @@ This threat model should be reviewed:
 - When the policy evaluation model changes
 - At minimum, quarterly
 
-See also: [Control Plane Threat Model Additions](control_plane_spec.md#appendix-b-threat-model-additions) for threats T7–T12 introduced by the hosted governance layer.

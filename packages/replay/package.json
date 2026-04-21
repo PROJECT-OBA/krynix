@@ -1,7 +1,9 @@
 {
   "name": "@krynix/replay",
   "version": "0.1.1",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Replay and integrity verification engine for Krynix: hash chain verification, golden trace validation, and drift comparison",
   "author": "PROJECT-OBA",
   "license": "MIT",
@@ -10,7 +12,13 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/replay"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/replay#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "replay", "integrity", "verification", "hash-chain", "golden-trace"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

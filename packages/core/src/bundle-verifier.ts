@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { BundleManifest } from "./compliance-bundle.js";
+import { KrynixError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -59,11 +60,11 @@ export async function verifyComplianceBundle(bundleDir: string): Promise<BundleV
   try {
     const s = await stat(bundleDir);
     if (!s.isDirectory()) {
-      throw new Error(`Not a directory: ${bundleDir}`);
+      throw new KrynixError("BUNDLE_ERROR", `Not a directory: ${bundleDir}`);
     }
   } catch (err: unknown) {
     if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`Bundle directory does not exist: ${bundleDir}`);
+      throw new KrynixError("BUNDLE_ERROR", `Bundle directory does not exist: ${bundleDir}`);
     }
     throw err;
   }

@@ -1,7 +1,9 @@
 {
   "name": "@krynix/core",
   "version": "0.1.1",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Core primitives for Krynix: trace events, hash chains, sessions, canonical JSON, and schema validation",
   "author": "PROJECT-OBA",
   "license": "MIT",
@@ -10,7 +12,13 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/core"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/core#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "trace", "hash-chain", "ai-agent", "trust", "observability"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -20,15 +28,19 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./schemas/*": "./schemas/*"
   },
   "files": [
     "dist",
+    "schemas",
     "README.md"
   ],
   "scripts": {
     "build": "tsup",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "generate:schemas": "tsx scripts/generate-schemas.ts",
+    "prepack": "npm run generate:schemas"
   },
   "dependencies": {
     "ajv": "^8.17.1",

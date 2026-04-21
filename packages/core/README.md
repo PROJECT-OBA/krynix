@@ -1,63 +1,69 @@
 # @krynix/core
 
-Core primitives for the Krynix trust and observability toolkit. This package provides trace events, hash chains, sessions, canonical JSON serialization, and schema validation.
+Core primitives for [Krynix](https://github.com/PROJECT-OBA/krynix) — trace events, SHA-256 hash chains, Ed25519 signing, canonical JSON, and schema validation.
+
+## Install
+
+```bash
+npm install @krynix/core
+```
 
 ## Key Exports
 
-### Session & Trace Management
-
-- `startSession()` / `endSession()` / `recordEvent()` — manage trace sessions and record events
-- `TraceWriter` — writes trace events to `.trace.jsonl` files at a consumer-specified `outputPath`
-- `readTrace()` — read and parse a trace file
-
-### Hash Chain Integrity
-
-- `computeHashChain()` — compute SHA-256 hash chain over trace events
-- `validateHashChain()` — verify an existing hash chain is intact
-- `StreamingHashValidator` — validate hash chains in streaming mode
-
-### Schema Validation
-
-- `validateTraceEvent()` / `validatePolicy()` / `validateReport()` — JSON Schema validation
-- `canonicalize()` — deterministic JSON serialization (sorted keys, no whitespace)
-
-### Evaluation & Export
-
-- `evaluateTrace()` / `runEvaluationPipeline()` — trace evaluation pipeline
-- `computeTraceStats()` — per-session analytics (event counts, duration, token usage)
-- `convertToOtlp()` — export traces to OpenTelemetry format
-- `generateComplianceBundle()` — produce compliance evidence bundles
-
-### Utilities
-
-- `filterTraceEvents()` — filter events by type, agent, or time range
-- `redact()` / `redactWithPatterns()` — redact sensitive fields from trace events
-- `SeededRandom` — deterministic PRNG (Mulberry32) for reproducible behavior
-- `detectEnvironment()` — detect runtime environment context
+- **`TraceEvent`** — discriminated union of 8 event types (`tool_call`, `tool_result`, `llm_request`, `llm_response`, `lifecycle`, `decision`, `observation`, `error`)
+- **`computeHashChain` / `validateHashChain`** — SHA-256 hash chain with canonical JSON serialization
+- **`signHashChain` / `verifyHashChainSignature`** — Ed25519 chain-tip signing for tamper evidence
+- **`TraceWriter` / `readTrace`** — write and read JSONL trace files
+- **`canonicalize`** — deterministic JSON serialization
+- **`SeededRandom`** — Mulberry32 PRNG for deterministic operations
+- **`KrynixError`** — typed error system with `.code` property
+- **`traceEventSchema` / `policySchema` / `reportSchema`** — JSON Schema objects for cross-language validation
+- **Schema files** — standalone JSON Schema files at `@krynix/core/schemas/*.schema.json`
 
 ## Usage
 
 ```typescript
-import { startSession, recordEvent, endSession } from "@krynix/core";
+import { TraceWriter, validateHashChain, readTrace } from "@krynix/core";
 
-const session = await startSession({
-  agentId: "my-agent",
-  outputPath: "./traces/my-agent.trace.jsonl",
-});
+// Write events to a trace file
+const writer = new TraceWriter({ validateOnWrite: true });
+await writer.open("/path/to/trace.jsonl");
+await writer.write(event1);
+await writer.write(event2);
+await writer.close();
 
-await recordEvent(session, {
-  event_type: "tool_call",
-  timestamp: new Date().toISOString(),
-  parent_id: null,
-  agent_id: "my-agent",
-  metadata: null,
-  payload: { tool_name: "search", arguments: { query: "hello" } },
-});
-
-await endSession(session);
-// Trace written to: ./traces/my-agent.trace.jsonl
+// Read and validate hash chain integrity
+const events = await readTrace("/path/to/trace.jsonl");
+const result = validateHashChain(events);
+// result.valid === true if chain is intact
 ```
 
-## Part of Krynix
+## Algorithm Stability
 
-This package is part of the [Krynix](https://github.com/PROJECT-OBA/krynix) monorepo. See the root README for full documentation.
+The following algorithms are **locked** and will not change without a major version bump:
+
+- **Canonical JSON** serialization (key ordering, whitespace, encoding)
+- **SHA-256 hash chain** computation (prev_hash + canonical JSON → event_hash)
+- **SeededRandom** (Mulberry32 PRNG) — changing would break all golden traces
+
+This means traces and hash chains produced by any `0.x` release will validate correctly against any other `0.x` release. This guarantee is critical for compliance audit trails.
+
+## Error Handling
+
+Validation and runtime errors thrown by `@krynix/core` use the `KrynixError` class with a machine-readable `.code` property. I/O operations (e.g., `readTrace`, `TraceWriter.open`) may also throw standard Node.js errors (e.g., `ENOENT`).
+
+```typescript
+import { KrynixError } from "@krynix/core";
+
+try {
+  validateHashChain(events);
+} catch (err) {
+  if (err instanceof KrynixError) {
+    console.error(err.code); // e.g. "HASH_CHAIN_BROKEN"
+  }
+}
+```
+
+## License
+
+MIT

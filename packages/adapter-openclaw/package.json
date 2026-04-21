@@ -1,7 +1,9 @@
 {
   "name": "@krynix/adapter-openclaw",
   "version": "0.1.1",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "OpenClaw adapter for Krynix: translates OpenClaw plugin hook events into Krynix trace events",
   "author": "PROJECT-OBA",
   "license": "MIT",
@@ -10,7 +12,13 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/adapter-openclaw"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/adapter-openclaw#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "openclaw", "adapter", "ai-agent", "trace", "observability"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

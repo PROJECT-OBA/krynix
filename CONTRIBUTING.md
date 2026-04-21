@@ -8,7 +8,7 @@ All contributors must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Be respe
 
 ## Getting Started
 
-1. **Set up your development environment** — follow [dev_env.md](docs/20_development/dev_env.md)
+1. **Clone and build**: `git clone https://github.com/PROJECT-OBA/krynix.git && cd krynix && pnpm install && pnpm build`
 2. **Read the coding conventions** — follow [code-style.md](.claude/rules/code-style.md)
 3. **Understand the architecture** — read [platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md) (canonical) and [architecture.md](docs/10_architecture/architecture.md)
 
@@ -27,7 +27,7 @@ All contributors must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Be respe
 3. Write tests for all new functionality
 4. Ensure all tests pass: `pnpm test`
 5. Ensure lint passes: `pnpm lint`
-6. Commit using [conventional commit format](docs/20_development/commit_conventions.md): `type(scope): description`
+6. Commit using conventional commit format: `type(scope): description`
 
 ### Commit Format
 
@@ -57,7 +57,7 @@ Examples:
 3. Ensure CI passes (build, test, lint, policy evaluation, golden trace replay)
 4. Address review feedback
 
-PRs are squash-merged to `main`. See [PR review process](docs/20_development/pr_review.md) for the full review checklist.
+PRs are squash-merged to `main`.
 
 ### PR Requirements
 
@@ -67,15 +67,9 @@ PRs are squash-merged to `main`. See [PR review process](docs/20_development/pr_
 - Tests cover new functionality
 - Documentation updated if public API changes
 
-## RFC Process
+## Significant Changes
 
-For significant changes (new features, schema modifications, architectural changes), submit an RFC before implementation:
-
-1. Copy [RFC_TEMPLATE.md](docs/40_rfc/RFC_TEMPLATE.md) to `docs/40_rfc/RFC-NNN-short-title.md`
-2. Fill in all sections
-3. Submit as a PR with the `rfc` label
-4. Discuss in the PR
-5. Once accepted, proceed with implementation
+For significant changes (new features, schema modifications, architectural changes), open an issue first to discuss the approach before submitting a PR.
 
 ## AI Agent Contributors
 

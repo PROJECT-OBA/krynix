@@ -2,6 +2,14 @@
   "name": "krynix",
   "version": "0.1.1",
   "private": true,
+  "description": "Policy gates for AI agent behavior — trace, evaluate, and enforce agent actions",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PROJECT-OBA/krynix.git"
+  },
+  "homepage": "https://github.com/PROJECT-OBA/krynix#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "type": "module",
   "engines": {
     "node": ">=20",
@@ -20,17 +28,11 @@
     "lint:fix": "eslint 'packages/*/src/**/*.ts' --fix",
     "format": "prettier --write 'packages/*/src/**/*.ts'",
     "format:check": "prettier --check 'packages/*/src/**/*.ts'",
-    "docs:check": "pnpm docs:check:links && pnpm docs:check:terminology && pnpm docs:check:claims && pnpm docs:check:readme && pnpm docs:check:phase1",
+    "docs:check": "pnpm docs:check:links && pnpm docs:check:terminology && pnpm docs:check:claims && pnpm docs:check:readme",
     "docs:check:links": "node scripts/docs/check-links.mjs",
     "docs:check:terminology": "node scripts/docs/check-terminology.mjs",
     "docs:check:claims": "node scripts/docs/check-claim-tags.mjs",
     "docs:check:readme": "node scripts/docs/check-readme-consistency.mjs",
-    "docs:check:phase1": "node scripts/docs/check-phase1-backlog.mjs",
-    "planning:sync": "node scripts/planning/orchestrator.mjs sync --apply",
-    "planning:sync:dry": "node scripts/planning/orchestrator.mjs sync --dry-run",
-    "planning:audit": "node scripts/planning/orchestrator.mjs audit",
-    "planning:delegate": "node scripts/planning/orchestrator.mjs delegate --dry-run",
-    "planning:checkpoint": "node scripts/planning/orchestrator.mjs checkpoint --dry-run",
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
@@ -39,6 +41,7 @@
     "eslint-config-prettier": "^10.0.1",
     "prettier": "^3.5.0",
     "tsup": "^8.4.0",
+    "tsx": "^4.8.1",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.24.0",
     "vitest": "^3.0.0"

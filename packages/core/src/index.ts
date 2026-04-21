@@ -48,7 +48,14 @@ export {
 
 export { TraceWriter, type TraceWriterOptions } from "./trace-writer.js";
 
-export { validateTraceEvent, validatePolicy, validateReport } from "./schema-validator.js";
+export {
+  validateTraceEvent,
+  validatePolicy,
+  validateReport,
+  traceEventSchema,
+  policySchema,
+  reportSchema,
+} from "./schema-validator.js";
 
 export { SeededRandom } from "./seeded-random.js";
 

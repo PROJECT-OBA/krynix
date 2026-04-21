@@ -31,6 +31,7 @@ Local Commands (work offline, no auth required):
   validate           Validate policy file syntax
   stats              Compute per-session analytics from a trace
   export             Export a trace to external formats (e.g., OpenTelemetry)
+  diff               Compare two traces for behavioral drift
   sign               Sign a trace's hash chain with an Ed25519 private key
   keygen             Generate an Ed25519 signing keypair
   policy test        Test a policy against a sample trace
@@ -460,6 +461,24 @@ Options:
 Exit codes:
   0   Trace downloaded successfully
   1   Runtime error or auth failure`;
+
+    case "diff":
+      return `krynix diff — Compare two traces for behavioral drift
+
+Usage: krynix diff --baseline <file> --candidate <file>
+
+Options:
+  --baseline <file>    Path to the reference/golden trace file
+  --candidate <file>   Path to the new/candidate trace file
+  --help               Show this help
+
+Compares event_type, payload, and agent_id at each position. Ignores
+non-deterministic fields (event_hash, prev_hash, timestamp, event_id,
+metadata). Reports the first divergence point with field-level diffs.
+
+Exit codes:
+  0   Traces match
+  1   Behavioral drift detected or runtime error`;
 
     case "sign":
       return `krynix sign — Sign a trace's hash chain with an Ed25519 private key

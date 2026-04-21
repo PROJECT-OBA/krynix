@@ -56,7 +56,10 @@ export class TraceWriter {
    */
   async open(path: string): Promise<void> {
     if (this.fileHandle !== null) {
-      throw new Error("TraceWriter is already open; call close() first");
+      throw new KrynixError(
+        "TRACE_WRITER_ALREADY_OPEN",
+        "TraceWriter is already open; call close() first",
+      );
     }
     this.fileHandle = await open(path, "w");
     this.lastEventHash = "";
@@ -72,7 +75,7 @@ export class TraceWriter {
    */
   async write(event: TraceEvent): Promise<void> {
     if (this.fileHandle === null) {
-      throw new Error("TraceWriter is not open; call open() first");
+      throw new KrynixError("TRACE_WRITER_NOT_OPEN", "TraceWriter is not open; call open() first");
     }
 
     // Set prev_hash to the last written event's hash (or "" for first event)

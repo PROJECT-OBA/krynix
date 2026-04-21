@@ -61,15 +61,22 @@ Exit codes: `0` pass · `1` CI-failing error or runtime error · `2` CI-failing 
 ### Install
 
 ```bash
-# Option 1: Standalone binary (no dependencies)
+# Option 1: npm packages (recommended for TypeScript/Node.js projects)
+npm install @krynix/core @krynix/policy
+# Plus adapters for your framework:
+npm install @krynix/adapter-langchain  # or @krynix/adapter-openclaw
+
+# Option 2: CLI only (for CI pipelines)
+npm install -g @krynix/cli
+krynix --version
+
+# Option 3: Standalone binary (no npm dependencies, requires Node.js >= 20)
 curl -L https://github.com/PROJECT-OBA/krynix/releases/latest/download/krynix.cjs -o krynix.cjs
-chmod +x krynix.cjs
 node krynix.cjs --version
 
-# Option 2: Build from source
+# Option 4: Build from source
 git clone https://github.com/PROJECT-OBA/krynix.git
-cd krynix
-pnpm install && pnpm build
+cd krynix && pnpm install && pnpm build
 ```
 
 See [Quickstart Guide](docs/00_overview/quickstart.md) for full integration instructions.
@@ -124,7 +131,37 @@ krynix replay --verify --golden-dir test/golden/
 # Verifies integrity of all golden traces in the directory — hash chain, lifecycle, structure
 ```
 
-> **Note:** The `@krynix/replay` package exports a `compareTraces` function for structural drift comparison (`PARTIAL`), but it is not yet integrated into the CLI. CLI-level drift detection is planned.
+### Compare Traces for Behavioral Drift
+
+```bash
+krynix diff --baseline traces/v1.trace.jsonl --candidate traces/v2.trace.jsonl
+# Detects behavioral changes between two traces — field-level diff at first divergence point
+```
+
+### Programmatic Usage (TypeScript)
+
+```typescript
+import { readFile } from "node:fs/promises";
+import { createLangChainTracer } from "@krynix/adapter-langchain";
+import { parsePolicy, evaluate } from "@krynix/policy";
+import { readTrace } from "@krynix/core";
+
+// 1. Attach to your LangChain agent — captures events automatically
+const { handler, handle } = await createLangChainTracer({
+  outputPath: "./session.trace.jsonl",
+  agentId: "my-agent",
+});
+const result = await chain.invoke(input, { callbacks: [handler] });
+await handle.shutdown();
+
+// 2. Evaluate the trace against your policy
+const events = await readTrace("./session.trace.jsonl");
+const policy = parsePolicy(await readFile("policies/no-shell.policy.yaml", "utf-8"));
+const evalResult = evaluate(events, policy);
+
+console.log(evalResult.verdict);    // "pass" | "fail" | "require-approval"
+console.log(evalResult.violations); // detailed violation info
+```
 
 ---
 
@@ -154,13 +191,13 @@ See [How Policies Work](docs/00_overview/how-policies-work.md) for details.
 | `CURRENT` | Policy evaluation — 7 operators, first-match-wins, deterministic CI exit codes |
 | `CURRENT` | Replay verification — chain integrity, event ordering, session bookends |
 | `CURRENT` | Framework-agnostic policies — write once, apply to any agent |
-| `PARTIAL` | Behavioral drift comparison (library function, not yet CLI-integrated) |
+| `CURRENT` | Behavioral drift comparison (`krynix diff` + `compareTraces` library) |
 | `PARTIAL` | Redaction — key-pattern based |
 | `PLANNED` | Deterministic execution replay |
 | `PLANNED` | Runtime blocking via sidecar proxy |
 | `PLANNED` | Centralized governance (Control Plane) |
 
-Current replay guarantee is **integrity verification** via CLI. Baseline drift comparison exists as a library function (`compareTraces`) but is not yet CLI-integrated. Execution replay is planned.
+Current replay guarantee is **integrity verification** via CLI. Behavioral drift comparison is available via `krynix diff` and the `compareTraces` library function. Execution replay is planned.
 
 ---
 
@@ -185,24 +222,12 @@ packages/
 | What Is Krynix? | [what-is-krynix.md](docs/00_overview/what-is-krynix.md) |
 | How Policies Work | [how-policies-work.md](docs/00_overview/how-policies-work.md) |
 | Security and Integrity | [security-and-integrity.md](docs/00_overview/security-and-integrity.md) |
-| Product Model (OSS vs Paid) | [product_model.md](docs/00_overview/product_model.md) |
 | Platform Architecture (canonical) | [platform_architecture_spec.md](docs/10_architecture/platform_architecture_spec.md) |
 | Trace Specification | [trace_spec.md](docs/10_architecture/trace_spec.md) |
 | Policy Specification | [policy_spec.md](docs/10_architecture/policy_spec.md) |
 | Threat Model | [threat_model.md](docs/10_architecture/threat_model.md) |
 | Glossary | [glossary_platform.md](docs/00_overview/glossary_platform.md) |
 
-<details>
-<summary>Planning and development</summary>
-
-| Topic | Link |
-|-------|------|
-| Phase 1 backlog | [phase1_backlog.md](docs/20_development/phase1_backlog.md) |
-| Component contracts | [component_contract_matrix.md](docs/10_architecture/component_contract_matrix.md) |
-| Integration blueprints | [integration_blueprints.md](docs/10_architecture/integration_blueprints.md) |
-| Consumer usage model | [consumer_usage_model.md](docs/00_overview/consumer_usage_model.md) |
-
-</details>
 
 ---
 
@@ -215,6 +240,16 @@ packages/
 - Does not treat inferred intent alone as a trust control
 
 See [non_goals.md](docs/00_overview/non_goals.md) for full boundaries.
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+[MIT](LICENSE)
 
 <!-- machine-readable consistency markers (checked by docs:check:readme)
 REPLAY_CURRENT_MODE=integrity_verification

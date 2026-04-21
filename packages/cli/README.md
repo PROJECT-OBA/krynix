@@ -1,49 +1,50 @@
 # @krynix/cli
 
-Command-line interface for Krynix. Evaluate traces against policies, verify integrity, compute analytics, and export to OpenTelemetry — all from the terminal.
+Command-line interface for [Krynix](https://github.com/PROJECT-OBA/krynix) — policy evaluation, trace verification, behavioral diff, and compliance reporting.
+
+## Install
+
+```bash
+npm install -g @krynix/cli
+```
 
 ## Commands
 
-### Local (offline, no auth required)
+```bash
+# Evaluate a trace against policies (CI gate)
+krynix evaluate --trace run.jsonl --policy security.policy.yaml
 
-| Command | Purpose |
-|---------|---------|
-| `krynix evaluate --trace <file> --policy <path>` | Evaluate a trace against policies |
-| `krynix replay --verify --golden-dir <dir>` | Verify trace integrity |
-| `krynix validate --policy <path>` | Validate policy file syntax |
-| `krynix stats --trace <file>` | Compute per-session analytics |
-| `krynix export --trace <file> --format otlp-json` | Export trace to OpenTelemetry |
-| `krynix policy test --policy <file> --trace <file>` | Test a policy against a trace |
-| `krynix policy diff --old <file> --new <file>` | Compare two policies |
+# Compare two traces for behavioral drift
+krynix diff --baseline golden.jsonl --candidate new.jsonl
 
-### Control Plane (`PLANNED` — requires configured endpoint + auth)
+# Verify trace integrity
+krynix replay --trace run.jsonl --verify
 
-| Command | Purpose |
-|---------|---------|
-| `krynix auth login` | Authenticate |
-| `krynix push --trace <file>` | Upload artifacts |
-| `krynix policy pull` / `push` | Sync policies with registry |
-| `krynix golden promote` / `list` / `pull` | Manage golden traces |
-| `krynix compliance export` / `verify` | Compliance evidence bundles |
+# Sign a trace with Ed25519
+krynix sign --trace run.jsonl --private-key key.pem
+
+# Generate a signing keypair
+krynix keygen --output ./keys
+
+# Validate policy file syntax
+krynix validate --policy security.policy.yaml
+
+# Compute trace analytics
+krynix stats --trace run.jsonl
+
+# Export to OpenTelemetry format
+krynix export --trace run.jsonl --format otlp-json
+```
 
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success (including non-CI-failing violations) |
-| `1` | CI-failing violation (error severity) or runtime error |
-| `2` | CI-failing violation (critical severity) |
+| `0` | Success / all policies pass |
+| `1` | Policy violation (error) or runtime error |
+| `2` | Policy violation (critical) |
 | `3` | Requires approval |
 
-## Standalone Binary
+## License
 
-A self-contained binary (no `node_modules` needed) can be built with:
-
-```bash
-./scripts/build-standalone.sh
-node dist/krynix.cjs --version
-```
-
-## Part of Krynix
-
-This package is part of the [Krynix](https://github.com/PROJECT-OBA/krynix) monorepo. See the root README for full documentation.
+MIT

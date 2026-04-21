@@ -125,6 +125,44 @@ describe("createLangChainTracer", () => {
     }
   });
 
+  test("tool_call and tool_result tool_name match", async () => {
+    const dir = await createTempDir();
+    const tracePath = join(dir, "tool-correlation.jsonl");
+
+    const { handler, handle } = await createLangChainTracer({
+      outputPath: tracePath,
+      agentId: "test-agent",
+      replaySeed: 42,
+    });
+
+    await handler.handleLLMStart({ id: ["langchain", "llms", "fake"] }, ["prompt"], "run-1");
+    await handler.handleLLMEnd(
+      {
+        generations: [[{ text: "Use the file_read tool" }]],
+        llmOutput: {
+          tokenUsage: { promptTokens: 10, completionTokens: 5 },
+          model_name: "test-model",
+        },
+      },
+      "run-1",
+    );
+    await handler.handleToolStart({ name: "web_search" }, "query", "run-tool-1", "run-1");
+    await handler.handleToolEnd("search results", "run-tool-1", "run-1");
+
+    await handle.shutdown();
+
+    const events = await readTrace(tracePath);
+    const toolCall = events.find((e: TraceEvent) => e.event_type === "tool_call");
+    const toolResult = events.find((e: TraceEvent) => e.event_type === "tool_result");
+    expect(toolCall).toBeDefined();
+    expect(toolResult).toBeDefined();
+    const callPayload = toolCall?.payload as { tool_name: string };
+    const resultPayload = toolResult?.payload as { tool_name: string };
+    expect(callPayload.tool_name).toBe("web_search");
+    expect(resultPayload.tool_name).toBe("web_search");
+    expect(callPayload.tool_name).toBe(resultPayload.tool_name);
+  });
+
   test("write queue serialization: concurrent callbacks produce valid hash chain", async () => {
     const dir = await createTempDir();
     const tracePath = join(dir, "concurrent.jsonl");

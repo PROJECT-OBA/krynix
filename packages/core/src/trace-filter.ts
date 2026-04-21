@@ -8,6 +8,7 @@
  */
 
 import type { TraceEvent } from "./types.js";
+import { KrynixError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -58,7 +59,7 @@ export interface TraceFilterCriteria {
  *   then exclude_fields). Events are shallow-cloned when field filters apply.
  * - Does NOT mutate the input array or events.
  *
- * @throws {Error} If `after` or `before` is an unparseable date string.
+ * @throws {KrynixError} INVALID_DATE if `after` or `before` is an unparseable date string.
  */
 export function filterTraceEvents(
   events: readonly TraceEvent[],
@@ -71,14 +72,14 @@ export function filterTraceEvents(
   if (criteria.after !== undefined) {
     afterMs = new Date(criteria.after).getTime();
     if (isNaN(afterMs)) {
-      throw new Error(`Invalid 'after' date: ${criteria.after}`);
+      throw new KrynixError("INVALID_DATE", `Invalid 'after' date: ${criteria.after}`);
     }
   }
 
   if (criteria.before !== undefined) {
     beforeMs = new Date(criteria.before).getTime();
     if (isNaN(beforeMs)) {
-      throw new Error(`Invalid 'before' date: ${criteria.before}`);
+      throw new KrynixError("INVALID_DATE", `Invalid 'before' date: ${criteria.before}`);
     }
   }
 

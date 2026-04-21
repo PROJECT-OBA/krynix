@@ -10,6 +10,7 @@
 
 import { createHash } from "node:crypto";
 import type { TraceEvent } from "./types.js";
+import { KrynixError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -73,7 +74,7 @@ export function redact(event: TraceEvent): TraceEvent {
  * @param event - The TraceEvent to redact
  * @param customPatterns - Additional patterns to match against field names
  * @returns A new TraceEvent with sensitive fields replaced and `redacted` flag set
- * @throws {Error} If a custom pattern contains an invalid regular expression
+ * @throws {KrynixError} INVALID_PATTERN if a custom pattern contains an invalid regular expression
  */
 export function redactWithPatterns(
   event: TraceEvent,
@@ -84,7 +85,8 @@ export function redactWithPatterns(
     try {
       return new RegExp(p.pattern, "i");
     } catch (err) {
-      throw new Error(
+      throw new KrynixError(
+        "INVALID_PATTERN",
         `Invalid redaction pattern "${p.pattern}": ${err instanceof Error ? err.message : String(err)}`,
       );
     }

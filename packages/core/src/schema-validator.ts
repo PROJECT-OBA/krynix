@@ -126,6 +126,7 @@ const TRACE_SCHEMA = {
         action: { type: "string" },
         reasoning: { type: "string" },
         confidence: { type: "number" },
+        alternatives: { type: "array", items: { type: "string" } },
       },
       required: ["action", "reasoning"],
       additionalProperties: false,
@@ -135,6 +136,7 @@ const TRACE_SCHEMA = {
       properties: {
         source: { type: "string" },
         content: {},
+        category: { type: "string" },
       },
       required: ["source", "content"],
       additionalProperties: false,
@@ -390,6 +392,34 @@ function runValidation(getValidate: () => ValidateFn, data: unknown): Validation
   if (valid) return { valid: true };
   return { valid: false, error: formatErrors(validate.errors) };
 }
+
+// ---------------------------------------------------------------------------
+// Schema exports (for cross-language SDK validation)
+// ---------------------------------------------------------------------------
+
+/** The TraceEvent JSON Schema (draft-07). Deep-frozen to prevent mutation. */
+export const traceEventSchema = deepFreeze(structuredClone(TRACE_SCHEMA));
+
+/** The Policy JSON Schema (draft-07). Deep-frozen to prevent mutation. */
+export const policySchema = deepFreeze(structuredClone(POLICY_SCHEMA));
+
+/** The EvaluationResult (report) JSON Schema (draft-07). Deep-frozen to prevent mutation. */
+export const reportSchema = deepFreeze(structuredClone(REPORT_SCHEMA));
+
+/** Recursively freeze an object and all nested objects/arrays. */
+function deepFreeze<T>(obj: T): T {
+  Object.freeze(obj);
+  for (const value of Object.values(obj as Record<string, unknown>)) {
+    if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
+// ---------------------------------------------------------------------------
+// Validation functions
+// ---------------------------------------------------------------------------
 
 /** Validate an unknown value against the TraceEvent JSON schema. */
 export function validateTraceEvent(event: unknown): ValidationResult {
