@@ -8,6 +8,7 @@
  */
 
 import { readTrace } from "@krynix/core";
+import type { TraceEvent } from "@krynix/core";
 import { compareTraces } from "@krynix/replay";
 import type { DivergenceReport } from "@krynix/replay";
 import { getArg } from "./arg-parser.js";
@@ -36,7 +37,7 @@ export async function runDiff(args: string[]): Promise<DiffResult> {
     return { exitCode: 1, output: null, error: "Missing required argument: --candidate" };
   }
 
-  let baselineEvents;
+  let baselineEvents: TraceEvent[];
   try {
     baselineEvents = await readTrace(baselinePath);
   } catch (err) {
@@ -44,7 +45,7 @@ export async function runDiff(args: string[]): Promise<DiffResult> {
     return { exitCode: 1, output: null, error: `Failed to read baseline trace: ${message}` };
   }
 
-  let candidateEvents;
+  let candidateEvents: TraceEvent[];
   try {
     candidateEvents = await readTrace(candidatePath);
   } catch (err) {
