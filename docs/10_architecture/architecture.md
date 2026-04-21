@@ -15,7 +15,8 @@ Describe how Krynix functions as the trust spine in a layered agent platform and
   Evidence: `packages/cli/src/evaluate.ts`, `docs/10_architecture/policy_spec.md`
 - [CURRENT] Artifacts remain usable offline; Control Plane is additive.
   Evidence: `packages/core/src/session.ts`, `packages/cli/src/evaluate.ts`
-- [PARTIAL] Baseline trace diff library function exists (`compareTraces`) for behavior drift detection; CLI `diff` command available.
+- [CURRENT] Behavioral drift detection via `compareTraces` library and `krynix diff` CLI command.
+  Evidence: `packages/replay/src/comparator.ts`, `packages/cli/src/diff.ts`
 - [PARTIAL] Runtime controls are integration-driven and not a built-in full inline gateway in OSS.
 
 ## Planned Guarantees (Future)
@@ -69,7 +70,8 @@ krynix replay --verify --golden-dir test/golden/
 ```
 
 ## Known Gaps And Roadmap
-- [PARTIAL] Replay CLI guarantees integrity verification. Baseline diff exists as library function (`compareTraces`) but is not CLI-accessible.
+- [CURRENT] Replay CLI provides integrity verification and behavioral drift comparison (`krynix diff`).
+  Evidence: `packages/replay/src/replay-runner.ts`, `packages/cli/src/diff.ts`
 - [PARTIAL] Runtime guard orchestration exists at architecture level but is not fully productized in OSS packages.
 - [PLANNED] Formal replay executor and deterministic external I/O contracts.
 
