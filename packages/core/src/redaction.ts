@@ -74,7 +74,7 @@ export function redact(event: TraceEvent): TraceEvent {
  * @param event - The TraceEvent to redact
  * @param customPatterns - Additional patterns to match against field names
  * @returns A new TraceEvent with sensitive fields replaced and `redacted` flag set
- * @throws {Error} If a custom pattern contains an invalid regular expression
+ * @throws {KrynixError} INVALID_PATTERN if a custom pattern contains an invalid regular expression
  */
 export function redactWithPatterns(
   event: TraceEvent,
