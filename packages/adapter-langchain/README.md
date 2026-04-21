@@ -15,14 +15,18 @@ npm install @krynix/adapter-langchain
 ```typescript
 import { createLangChainTracer } from "@krynix/adapter-langchain";
 
-const tracer = createLangChainTracer({
-  outputPath: "./traces/run.jsonl",
+const { handler, handle } = await createLangChainTracer({
+  outputPath: "./traces/run.trace.jsonl",
+  agentId: "my-agent",
 });
 
-// Pass as a callback to any LangChain component
+// Pass handler to LangChain — all events captured automatically
 const result = await chain.invoke(input, {
-  callbacks: [tracer],
+  callbacks: [handler],
 });
+
+// When done, shut down to finalize the trace file
+await handle.shutdown();
 ```
 
 ### Manual adapter (fine-grained control)

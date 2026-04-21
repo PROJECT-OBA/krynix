@@ -21,14 +21,17 @@ npm install @krynix/core
 ## Usage
 
 ```typescript
-import { TraceWriter, computeHashChain, validateHashChain } from "@krynix/core";
+import { TraceWriter, validateHashChain, readTrace } from "@krynix/core";
 
 // Write events to a trace file
-const writer = new TraceWriter("/path/to/trace.jsonl");
-await writer.write(event);
+const writer = new TraceWriter({ validateOnWrite: true });
+await writer.open("/path/to/trace.jsonl");
+await writer.write(event1);
+await writer.write(event2);
 await writer.close();
 
-// Validate hash chain integrity
+// Read and validate hash chain integrity
+const events = await readTrace("/path/to/trace.jsonl");
 const result = validateHashChain(events);
 // result.valid === true if chain is intact
 ```
