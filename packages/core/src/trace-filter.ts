@@ -59,7 +59,7 @@ export interface TraceFilterCriteria {
  *   then exclude_fields). Events are shallow-cloned when field filters apply.
  * - Does NOT mutate the input array or events.
  *
- * @throws {Error} If `after` or `before` is an unparseable date string.
+ * @throws {KrynixError} INVALID_DATE if `after` or `before` is an unparseable date string.
  */
 export function filterTraceEvents(
   events: readonly TraceEvent[],

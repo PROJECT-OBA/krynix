@@ -34,8 +34,17 @@ await handle.shutdown();
 ```typescript
 import { LangChainAdapter } from "@krynix/adapter-langchain";
 
-const adapter = new LangChainAdapter(config);
-const traceEvent = adapter.handleLLMStart(runId, input);
+const adapter = new LangChainAdapter();
+await adapter.initialize({ agentId: "my-agent", sessionId: "s1" });
+
+// Map a LangChain callback event to a Krynix TraceEvent
+const traceEvent = adapter.onEvent({
+  _callback: "handleToolStart",
+  tool: { lc: 1, type: "not_implemented", id: ["langchain", "tools", "Calculator"] },
+  input: "query string",
+  runId: "run-123",
+  runName: "my_calculator",
+});
 ```
 
 ## Callbacks Handled
