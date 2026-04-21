@@ -141,21 +141,26 @@ krynix diff --baseline traces/v1.trace.jsonl --candidate traces/v2.trace.jsonl
 ### Programmatic Usage (TypeScript)
 
 ```typescript
+import { readFile } from "node:fs/promises";
 import { createLangChainTracer } from "@krynix/adapter-langchain";
 import { parsePolicy, evaluate } from "@krynix/policy";
 import { readTrace } from "@krynix/core";
 
 // 1. Attach to your LangChain agent — captures events automatically
-const tracer = createLangChainTracer({ outputPath: "./session.trace.jsonl" });
-// pass `tracer` as a callback to your LangChain chain/agent
+const { handler, handle } = await createLangChainTracer({
+  outputPath: "./session.trace.jsonl",
+  agentId: "my-agent",
+});
+const result = await chain.invoke(input, { callbacks: [handler] });
+await handle.shutdown();
 
-// 2. After the agent run, evaluate the trace against your policy
+// 2. Evaluate the trace against your policy
 const events = await readTrace("./session.trace.jsonl");
-const policy = parsePolicy(await fs.readFile("policies/no-shell.policy.yaml", "utf-8"));
-const result = evaluate(events, policy);
+const policy = parsePolicy(await readFile("policies/no-shell.policy.yaml", "utf-8"));
+const evalResult = evaluate(events, policy);
 
-console.log(result.verdict); // "pass" | "fail" | "require-approval"
-console.log(result.violations); // detailed violation info
+console.log(evalResult.verdict);    // "pass" | "fail" | "require-approval"
+console.log(evalResult.violations); // detailed violation info
 ```
 
 ---

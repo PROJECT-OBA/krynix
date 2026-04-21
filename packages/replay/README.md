@@ -19,14 +19,19 @@ npm install @krynix/replay
 
 ```typescript
 import { verifyTrace, compareTraces } from "@krynix/replay";
+import { readTrace } from "@krynix/core";
 
-// Verify trace integrity
+// Verify trace integrity (hash chain, lifecycle, sequence numbers)
 const result = await verifyTrace("/path/to/trace.jsonl");
-// result.valid === true if hash chain is intact
+// result.status: "pass" | "diverged" | "error"
+// result.report?.firstDivergence — details of the first divergence point
 
 // Compare two traces for behavioral drift
-const diff = compareTraces(baselineEvents, candidateEvents);
+const baseline = await readTrace("/path/to/golden.trace.jsonl");
+const candidate = await readTrace("/path/to/new.trace.jsonl");
+const diff = compareTraces(baseline, candidate);
 // diff.status: "pass" | "diverged"
+// diff.firstDivergence?.diffs — field-level diffs at divergence point
 ```
 
 ## License

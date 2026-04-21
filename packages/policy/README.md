@@ -20,20 +20,36 @@ npm install @krynix/policy
 import { evaluate, parsePolicy } from "@krynix/policy";
 import { readTrace } from "@krynix/core";
 
-const trace = await readTrace("/path/to/trace.jsonl");
+const events = await readTrace("/path/to/trace.jsonl");
 const policy = parsePolicy(`
-  name: no-shell-exec
-  rules:
-    - event_type: tool_call
-      match:
-        field: payload.tool_name
-        operator: eq
-        value: shell_exec
-      severity: error
+  apiVersion: krynix.dev/v1
+  kind: Policy
+  metadata:
+    name: no-shell-exec
+    version: "1.0"
+    description: Block shell command execution
+  spec:
+    scope:
+      agents: ["*"]
+      event_types: ["tool_call"]
+    rules:
+      - id: block-shell
+        description: Deny shell tool calls
+        match:
+          event_type: tool_call
+          payload:
+            - field: tool_name
+              operator: eq
+              value: shell_exec
+        action: deny
+        severity: error
+        message: "Shell execution is not permitted"
 `);
 
-const result = evaluate(trace, policy);
+const result = evaluate(events, policy);
+// result.verdict: "pass" | "fail" | "require-approval"
 // result.exitCode: 0 (pass), 1 (error), 2 (critical), 3 (require-approval)
+// result.violations: array of matched deny/require-approval rules
 ```
 
 ## Evaluation Semantics

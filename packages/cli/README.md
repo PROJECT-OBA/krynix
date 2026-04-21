@@ -33,7 +33,7 @@ krynix validate --policy security.policy.yaml
 krynix stats --trace run.jsonl
 
 # Export to OpenTelemetry format
-krynix export --trace run.jsonl --format otlp
+krynix export --trace run.jsonl --format otlp-json
 ```
 
 ## Exit Codes

@@ -11,14 +11,12 @@ npm install @krynix/adapter-openclaw
 ## Usage
 
 ```typescript
-import { createOpenClawPlugin } from "@krynix/adapter-openclaw";
+import { createKrynixPlugin } from "@krynix/adapter-openclaw";
 
-const plugin = createOpenClawPlugin({
-  outputPath: "./traces/run.jsonl",
+// In an OpenClaw extensions/krynix/index.ts:
+export default createKrynixPlugin({
+  outputPath: "./traces/run.trace.jsonl",
 });
-
-// Register with OpenClaw
-agent.use(plugin);
 ```
 
 ## Hooks Handled
