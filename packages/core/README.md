@@ -48,7 +48,7 @@ This means traces and hash chains produced by any `0.x` release will validate co
 
 ## Error Handling
 
-All errors thrown by `@krynix/core` use the `KrynixError` class with a machine-readable `.code` property:
+Validation and runtime errors thrown by `@krynix/core` use the `KrynixError` class with a machine-readable `.code` property. I/O operations (e.g., `readTrace`, `TraceWriter.open`) may also throw standard Node.js errors (e.g., `ENOENT`).
 
 ```typescript
 import { KrynixError } from "@krynix/core";
