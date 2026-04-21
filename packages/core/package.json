@@ -15,6 +15,10 @@
   "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/core#readme",
   "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "trace", "hash-chain", "ai-agent", "trust", "observability"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -35,7 +39,8 @@
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",
-    "generate:schemas": "tsx scripts/generate-schemas.ts"
+    "generate:schemas": "tsx scripts/generate-schemas.ts",
+    "prepack": "npm run generate:schemas"
   },
   "dependencies": {
     "ajv": "^8.17.1",

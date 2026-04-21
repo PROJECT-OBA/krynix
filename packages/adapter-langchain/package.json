@@ -15,6 +15,10 @@
   "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/adapter-langchain#readme",
   "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "langchain", "adapter", "ai-agent", "trace", "observability"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -33,6 +37,14 @@
   },
   "dependencies": {
     "@krynix/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@langchain/core": ">=0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/core": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@krynix/policy": "workspace:*",

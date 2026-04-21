@@ -15,6 +15,10 @@
   "homepage": "https://github.com/PROJECT-OBA/krynix#readme",
   "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "cli", "policy", "trace", "ai-agent", "trust"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
