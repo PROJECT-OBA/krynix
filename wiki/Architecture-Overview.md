@@ -21,4 +21,4 @@ Canonical source: `docs/10_architecture/platform_architecture_spec.md`.
 - `@krynix/cli`
 - `@krynix/adapter-openclaw`
 
-For contract details, see `docs/10_architecture/component_contract_matrix.md`.
+For architecture details, see [platform_architecture_spec.md](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/platform_architecture_spec.md).
