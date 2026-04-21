@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const repoRoot = process.cwd();
-const roots = ["README.md", "docs", "wiki"];
+const roots = ["README.md", "docs"];
 
 function listMarkdownFiles(target) {
   const abs = resolve(repoRoot, target);
@@ -63,14 +63,7 @@ for (const file of files) {
   for (const match of content.matchAll(wikiLinkRe)) {
     const raw = match[1].trim();
     if (raw.length === 0) continue;
-    const target = raw.split("|")[0].trim();
-    const candidates = [
-      resolve(repoRoot, "wiki", `${target}.md`),
-      resolve(repoRoot, "wiki", `${target.replace(/ /g, "-")}.md`),
-    ];
-    if (!candidates.some((c) => existsSync(c))) {
-      broken.push(`${file}: [[${target}]]`);
-    }
+    broken.push(`${file}: [[${raw}]] (wiki links not supported — use standard markdown links)`);
   }
 }
 
