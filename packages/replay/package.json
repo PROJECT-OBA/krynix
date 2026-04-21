@@ -15,6 +15,10 @@
   "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/replay#readme",
   "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "replay", "integrity", "verification", "hash-chain", "golden-trace"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
