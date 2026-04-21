@@ -18,7 +18,7 @@ Define policy contract semantics and enforcement boundaries for Krynix OSS.
 - [CURRENT] Verdict and severity map to stable CLI exit codes for CI gates.  
   Evidence: `packages/policy/src/evaluator.ts`, `packages/cli/src/evaluate.ts`
 - [CURRENT] Primary enforced path in OSS is CI/post-run evaluation against trace artifacts.  
-  Evidence: `packages/cli/src/evaluate.ts`, `docs/20_development/ci_cd.md`
+  Evidence: `packages/cli/src/evaluate.ts`, `packages/cli/src/router.ts`
 - [PARTIAL] Runtime evaluation can be integrated externally but is not a built-in mandatory inline OSS gate.
 - [CURRENT] Enforcement hierarchy: deterministic hard controls > policy-based controls > advisory intelligence. Advisory signals alone must not be sole basis for critical denial unless configured by deployment profile.
   Evidence: `docs/10_architecture/platform_architecture_spec.md` §Enforcement Hierarchy

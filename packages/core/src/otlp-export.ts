@@ -4,7 +4,7 @@
  * Pure function with zero external dependencies. Produces the standard OTel
  * `ExportTraceServiceRequest` JSON structure that OTel collectors accept.
  *
- * See `docs/20_development/observability.md` for mapping rationale.
+ * Maps Krynix event types to OTel span attributes and resource metadata.
  *
  * @module
  */

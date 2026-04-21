@@ -12,6 +12,8 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/cli"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "cli", "policy", "trace", "ai-agent", "trust"],
   "type": "module",
   "main": "./dist/index.cjs",

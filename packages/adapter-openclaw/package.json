@@ -12,6 +12,8 @@
     "url": "https://github.com/PROJECT-OBA/krynix.git",
     "directory": "packages/adapter-openclaw"
   },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/adapter-openclaw#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
   "keywords": ["krynix", "openclaw", "adapter", "ai-agent", "trace", "observability"],
   "type": "module",
   "main": "./dist/index.cjs",

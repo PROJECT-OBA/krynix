@@ -204,4 +204,3 @@ All six checks must pass for a PR to merge.
 - [[Package Structure]] -- Monorepo layout and dependencies
 - [[Testing Strategy]] -- Detailed testing approach
 - [CONTRIBUTING.md](https://github.com/PROJECT-OBA/krynix/blob/main/CONTRIBUTING.md) -- Contribution guidelines
-- [dev_env.md](https://github.com/PROJECT-OBA/krynix/blob/main/docs/20_development/dev_env.md) -- Detailed environment setup

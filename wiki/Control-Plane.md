@@ -124,6 +124,4 @@ All OSS engine commands work without a Control Plane. The engine never requires 
 
 ## See Also
 
-- [Control Plane Specification](https://github.com/PROJECT-OBA/krynix/blob/main/docs/10_architecture/control_plane_spec.md) -- Full architecture document
-- [Product Model](https://github.com/PROJECT-OBA/krynix/blob/main/docs/00_overview/product_model.md) -- Two-layer product overview
 - [[Architecture Overview]] -- System-level design
