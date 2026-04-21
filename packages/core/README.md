@@ -17,6 +17,8 @@ npm install @krynix/core
 - **`canonicalize`** — deterministic JSON serialization
 - **`SeededRandom`** — Mulberry32 PRNG for deterministic operations
 - **`KrynixError`** — typed error system with `.code` property
+- **`traceEventSchema` / `policySchema` / `reportSchema`** — JSON Schema objects for cross-language validation
+- **Schema files** — standalone JSON Schema files at `@krynix/core/schemas/*.schema.json`
 
 ## Usage
 

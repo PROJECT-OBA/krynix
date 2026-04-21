@@ -62,4 +62,5 @@ export {
   type GoldenDeps,
 } from "./golden.js";
 export { runDiff, type DiffResult } from "./diff.js";
+export { runSign, type SignResult, runKeygen, type KeygenResult } from "./sign.js";
 export { parseEnvFlags, buildEnvironmentContext } from "./env-flags.js";
