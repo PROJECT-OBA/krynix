@@ -6,7 +6,7 @@
   },
   "description": "Core primitives for Krynix: trace events, hash chains, sessions, canonical JSON, and schema validation",
   "author": "PROJECT-OBA",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/PROJECT-OBA/krynix.git",

@@ -84,25 +84,19 @@ You don't need to write a custom adapter. Choose the path that fits your stack:
 | Path | Effort | Who It's For |
 |------|--------|-------------|
 | **Pre-built adapter** | Drop-in auto-capture with zero instrumentation code | LangChain, OpenClaw (more coming) |
-| **SDK** | Import `@krynix/core` (TypeScript) + a few lines of code. Python SDK is `PLANNED` ([krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python)) | TypeScript agents (Python coming) |
-| **HTTP ingest** (`PLANNED`) | POST JSON events to an endpoint — no library needed | Any agent, any language |
+| **SDK** | Import `@krynix/core` (TypeScript) + a few lines of code. Python SDK: [`krynix-sdk-python`](https://github.com/PROJECT-OBA/krynix-sdk-python) | TypeScript and Python agents |
 
-For current integrations, use a pre-built adapter or the SDK. HTTP ingest is `PLANNED` as the first Control Plane component — it will provide zero-library integration for any language.
+## What This Repo Includes
 
-## What's Free vs Paid
+- Trace capture and local storage (JSONL with SHA-256 hash chain)
+- Policy evaluation in CI (`krynix evaluate`)
+- Hash chain integrity verification (`krynix verify`)
+- Behavioral drift detection (`krynix diff`)
+- CLI tooling: evaluate, replay, diff, export
+- Ed25519 trace signing and verification
+- LangChain and OpenClaw adapters
 
-| | OSS (this repo) | Control Plane (`PLANNED`) |
-|---|---|---|
-| Trace capture and storage | Yes | Yes |
-| Policy evaluation in CI | Yes | Yes |
-| Hash chain integrity verification | Yes | Yes |
-| Behavioral drift detection (`krynix diff`) | Yes | Yes |
-| CLI tooling (evaluate, replay, diff, export) | Yes | Yes |
-| Centralized policy registry | No | Yes |
-| Team dashboards and compliance reports | No | Yes |
-| Org-wide governance controls | No | Yes |
-
-The OSS engine is production-ready for CI-based trust workflows. The Control Plane adds centralized governance for teams and organizations.
+The engine is production-ready for CI-based and post-run trust workflows. Centralized governance for teams and organizations is `PLANNED`.
 
 ## Current Status
 

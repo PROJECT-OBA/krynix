@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "description": "Policy gates for AI agent behavior — trace, evaluate, and enforce agent actions",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/PROJECT-OBA/krynix.git"

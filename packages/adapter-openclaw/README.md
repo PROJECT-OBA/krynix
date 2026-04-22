@@ -31,4 +31,4 @@ export default createKrynixPlugin({
 
 ## License
 
-MIT
+Apache 2.0

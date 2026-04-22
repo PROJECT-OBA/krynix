@@ -36,4 +36,4 @@ const diff = compareTraces(baseline, candidate);
 
 ## License
 
-MIT
+Apache 2.0

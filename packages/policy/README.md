@@ -86,4 +86,4 @@ const result = evaluate(events, policy);
 
 ## License
 
-MIT
+Apache 2.0

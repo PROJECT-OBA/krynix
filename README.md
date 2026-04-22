@@ -9,7 +9,7 @@
   </a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node ≥20">
   <img src="https://img.shields.io/badge/pnpm-%3E%3D8-orange" alt="pnpm ≥8">
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
 </p>
 
 <p align="center">
@@ -174,7 +174,7 @@ Policies are framework-agnostic. Write once, apply to any agent:
 | LangChain | Pre-built adapter (auto-capture) | `CURRENT` |
 | OpenClaw | Pre-built adapter (auto-capture) | `CURRENT` |
 | Any TypeScript agent | `@krynix/core` SDK | `CURRENT` |
-| Any Python agent | `krynix-sdk-python` | `PLANNED` |
+| Any Python agent | [`krynix-sdk-python`](https://github.com/PROJECT-OBA/krynix-sdk-python) | `CURRENT` |
 | Any language | HTTP ingest (POST JSON) | `PLANNED` |
 
 All adapters normalize events into 8 canonical types (`tool_call`, `tool_result`, `llm_request`, `llm_response`, `decision`, `observation`, `error`, `lifecycle`). Policies match these canonical types — zero framework awareness in the policy engine.
@@ -195,7 +195,7 @@ See [How Policies Work](docs/00_overview/how-policies-work.md) for details.
 | `PARTIAL` | Redaction — key-pattern based |
 | `PLANNED` | Deterministic execution replay |
 | `PLANNED` | Runtime blocking via sidecar proxy |
-| `PLANNED` | Centralized governance (Control Plane) |
+| `PLANNED` | Centralized governance |
 
 Current replay guarantee is **integrity verification** via CLI. Behavioral drift comparison is available via `krynix diff` and the `compareTraces` library function. Execution replay is planned.
 
@@ -249,7 +249,7 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
 
 <!-- machine-readable consistency markers (checked by docs:check:readme)
 REPLAY_CURRENT_MODE=integrity_verification
