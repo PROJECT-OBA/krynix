@@ -90,7 +90,7 @@ You don't need to write a custom adapter. Choose the path that fits your stack:
 
 - Trace capture and local storage (JSONL with SHA-256 hash chain)
 - Policy evaluation in CI (`krynix evaluate`)
-- Hash chain integrity verification (`krynix verify`)
+- Integrity verification for traces and bundles (`krynix replay --verify`, `krynix compliance verify`)
 - Behavioral drift detection (`krynix diff`)
 - CLI tooling: evaluate, replay, diff, export
 - Ed25519 trace signing and verification
