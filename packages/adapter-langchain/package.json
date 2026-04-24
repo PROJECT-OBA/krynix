@@ -6,7 +6,7 @@
   },
   "description": "LangChain adapter for Krynix: translates LangChain callback events into Krynix trace events",
   "author": "PROJECT-OBA",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/PROJECT-OBA/krynix.git",

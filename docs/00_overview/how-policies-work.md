@@ -15,7 +15,7 @@ Krynix solves this with a normalization layer:
 ```
 LangChain Agent  → LangChainAdapter  → canonical TraceEvent ─┐
 OpenClaw Agent   → OpenClawAdapter   → canonical TraceEvent  ├→ Same Policy Engine
-Python Agent     → Python SDK (PLANNED) → canonical TraceEvent  │
+Python Agent     → Python SDK (CURRENT) → canonical TraceEvent  │
 Custom Agent     → Custom Adapter    → canonical TraceEvent ─┘
 ```
 
@@ -174,7 +174,7 @@ tracer.tool_result("web_search", result, duration_ms=150)
 tracer.flush()  # writes trace.jsonl
 ```
 
-**Status:** TypeScript SDK is `CURRENT`. Python SDK is `PLANNED` (separate repo: [krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python)).
+**Status:** TypeScript SDK is `CURRENT`. Python SDK is `CURRENT` (separate repo: [krynix-sdk-python](https://github.com/PROJECT-OBA/krynix-sdk-python)).
 
 ### 3. Pre-Built Adapter — Auto-Capture for Supported Frameworks
 

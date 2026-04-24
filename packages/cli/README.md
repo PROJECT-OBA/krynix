@@ -47,4 +47,4 @@ krynix export --trace run.jsonl --format otlp-json
 
 ## License
 
-MIT
+Apache 2.0

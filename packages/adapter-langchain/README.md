@@ -59,4 +59,4 @@ const traceEvent = adapter.onEvent({
 
 ## License
 
-MIT
+Apache 2.0

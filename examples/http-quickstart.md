@@ -18,7 +18,7 @@ The raw HTTP protocol below shows every field for completeness. In practice, **y
 | Batching and retry on network failure | Automatic |
 | `sequence_num`, `prev_hash`, `event_hash` | Server computes these |
 
-**What you would write** with the Python SDK (`PLANNED`):
+**What you would write** with the Python SDK (`CURRENT`):
 
 ```python
 from krynix import KrynixTracer
@@ -131,7 +131,7 @@ krynix replay --verify --trace traces/$SESSION_ID.trace.jsonl
 
 ## Python Example (with httpx)
 
-> **Note:** This shows the raw HTTP approach. When the Python SDK is available,
+> **Note:** This shows the raw HTTP approach. The Python SDK is now available —
 > use `KrynixTracer` instead (shown at the top of this document).
 
 ```python
@@ -183,9 +183,9 @@ client.post(f"/v1/sessions/{SESSION_ID}/close")
 | `error` | `code`, `message`, `recoverable` |
 | `lifecycle` | `action` (`session_start`, `session_end`, `checkpoint`) |
 
-## LangChain Integration (Python) `[PLANNED]`
+## LangChain Integration (Python) `[CURRENT]`
 
-The Python SDK will include a LangChain callback handler that captures events automatically:
+The Python SDK includes a LangChain callback handler that captures events automatically:
 
 ```python
 from krynix.integrations.langchain import KrynixCallbackHandler

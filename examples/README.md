@@ -218,7 +218,7 @@ This verifies that golden traces haven't been tampered with — hash chain, life
 | TypeScript + OpenClaw | `[CURRENT]` | `createKrynixPlugin()` — zero-friction plugin |
 | TypeScript + custom agent | `[CURRENT]` | `@krynix/core` session API (manual but flexible) |
 | HTTP Ingest Server | `[PLANNED]` | Any language via HTTP POST — server handles hashing |
-| Python SDK | `[PLANNED]` | Thin HTTP client + LangChain callback handler |
+| Python SDK | `[CURRENT]` | Local trace recording + LangChain callback handler |
 
 ## Example Files
 
