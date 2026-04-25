@@ -21,13 +21,15 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9
 
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
-          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm to a Trusted-Publishing-capable version
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -61,9 +63,15 @@ jobs:
             NOTICE
 
       - name: Publish packages to npm
-        run: pnpm -r publish --access public --no-git-checks --provenance
-        env:
-          NPM_CONFIG_PROVENANCE: "true"
+        # Trusted Publishing: no NPM_TOKEN required. npm CLI fetches an OIDC
+        # token from GitHub Actions and exchanges it with npm for a short-lived
+        # publish credential.
+        run: |
+          for p in core policy replay cli adapter-langchain adapter-openclaw; do
+            echo "::group::Publishing @krynix/$p"
+            (cd packages/$p && npm publish --access public --provenance)
+            echo "::endgroup::"
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
