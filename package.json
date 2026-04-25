@@ -1,6 +1,6 @@
 {
   "name": "krynix",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Policy gates for AI agent behavior — trace, evaluate, and enforce agent actions",
   "license": "Apache-2.0",

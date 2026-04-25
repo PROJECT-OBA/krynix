@@ -63,15 +63,13 @@ jobs:
             NOTICE
 
       - name: Publish packages to npm
-        # Trusted Publishing: no NPM_TOKEN required. npm CLI fetches an OIDC
-        # token from GitHub Actions and exchanges it with npm for a short-lived
-        # publish credential.
-        run: |
-          for p in core policy replay cli adapter-langchain adapter-openclaw; do
-            echo "::group::Publishing @krynix/$p"
-            (cd packages/$p && npm publish --access public --provenance)
-            echo "::endgroup::"
-          done
+        # Trusted Publishing: no NPM_TOKEN required. The npm CLI fetches an
+        # OIDC token from GitHub Actions and exchanges it with npm for a
+        # short-lived publish credential. pnpm publish rewrites `workspace:*`
+        # references to the actual published version range — required for
+        # consumers to install packages like @krynix/cli that depend on
+        # other workspace packages.
+        run: pnpm -r publish --access public --no-git-checks --provenance
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
