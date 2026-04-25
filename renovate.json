@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "group:allNonMajor",
+    ":dependencyDashboard"
+  ],
+  "schedule": ["before 6am on monday"],
+  "timezone": "UTC",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "ignoreDeps": [],
+  "packageRules": [
+    {
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false
+    },
+    {
+      "matchPackagePatterns": ["^@krynix/"],
+      "enabled": false
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "addLabels": ["dep-major"],
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": false
+    }
+  ]
+}

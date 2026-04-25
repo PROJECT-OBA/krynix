@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-04-25
+
+First public npm release. All `@krynix/*` packages published to the public registry with build provenance.
+
+### Added
+- Tag-triggered npm publish workflow with [npm provenance](https://docs.npmjs.com/generating-provenance-statements) (Sigstore attestations via GitHub OIDC)
+- Renovate config for automated dependency updates
+- `NOTICE` file at repo root (Apache-2.0 attribution)
+- Release ritual documented in `CONTRIBUTING.md`
+
+### Changed
+- All `@krynix/*` packages bumped to `0.2.0`
+- License standardized to Apache-2.0 across the workspace
+
 ## [0.1.1] - 2026-04-14
 
 ### Added

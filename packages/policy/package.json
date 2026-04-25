@@ -1,6 +1,6 @@
 {
   "name": "@krynix/policy",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publishConfig": {
     "access": "public"
   },
@@ -14,7 +14,14 @@
   },
   "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/policy#readme",
   "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
-  "keywords": ["krynix", "policy", "evaluation", "ai-agent", "trust", "compliance"],
+  "keywords": [
+    "krynix",
+    "policy",
+    "evaluation",
+    "ai-agent",
+    "trust",
+    "compliance"
+  ],
   "sideEffects": false,
   "engines": {
     "node": ">=20"
@@ -40,6 +47,6 @@
   },
   "dependencies": {
     "@krynix/core": "workspace:*",
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.3"
   }
 }

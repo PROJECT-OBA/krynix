@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -26,6 +27,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -55,7 +57,13 @@ jobs:
             packages/*/README.md \
             packages/*/package.json \
             README.md \
-            LICENSE
+            LICENSE \
+            NOTICE
+
+      - name: Publish packages to npm
+        run: pnpm -r publish --access public --no-git-checks --provenance
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
