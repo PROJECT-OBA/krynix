@@ -8,7 +8,7 @@
 import { describe, test, expect } from "vitest";
 import { matchSingleEvent, type SingleEventResult } from "./evaluator.js";
 import type { Policy, PolicyDefaults, PolicyRule, PolicyScope, Redaction } from "./schema.js";
-import type { TraceEvent } from "@krynix/core";
+import { SCHEMA_VERSION, type TraceEvent } from "@krynix/core";
 
 // ---------------------------------------------------------------------------
 // Local test factories
@@ -25,7 +25,10 @@ const DEFAULT_BASE = {
   prev_hash: "",
   event_hash: "",
   metadata: null,
-  schema_version: "1.1.0",
+  // Pinned to the version `@krynix/core` actually exports today so the
+  // fixtures stay valid relative to the current schema. The K2 PR bumps
+  // this constant; updating here is automatic via the import.
+  schema_version: SCHEMA_VERSION,
 } as const;
 
 function makeEvent(

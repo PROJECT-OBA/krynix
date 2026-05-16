@@ -385,7 +385,22 @@ function collectNeverMatchedWarnings(
  */
 export interface SingleEventResult {
   verdict: PolicyVerdict;
-  /** ID of the rule that produced the verdict. Absent when verdict is `"pass"` via the unmatched-default path. */
+  /**
+   * ID of the rule that produced the verdict.
+   *
+   * **Present** whenever a rule matched (any action — `allow`, `deny`,
+   * `redact`, `require-approval`) or the default-deny path fired
+   * (`ruleId === "__default_deny__"`).
+   *
+   * **Absent** when verdict is `"pass"` because either (a) the event was
+   * out-of-scope per `policy.spec.scope`, or (b) no rule matched and
+   * `policy.spec.defaults.unmatched_action` is not `"deny"`.
+   *
+   * Note: `verdict === "pass"` with `ruleId` set means an explicit
+   * `allow` rule matched; `verdict === "pass"` with `ruleId` absent
+   * means the event was either out-of-scope or unmatched-with-default.
+   * SDKs that care about audit completeness should record both cases.
+   */
   ruleId?: string;
   /** Severity of the matched rule, if any. Surfaced for SDK logging. */
   severity?: Severity;
