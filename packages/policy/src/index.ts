@@ -7,6 +7,7 @@ export {
   POLICY_API_VERSION,
   POLICY_KIND,
   VALID_ACTIONS,
+  VALID_ON_TIMEOUT,
   VALID_SEVERITIES,
   VALID_OPERATORS,
   // String union types
@@ -23,6 +24,7 @@ export {
   type PayloadCondition,
   type PolicyDefaults,
   type OnViolation,
+  type Redaction,
   type SequenceStep,
   type SequenceMatch,
 } from "./schema.js";
@@ -35,11 +37,13 @@ export { evaluateSequence, type SequenceMatchResult } from "./sequence-matcher.j
 
 export {
   evaluate,
+  matchSingleEvent,
   type PolicyVerdict,
   type PolicyWarningCode,
   type Violation,
   type PolicyWarning,
   type EvaluationResult,
+  type SingleEventResult,
 } from "./evaluator.js";
 
 export { mergePolicy, resolvePolicy, type PolicyResolver } from "./inheritance.js";

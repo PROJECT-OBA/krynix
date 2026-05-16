@@ -10,12 +10,19 @@ import type {
   PolicyRule,
   PayloadCondition,
   PolicyAction,
+  Redaction,
   Severity,
   MatchOperator,
   SequenceMatch,
   SequenceStep,
 } from "./schema.js";
-import { POLICY_API_VERSION, VALID_ACTIONS, VALID_SEVERITIES, VALID_OPERATORS } from "./schema.js";
+import {
+  POLICY_API_VERSION,
+  VALID_ACTIONS,
+  VALID_ON_TIMEOUT,
+  VALID_SEVERITIES,
+  VALID_OPERATORS,
+} from "./schema.js";
 
 /**
  * Error thrown when a policy YAML document fails validation.
@@ -230,7 +237,79 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
     }
   }
 
+  // redactions[] — required when action === "redact", optional otherwise.
+  // Each redaction has a required `path`; `pattern` + `replacement` are
+  // optional (default behaviour: replace the whole field value with
+  // "<REDACTED>"). Validated regardless of action so a future action change
+  // doesn't silently lose them.
+  if (raw["redactions"] !== undefined) {
+    assertArray(raw["redactions"], `${path}.redactions`);
+    rule.redactions = (raw["redactions"] as unknown[]).map((r, i) =>
+      validateRedaction(r, `${path}.redactions[${String(i)}]`),
+    );
+  }
+  if (rule.action === "redact" && (rule.redactions === undefined || rule.redactions.length === 0)) {
+    throw new PolicyValidationError(
+      `${path}.redactions`,
+      'must be a non-empty array when action is "redact"',
+    );
+  }
+
+  // on_timeout — only meaningful for `require-approval` rules at runtime;
+  // ignored by the trace-evaluator. We reject it on other actions outright
+  // (same pattern as rejecting `match.event_type` when `match.sequence` is
+  // present) so silently misconfigured policies fail loud at parse time
+  // instead of producing surprising runtime behaviour. Caught on Copilot
+  // review of #51.
+  if (raw["on_timeout"] !== undefined) {
+    if (rule.action !== "require-approval") {
+      throw new PolicyValidationError(
+        `${path}.on_timeout`,
+        `only valid when action is "require-approval" (got action="${rule.action}"). Remove on_timeout or change the rule action.`,
+      );
+    }
+    assertOneOf<"allow" | "deny">(raw["on_timeout"], VALID_ON_TIMEOUT, `${path}.on_timeout`);
+    rule.on_timeout = raw["on_timeout"] as "allow" | "deny";
+  }
+
   return rule;
+}
+
+function validateRedaction(raw: unknown, path: string): Redaction {
+  assertObject(raw, path);
+  assertString(raw["path"], `${path}.path`);
+  const result: Redaction = { path: raw["path"] as string };
+  if (raw["pattern"] !== undefined) {
+    if (typeof raw["pattern"] !== "string" || raw["pattern"].length === 0) {
+      throw new PolicyValidationError(`${path}.pattern`, "must be a non-empty string");
+    }
+    // Fail-fast: an invalid ECMAScript regex is the kind of mistake we want
+    // caught at policy-parse time, not at runtime under load. The `u` flag
+    // matches the rest of the package (matcher uses `new RegExp(value, "u")`
+    // for the `matches` operator at parser.ts validatePayloadCondition),
+    // which means a pattern accepted here will also be accepted by the
+    // matcher — no runtime surprises with Unicode property escapes.
+    try {
+      new RegExp(raw["pattern"], "u");
+    } catch (e) {
+      throw new PolicyValidationError(
+        `${path}.pattern`,
+        `invalid ECMAScript RegExp: ${(e as Error).message}`,
+      );
+    }
+    result.pattern = raw["pattern"];
+  }
+  if (raw["replacement"] !== undefined) {
+    // Permit the empty string explicitly — `replacement: ""` is a
+    // legitimate "delete the match outright" config and the wider
+    // `Redaction` type does not require non-emptiness. Don't use
+    // `assertString()` here because that helper rejects empty strings.
+    if (typeof raw["replacement"] !== "string") {
+      throw new PolicyValidationError(`${path}.replacement`, "must be a string");
+    }
+    result.replacement = raw["replacement"];
+  }
+  return result;
 }
 
 /**

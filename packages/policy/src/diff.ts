@@ -76,8 +76,12 @@ export interface PolicyDiff {
 
 const ACTION_STRENGTH: Record<PolicyAction, number> = {
   allow: 0,
-  "require-approval": 1,
-  deny: 2,
+  // `redact` is stronger than `allow` (the request is modified before
+  // forwarding) but weaker than `require-approval` (no human in the loop)
+  // and weaker than `deny` (the call still proceeds).
+  redact: 1,
+  "require-approval": 2,
+  deny: 3,
 };
 
 // ---------------------------------------------------------------------------
@@ -281,7 +285,13 @@ function isSeverityDowngrade(oldSev: Severity, newSev: Severity): boolean {
 
 /**
  * Is the new action weaker than the old? (Weaker = less enforcement.)
- * Ordering: allow(0) < require-approval(1) < deny(2)
+ *
+ * Ordering (per `ACTION_STRENGTH` above):
+ *   allow(0) < redact(1) < require-approval(2) < deny(3)
+ *
+ * `redact` sits between `allow` and `require-approval` — the request is
+ * still forwarded (unlike `deny`) and no human is in the loop (unlike
+ * `require-approval`), but the request body is modified (unlike `allow`).
  */
 function isActionWeakened(oldAction: PolicyAction, newAction: PolicyAction): boolean {
   return ACTION_STRENGTH[newAction] < ACTION_STRENGTH[oldAction];

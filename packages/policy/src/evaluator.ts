@@ -8,7 +8,7 @@
  */
 
 import type { TraceEvent } from "@krynix/core";
-import type { Policy, PolicyRule, Severity } from "./schema.js";
+import type { Policy, PolicyRule, Redaction, Severity } from "./schema.js";
 import { matchRule } from "./matcher.js";
 import { evaluateSequence } from "./sequence-matcher.js";
 
@@ -16,8 +16,41 @@ import { evaluateSequence } from "./sequence-matcher.js";
 // Result types
 // ---------------------------------------------------------------------------
 
-/** Overall evaluation verdict. */
-export type PolicyVerdict = "pass" | "fail" | "require-approval";
+/**
+ * Overall evaluation verdict.
+ *
+ * **Semantics differ between the two evaluation paths.** Consumers should
+ * always know whether they're reading a verdict from `evaluate()`
+ * (post-hoc trace eval, CI / compliance path) or `matchSingleEvent()`
+ * (runtime single-event eval, SDK path).
+ *
+ * #### Trace-eval (`evaluate(trace, policy)`)
+ * - `pass` — every event either matched no rule, matched an `allow` /
+ *   `redact` rule (advisory), or matched a `deny` rule whose
+ *   `ci_failure` resolves false. Exit code 0.
+ * - `fail` — at least one matching `deny` (or default-deny) rule that
+ *   resolves `ci_failure: true`. Exit code 1 (error) or 2 (critical).
+ * - `require-approval` — at least one matching `require-approval`
+ *   rule, and no fail-causing violations. Exit code 3.
+ * - `redact` — **never emitted on this path.** Trace-eval treats
+ *   matching `redact` rules as advisory and reports `pass`; the
+ *   post-hoc CLI has no call to redact.
+ *
+ * #### Runtime-eval (`matchSingleEvent(event, policy)`)
+ * - `pass` — the event is out-of-scope, or the first matching rule's
+ *   action is `allow`, or no rule matched and no `defaults.unmatched_action`
+ *   forces a deny. SDK forwards the call unchanged.
+ * - `fail` — the first matching rule's action is `deny`, **or**
+ *   `defaults.unmatched_action === "deny"` fires. The `ci_failure`
+ *   flag is ignored on this path (CI-vs-not is a trace-eval concept).
+ *   SDK throws `PolicyDenied`.
+ * - `redact` — the first matching rule's action is `redact`. SDK applies
+ *   the rule's `redactions[]` to the request body and forwards.
+ * - `require-approval` — the first matching rule's action is
+ *   `require-approval`. SDK submits the call to the approval queue and
+ *   polls until resolved (or `on_timeout` fires).
+ */
+export type PolicyVerdict = "pass" | "fail" | "redact" | "require-approval";
 
 /** A single violation produced by a matching deny/require-approval rule. */
 export interface Violation {
@@ -132,7 +165,10 @@ export function evaluate(trace: readonly TraceEvent[], policy: Policy): Evaluati
           ciFailure: resolveCiFailure(firstMatch),
         });
       }
-      // "allow" → no violation
+      // "allow" / "redact" → no violation at trace-evaluation time.
+      // `redact` is a runtime concept (the SDK applies redactions before
+      // forwarding the call); the post-hoc trace-evaluator has no call
+      // to redact and treats the match as advisory.
     } else if (defaults?.unmatched_action === "deny") {
       // Default deny for unmatched in-scope events
       const severity = defaults.unmatched_severity ?? "warning";
@@ -332,6 +368,146 @@ function collectNeverMatchedWarnings(
     });
   }
   return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// Runtime single-event evaluation
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of a runtime single-event evaluation.
+ *
+ * Produced by `matchSingleEvent()` when the runtime SDK needs a decision
+ * about a single in-flight event (before forwarding the upstream LLM /
+ * tool call). The shape is intentionally narrower than `EvaluationResult`
+ * because runtime callers want a single allow / deny / redact /
+ * require-approval decision, not a list of violations.
+ */
+export interface SingleEventResult {
+  verdict: PolicyVerdict;
+  /**
+   * ID of the rule that produced the verdict.
+   *
+   * **Present** whenever a rule matched (any action — `allow`, `deny`,
+   * `redact`, `require-approval`) or the default-deny path fired
+   * (`ruleId === "__default_deny__"`).
+   *
+   * **Absent** when verdict is `"pass"` because either (a) the event was
+   * out-of-scope per `policy.spec.scope`, or (b) no rule matched and
+   * `policy.spec.defaults.unmatched_action` is not `"deny"`.
+   *
+   * Note: `verdict === "pass"` with `ruleId` set means an explicit
+   * `allow` rule matched; `verdict === "pass"` with `ruleId` absent
+   * means the event was either out-of-scope or unmatched-with-default.
+   * SDKs that care about audit completeness should record both cases.
+   */
+  ruleId?: string;
+  /** Severity of the matched rule, if any. Surfaced for SDK logging. */
+  severity?: Severity;
+  /** Human-readable message from the matched rule, if any. */
+  message?: string;
+  /** Redactions to apply, present iff verdict is `"redact"`. */
+  redactions?: Redaction[];
+  /** Fallback for `require-approval` rules: what to do if the human queue times out. SDK default when omitted: `"deny"`. */
+  onTimeout?: "allow" | "deny";
+}
+
+/**
+ * Evaluate a single in-flight TraceEvent against a Policy.
+ *
+ * Designed for the runtime SDK's decision pipeline. Unlike `evaluate()`
+ * (which takes a full trace and produces a CI-shaped verdict), this
+ * function takes one event and produces a single verdict that the SDK
+ * can act on immediately:
+ *
+ * - `pass` — forward the call unchanged.
+ * - `redact` — forward the call after applying `redactions[]` to the
+ *   request body.
+ * - `fail` — block the call (SDK throws `PolicyDenied`).
+ * - `require-approval` — submit the call to the approval queue and poll
+ *   for resolution; on timeout fall back to `onTimeout` (default `"deny"`).
+ *
+ * Semantics:
+ *
+ * - Events outside `policy.spec.scope` return `verdict: "pass"` with
+ *   no `ruleId` (the SDK treats them as not-in-scope and forwards).
+ * - First-match-wins across `policy.spec.rules`. Sequence rules are
+ *   skipped entirely — sequence matching needs cross-event context the
+ *   runtime path doesn't have. Use per-event rules for runtime
+ *   enforcement.
+ * - `defaults.unmatched_action: "deny"` produces a `fail` verdict for
+ *   in-scope events that match no rule.
+ * - Pure function. No side effects.
+ *
+ * @param event - The in-flight TraceEvent to evaluate
+ * @param policy - The policy to evaluate against
+ * @returns Single-event verdict + matched rule context
+ */
+export function matchSingleEvent(event: TraceEvent, policy: Policy): SingleEventResult {
+  const scope = policy.spec.scope;
+  if (!isInScope(event, scope.agents, scope.event_types)) {
+    return { verdict: "pass" };
+  }
+
+  for (const rule of policy.spec.rules) {
+    // Sequence rules need cross-event context; the runtime path evaluates
+    // a single event, so we skip them. Callers that need sequence-based
+    // enforcement should use the trace-eval path.
+    if (rule.match.sequence !== undefined) continue;
+
+    if (matchRule(event, rule)) {
+      return buildSingleEventResult(rule);
+    }
+  }
+
+  // No rule matched. Apply defaults.unmatched_action when present.
+  if (policy.spec.defaults?.unmatched_action === "deny") {
+    return {
+      verdict: "fail",
+      ruleId: "__default_deny__",
+      severity: policy.spec.defaults.unmatched_severity ?? "warning",
+      message: "No rule matched event; default action is deny",
+    };
+  }
+
+  return { verdict: "pass" };
+}
+
+function buildSingleEventResult(rule: PolicyRule): SingleEventResult {
+  switch (rule.action) {
+    case "allow":
+      return {
+        verdict: "pass",
+        ruleId: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+      };
+    case "deny":
+      return {
+        verdict: "fail",
+        ruleId: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+      };
+    case "redact":
+      return {
+        verdict: "redact",
+        ruleId: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+        // Parser guarantees redactions is non-empty when action === "redact",
+        // but type-narrow defensively for callers who construct rules in code.
+        redactions: rule.redactions ?? [],
+      };
+    case "require-approval":
+      return {
+        verdict: "require-approval",
+        ruleId: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+        onTimeout: rule.on_timeout,
+      };
+  }
 }
 
 function buildResult(violations: Violation[], warnings: PolicyWarning[] = []): EvaluationResult {
