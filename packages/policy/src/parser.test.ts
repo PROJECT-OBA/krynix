@@ -853,3 +853,84 @@ spec:
     expect(() => parsePolicy(yaml)).toThrow(/must be a string/);
   });
 });
+
+describe("parser — on_timeout strictness (Copilot review on #51)", () => {
+  test("rejects on_timeout on a deny rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-on-timeout-deny
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad
+      description: deny rule with on_timeout
+      match:
+        event_type: tool_call
+        payload: []
+      action: deny
+      severity: error
+      message: "x"
+      on_timeout: allow
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow(/only valid when action is "require-approval"/);
+  });
+
+  test("rejects on_timeout on an allow rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-on-timeout-allow
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad
+      description: allow rule with on_timeout
+      match:
+        event_type: tool_call
+        payload: []
+      action: allow
+      severity: info
+      message: "x"
+      on_timeout: deny
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+  });
+
+  test("rejects on_timeout on a redact rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-on-timeout-redact
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: bad
+      description: redact rule with on_timeout
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          replacement: "<X>"
+      on_timeout: deny
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+  });
+});

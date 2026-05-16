@@ -19,14 +19,36 @@ import { evaluateSequence } from "./sequence-matcher.js";
 /**
  * Overall evaluation verdict.
  *
- * - `pass` — no rule denied or required approval.
- * - `fail` — at least one matching `deny` rule with `ci_failure: true`.
- * - `require-approval` — at least one matching `require-approval` rule
- *   (and no fail-causing violations).
- * - `redact` — emitted only by `matchSingleEvent()` (runtime-eval path).
- *   The trace-evaluator (`evaluate()`) treats matching `redact` rules as
- *   advisory and reports `pass`. `redact` is the runtime SDK's signal to
- *   apply the matching rule's `redactions[]` before forwarding the call.
+ * **Semantics differ between the two evaluation paths.** Consumers should
+ * always know whether they're reading a verdict from `evaluate()`
+ * (post-hoc trace eval, CI / compliance path) or `matchSingleEvent()`
+ * (runtime single-event eval, SDK path).
+ *
+ * #### Trace-eval (`evaluate(trace, policy)`)
+ * - `pass` — every event either matched no rule, matched an `allow` /
+ *   `redact` rule (advisory), or matched a `deny` rule whose
+ *   `ci_failure` resolves false. Exit code 0.
+ * - `fail` — at least one matching `deny` (or default-deny) rule that
+ *   resolves `ci_failure: true`. Exit code 1 (error) or 2 (critical).
+ * - `require-approval` — at least one matching `require-approval`
+ *   rule, and no fail-causing violations. Exit code 3.
+ * - `redact` — **never emitted on this path.** Trace-eval treats
+ *   matching `redact` rules as advisory and reports `pass`; the
+ *   post-hoc CLI has no call to redact.
+ *
+ * #### Runtime-eval (`matchSingleEvent(event, policy)`)
+ * - `pass` — the event is out-of-scope, or the first matching rule's
+ *   action is `allow`, or no rule matched and no `defaults.unmatched_action`
+ *   forces a deny. SDK forwards the call unchanged.
+ * - `fail` — the first matching rule's action is `deny`, **or**
+ *   `defaults.unmatched_action === "deny"` fires. The `ci_failure`
+ *   flag is ignored on this path (CI-vs-not is a trace-eval concept).
+ *   SDK throws `PolicyDenied`.
+ * - `redact` — the first matching rule's action is `redact`. SDK applies
+ *   the rule's `redactions[]` to the request body and forwards.
+ * - `require-approval` — the first matching rule's action is
+ *   `require-approval`. SDK submits the call to the approval queue and
+ *   polls until resolved (or `on_timeout` fires).
  */
 export type PolicyVerdict = "pass" | "fail" | "redact" | "require-approval";
 

@@ -255,9 +255,19 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
     );
   }
 
-  // on_timeout — only meaningful for require-approval rules. Validated
-  // regardless of action; semantically ignored by the trace-evaluator.
+  // on_timeout — only meaningful for `require-approval` rules at runtime;
+  // ignored by the trace-evaluator. We reject it on other actions outright
+  // (same pattern as rejecting `match.event_type` when `match.sequence` is
+  // present) so silently misconfigured policies fail loud at parse time
+  // instead of producing surprising runtime behaviour. Caught on Copilot
+  // review of #51.
   if (raw["on_timeout"] !== undefined) {
+    if (rule.action !== "require-approval") {
+      throw new PolicyValidationError(
+        `${path}.on_timeout`,
+        `only valid when action is "require-approval" (got action="${rule.action}"). Remove on_timeout or change the rule action.`,
+      );
+    }
     assertOneOf<"allow" | "deny">(raw["on_timeout"], VALID_ON_TIMEOUT, `${path}.on_timeout`);
     rule.on_timeout = raw["on_timeout"] as "allow" | "deny";
   }
