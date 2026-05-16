@@ -134,18 +134,14 @@ export interface PolicyDecisionRedaction {
 }
 
 /**
- * Sub-shape attached to a `decision` event when the decision was
- * produced by the runtime SDK's policy pipeline (`@krynix/sdk`'s
- * `matchSingleEvent` callsite) or by the trace-evaluator's
- * `evaluate()`.
+ * Fields shared by every `PolicyDecisionSubtype` variant.
  *
- * Optional on `DecisionPayload` for backward compatibility — agents
- * emitting their own internal `decision` events (the original use of
- * the `decision` type) do not set it. The governance dashboard
- * filters on its presence to surface the runtime policy stream.
+ * Extracted so the discriminated-union variants below don't repeat
+ * `latency_ms` and `rule_id`. Not exported on its own — consumers
+ * should use `PolicyDecisionSubtype` so the verdict-tagged shape is
+ * enforced by the type system.
  */
-export interface PolicyDecisionSubtype {
-  verdict: PolicyDecisionVerdict;
+interface PolicyDecisionBase {
   /**
    * ID of the matched rule. Present when any rule matched (including
    * `allow`) and when the default-deny path fired
@@ -154,11 +150,48 @@ export interface PolicyDecisionSubtype {
    * See `SingleEventResult.ruleId` doc on `@krynix/policy`.
    */
   rule_id?: string;
-  /** Redactions applied to the request body. Present iff `verdict === "redact"`. */
-  redactions?: PolicyDecisionRedaction[];
   /** Policy-evaluation latency in milliseconds, measured at the SDK boundary. */
   latency_ms: number;
 }
+
+/**
+ * Sub-shape attached to a `decision` event when the decision was
+ * produced by the runtime SDK's policy pipeline (`@krynix/sdk`'s
+ * `matchSingleEvent` callsite) or by the trace-evaluator's
+ * `evaluate()`.
+ *
+ * **Discriminated union by `verdict`.** The compiler enforces that
+ * `redactions` is present iff `verdict === "redact"` — no runtime
+ * check needed. The JSON schema mirrors this via `if/then/else` so
+ * the wire format is enforced too. Constructed via an object literal
+ * with `verdict: "redact"` requires `redactions: [...]`; constructed
+ * with any other verdict forbids `redactions` (excess-property
+ * check).
+ *
+ * Optional on `DecisionPayload` for backward compatibility — agents
+ * emitting their own internal `decision` events (the original use of
+ * the `decision` type) do not set it. The governance dashboard
+ * filters on its presence to surface the runtime policy stream.
+ */
+export type PolicyDecisionSubtype =
+  | (PolicyDecisionBase & {
+      verdict: "pass" | "fail" | "require-approval";
+      /**
+       * Always `undefined` on non-redact variants. Marked as `never`
+       * so an object literal with `verdict: "pass"` and a
+       * `redactions` field fails to typecheck at construction.
+       */
+      redactions?: never;
+    })
+  | (PolicyDecisionBase & {
+      verdict: "redact";
+      /**
+       * Redactions applied to the request body. Required on this
+       * variant. Empty array is a producer bug — the JSON-schema
+       * variant requires `minItems: 1`.
+       */
+      redactions: PolicyDecisionRedaction[];
+    });
 
 /**
  * Payload for `decision` events.

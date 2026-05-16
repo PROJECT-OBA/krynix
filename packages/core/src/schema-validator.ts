@@ -131,6 +131,13 @@ const TRACE_SCHEMA = {
         // Present when this decision was produced by `@krynix/sdk`'s
         // policy pipeline; absent on agent-internal decisions. See
         // `PolicyDecisionSubtype` in types.ts for the contract.
+        //
+        // The `if/then/else` block enforces the discriminated-union
+        // invariant: `redactions` is required + non-empty when
+        // `verdict === "redact"`, and forbidden on other verdicts.
+        // Mirrors the TS type discrimination at the wire level so a
+        // malformed event from a non-TS producer (e.g. the Python SDK
+        // P1) fails validation too.
         policy_decision: {
           type: "object",
           properties: {
@@ -155,6 +162,17 @@ const TRACE_SCHEMA = {
           },
           required: ["verdict", "latency_ms"],
           additionalProperties: false,
+          if: {
+            properties: { verdict: { const: "redact" } },
+            required: ["verdict"],
+          },
+          then: {
+            required: ["redactions"],
+            properties: { redactions: { minItems: 1 } },
+          },
+          else: {
+            not: { required: ["redactions"] },
+          },
         },
       },
       required: ["action", "reasoning"],

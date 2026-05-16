@@ -499,7 +499,34 @@
                 "verdict",
                 "latency_ms"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "if": {
+                "properties": {
+                  "verdict": {
+                    "const": "redact"
+                  }
+                },
+                "required": [
+                  "verdict"
+                ]
+              },
+              "then": {
+                "required": [
+                  "redactions"
+                ],
+                "properties": {
+                  "redactions": {
+                    "minItems": 1
+                  }
+                }
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "redactions"
+                  ]
+                }
+              }
             }
           },
           "required": [

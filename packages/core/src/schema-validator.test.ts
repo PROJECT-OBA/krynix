@@ -645,12 +645,43 @@ describe("validateTraceEvent — policy_decision sub-shape (schema 1.1.0)", () =
     expect(result.valid).toBe(true);
   });
 
-  test("policy_decision with all four verdicts passes", () => {
-    for (const verdict of ["pass", "fail", "redact", "require-approval"] as const) {
+  test("policy_decision with each of the three non-redact verdicts passes (no redactions)", () => {
+    for (const verdict of ["pass", "fail", "require-approval"] as const) {
       const event = makePolicyDecision(2, { verdict, latency_ms: 1 });
       const result = validateTraceEvent(event);
       expect(result.valid).toBe(true);
     }
+  });
+
+  test("policy_decision with redact verdict requires non-empty redactions", () => {
+    // verdict === "redact" without redactions[] fails per the schema's
+    // if/then/else discriminator. Mirrors the TS discriminated-union
+    // contract on PolicyDecisionSubtype.
+    const event = makePolicyDecision(2, { verdict: "redact", latency_ms: 1 });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("policy_decision with redact verdict + empty redactions[] rejected", () => {
+    const event = makePolicyDecision(2, {
+      verdict: "redact",
+      latency_ms: 1,
+      redactions: [],
+    });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("policy_decision with non-redact verdict + redactions[] rejected", () => {
+    // The wire-level mirror of the TS `redactions?: never` constraint
+    // on non-redact variants.
+    const event = makePolicyDecision(2, {
+      verdict: "pass",
+      latency_ms: 1,
+      redactions: [{ path: "x", value_redacted: "y" }],
+    });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
   });
 
   test("policy_decision with rule_id + redactions[] passes (redact path)", () => {
