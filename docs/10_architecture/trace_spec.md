@@ -174,7 +174,7 @@ Example — runtime policy decision (`redact` verdict):
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `verdict` | enum | yes | One of `pass` / `fail` / `redact` / `require-approval`. |
-| `rule_id` | string | no | ID of the matched rule. Present whenever any rule matched (including `allow`) and on the default-deny path (`"__default_deny__"`). Absent when verdict is `"pass"` because the event was out-of-scope or unmatched-with-no-default. |
+| `rule_id` | string | no | ID of the matched rule. **Present** whenever a rule matched the event (any action — including `allow`, which still produces `verdict: "pass"`) and on the default-deny path (`"__default_deny__"`). **Absent** only when `verdict === "pass"` AND no rule matched — i.e. the event was out-of-scope or unmatched with no default-deny. Note: `verdict === "pass"` is ambiguous on its own; `rule_id` present means an explicit `allow` matched, `rule_id` absent means out-of-scope or unmatched-with-no-default. |
 | `redactions` | array | conditional | **Required + non-empty when `verdict === "redact"`. Forbidden on other verdicts.** Each item: `{ path: string, value_redacted: string }`. `value_redacted` is the **replacement** string written in place of the original (e.g. `"<EMAIL>"`, `""`) — storing the original here would defeat the redaction. |
 | `latency_ms` | number | yes | Policy-evaluation latency at the SDK boundary, in milliseconds. ≥0. |
 

@@ -143,11 +143,21 @@ export interface PolicyDecisionRedaction {
  */
 interface PolicyDecisionBase {
   /**
-   * ID of the matched rule. Present when any rule matched (including
-   * `allow`) and when the default-deny path fired
-   * (`rule_id === "__default_deny__"`). Absent when verdict is `"pass"`
-   * because the event was out-of-scope or unmatched-with-no-default.
-   * See `SingleEventResult.ruleId` doc on `@krynix/policy`.
+   * ID of the matched rule.
+   *
+   * **Present** whenever a rule matched the event (any action — including
+   * `allow`, which produces `verdict: "pass"`), and when the default-deny
+   * path fired (`rule_id === "__default_deny__"`).
+   *
+   * **Absent** only when `verdict === "pass"` AND no rule matched. Two
+   * sub-cases:
+   * - the event was out-of-scope per `policy.spec.scope`, or
+   * - no rule matched and `defaults.unmatched_action` was not `"deny"`.
+   *
+   * So `verdict === "pass"` is ambiguous on its own: `rule_id` set means
+   * an explicit `allow` matched; `rule_id` absent means out-of-scope or
+   * unmatched-with-no-default. SDKs that care about audit completeness
+   * should record both. See `SingleEventResult.ruleId` on `@krynix/policy`.
    */
   rule_id?: string;
   /** Policy-evaluation latency in milliseconds, measured at the SDK boundary. */
