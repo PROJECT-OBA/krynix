@@ -621,3 +621,83 @@ describe("validateReport", () => {
     expect(result.valid).toBe(false);
   });
 });
+
+describe("validateTraceEvent — policy_decision sub-shape (schema 1.1.0)", () => {
+  // Helper: clone the basic decision-event factory and inject a
+  // policy_decision sub-shape into the payload.
+  function makePolicyDecision(seq: number, sub: Record<string, unknown>): unknown {
+    // Cast through unknown — `DecisionPayload` is a closed shape and TS
+    // refuses to narrow it directly to `Record<string, unknown>`. This
+    // factory is for validator tests where we deliberately reach into
+    // payload to inject the new sub-shape.
+    const base = makeDecision(seq) as unknown as { payload: Record<string, unknown> };
+    return { ...base, payload: { ...base.payload, policy_decision: sub } };
+  }
+
+  test("decision event without policy_decision still passes (backward compat)", () => {
+    const result = validateTraceEvent(makeDecision(0));
+    expect(result.valid).toBe(true);
+  });
+
+  test("policy_decision with verdict + latency_ms passes", () => {
+    const event = makePolicyDecision(1, { verdict: "pass", latency_ms: 12 });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("policy_decision with all four verdicts passes", () => {
+    for (const verdict of ["pass", "fail", "redact", "require-approval"] as const) {
+      const event = makePolicyDecision(2, { verdict, latency_ms: 1 });
+      const result = validateTraceEvent(event);
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  test("policy_decision with rule_id + redactions[] passes (redact path)", () => {
+    const event = makePolicyDecision(3, {
+      verdict: "redact",
+      rule_id: "redact-email",
+      redactions: [
+        { path: "messages[*].content", value_redacted: "<EMAIL>" },
+        { path: "messages[*].content", value_redacted: "" },
+      ],
+      latency_ms: 42,
+    });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(true);
+  });
+
+  test("unknown verdict value rejected", () => {
+    const event = makePolicyDecision(4, { verdict: "maybe", latency_ms: 1 });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("missing required latency_ms rejected", () => {
+    const event = makePolicyDecision(5, { verdict: "pass" });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("negative latency_ms rejected", () => {
+    const event = makePolicyDecision(6, { verdict: "pass", latency_ms: -5 });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("unknown field on policy_decision rejected (additionalProperties: false)", () => {
+    const event = makePolicyDecision(7, { verdict: "pass", latency_ms: 1, extra: "x" });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+
+  test("redaction without value_redacted rejected", () => {
+    const event = makePolicyDecision(8, {
+      verdict: "redact",
+      latency_ms: 1,
+      redactions: [{ path: "x" }],
+    });
+    const result = validateTraceEvent(event);
+    expect(result.valid).toBe(false);
+  });
+});

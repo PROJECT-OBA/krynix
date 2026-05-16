@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (`@krynix/core`)
+- `SCHEMA_VERSION` bumped 1.0.0 → 1.1.0 for the runtime-pivot. Backward-compatible at the wire level (every addition is optional).
+- New optional `policy_decision` sub-shape on `DecisionPayload`. Carried on `decision` events emitted by `@krynix/sdk`'s runtime policy pipeline. Fields: `verdict` (`pass` / `fail` / `redact` / `require-approval`), optional `rule_id`, optional `redactions[]`, required `latency_ms`. Absent on agent-internal decision events.
+- New exported types: `PolicyDecisionSubtype`, `PolicyDecisionRedaction`, `PolicyDecisionVerdict`.
+- JSON schema (`packages/core/schemas/trace.schema.json`) regenerated to validate the new sub-shape (8 new schema-validator tests cover happy + reject paths).
+
 ### Added (`@krynix/policy`)
 - New public API `matchSingleEvent(event, policy): SingleEventResult` for runtime decision evaluation against a single in-flight TraceEvent. Designed for `@krynix/sdk`'s decision pipeline; complements the existing trace-eval `evaluate(trace, policy)` which stays the CLI / compliance path.
 - New `"redact"` value in `PolicyAction` and `PolicyVerdict` unions. Matching `redact` rules carry a required `redactions[]` directive list applied by the runtime SDK before forwarding the upstream LLM / tool call. At trace-evaluation time `redact` is advisory (no violation produced).

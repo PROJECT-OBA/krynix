@@ -34,8 +34,8 @@ import {
 } from "./test-helpers.js";
 
 describe("TraceEvent type definitions", () => {
-  test("SCHEMA_VERSION is '1.0.0'", () => {
-    expectTypeOf(SCHEMA_VERSION).toEqualTypeOf<"1.0.0">();
+  test("SCHEMA_VERSION is '1.1.0'", () => {
+    expectTypeOf(SCHEMA_VERSION).toEqualTypeOf<"1.1.0">();
   });
 
   test("EventType is a union of 8 string literals", () => {
@@ -221,7 +221,9 @@ describe("test helper factories produce valid objects", () => {
     for (const t of types) {
       const event = makeTraceEvent(t, 0);
       expect(event.event_type).toBe(t);
-      expect(event.schema_version).toBe("1.0.0");
+      // Pin to the exported constant rather than a literal so the
+      // 1.x bumps don't require touching this assertion.
+      expect(event.schema_version).toBe(SCHEMA_VERSION);
       expect(event.session_id).toBeDefined();
       expect(event.event_id).toBeDefined();
       expect(event.agent_id).toBeDefined();
