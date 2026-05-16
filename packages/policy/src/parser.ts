@@ -270,22 +270,34 @@ function validateRedaction(raw: unknown, path: string): Redaction {
   assertString(raw["path"], `${path}.path`);
   const result: Redaction = { path: raw["path"] as string };
   if (raw["pattern"] !== undefined) {
-    assertString(raw["pattern"], `${path}.pattern`);
+    if (typeof raw["pattern"] !== "string" || raw["pattern"].length === 0) {
+      throw new PolicyValidationError(`${path}.pattern`, "must be a non-empty string");
+    }
     // Fail-fast: an invalid ECMAScript regex is the kind of mistake we want
-    // caught at policy-parse time, not at runtime under load.
+    // caught at policy-parse time, not at runtime under load. The `u` flag
+    // matches the rest of the package (matcher uses `new RegExp(value, "u")`
+    // for the `matches` operator at parser.ts validatePayloadCondition),
+    // which means a pattern accepted here will also be accepted by the
+    // matcher — no runtime surprises with Unicode property escapes.
     try {
-      new RegExp(raw["pattern"] as string);
+      new RegExp(raw["pattern"], "u");
     } catch (e) {
       throw new PolicyValidationError(
         `${path}.pattern`,
         `invalid ECMAScript RegExp: ${(e as Error).message}`,
       );
     }
-    result.pattern = raw["pattern"] as string;
+    result.pattern = raw["pattern"];
   }
   if (raw["replacement"] !== undefined) {
-    assertString(raw["replacement"], `${path}.replacement`);
-    result.replacement = raw["replacement"] as string;
+    // Permit the empty string explicitly — `replacement: ""` is a
+    // legitimate "delete the match outright" config and the wider
+    // `Redaction` type does not require non-emptiness. Don't use
+    // `assertString()` here because that helper rejects empty strings.
+    if (typeof raw["replacement"] !== "string") {
+      throw new PolicyValidationError(`${path}.replacement`, "must be a string");
+    }
+    result.replacement = raw["replacement"];
   }
   return result;
 }

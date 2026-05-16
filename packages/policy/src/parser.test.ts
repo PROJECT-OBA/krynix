@@ -735,3 +735,121 @@ spec:
     expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
   });
 });
+
+describe("parser — redactions edge cases (Copilot review on #51)", () => {
+  test("accepts a Unicode property escape in pattern (compiled with `u` flag)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: redact-unicode
+  version: "1.0.0"
+  description: Unicode test
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: redact-letters
+      description: Redact runs of letters
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          pattern: "\\\\p{L}+"
+          replacement: "<W>"
+`;
+    // Without the `u` flag in the parser, this would throw
+    // SyntaxError("Invalid Unicode escape"). The matcher uses `u`, so
+    // the parser must too to stay consistent.
+    expect(() => parsePolicy(yaml)).not.toThrow();
+  });
+
+  test("permits an empty replacement (delete the match)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: redact-empty
+  version: "1.0.0"
+  description: Empty replacement
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: delete-emails
+      description: Remove emails entirely
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          pattern: "[^\\\\s]+@[^\\\\s]+"
+          replacement: ""
+`;
+    const policy = parsePolicy(yaml);
+    expect(policy.spec.rules[0]?.redactions?.[0]?.replacement).toBe("");
+  });
+
+  test("rejects an empty pattern (still required to be a non-empty string)", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: empty-pattern
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: bad
+      description: bad
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          pattern: ""
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow(/must be a non-empty string/);
+  });
+
+  test("rejects a non-string replacement", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-replacement
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: bad
+      description: bad
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          replacement: 42
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow(/must be a string/);
+  });
+});
