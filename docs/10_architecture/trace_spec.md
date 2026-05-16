@@ -1,6 +1,8 @@
 # Trace Specification
 
-**Schema Version:** `1.0.0`
+**Schema Version:** `1.1.0`
+
+**Changelog:** `1.1.0` adds an optional `policy_decision` sub-shape to the `decision` event payload for the runtime-pivot policy pipeline. Backward-compatible — every addition is optional. See [the `decision` section](#decision) and [`packages/core/src/types.ts`](../../packages/core/src/types.ts) for the discriminated-union definition.
 
 This document defines the canonical format for Krynix Traces and TraceEvents. All components that produce, consume, or validate traces must conform to this specification.
 
@@ -33,7 +35,7 @@ Every TraceEvent contains the following fields:
 | `prev_hash` | string | yes | Hex-encoded SHA-256 of previous event. Empty string `""` for `sequence_num` 0 |
 | `event_hash` | string | yes | SHA-256 of canonical JSON of this event (see Hash Chain) |
 | `metadata` | object | no | Optional extensible key-value pairs |
-| `schema_version` | string | yes | Semver string. Must be `"1.0.0"` for this spec version |
+| `schema_version` | string | yes | Semver string. Producers emit `"1.1.0"`; consumers MUST accept `"1.0.0"` and `"1.1.0"` (1.1.0 is backward-compatible — every addition is optional). |
 
 **Metadata Namespace Rules:** Keys inside the `metadata` object must follow mandatory namespace prefixes: `intent.*` (advisory signals), `guard.*` (guard decisions), `runtime.*` (runtime scan outcomes), `output.*` (delivery decisions). For example: `"intent.source": "user_prompt"`. The `metadata.intent.*` notation in the [platform_architecture_spec.md](platform_architecture_spec.md) denotes the parent object path, not a literal key prefix. Reserved keys prefixed with `_krynix_` must not be overridden by adapters.
 
@@ -125,7 +127,12 @@ Records a response received from an LLM provider.
 
 ### `decision`
 
-Records an agent's internal decision.
+Records a decision. Two distinct producers write to this event type:
+
+1. **Agent-internal decisions** — the agent records its own reasoning step.
+2. **Runtime policy decisions** *(schema 1.1.0+)* — `@krynix/sdk` records the outcome of a policy verdict produced by `matchSingleEvent`. Distinguished by the presence of the optional `policy_decision` sub-shape.
+
+Example — agent-internal:
 
 ```json
 {
@@ -135,11 +142,43 @@ Records an agent's internal decision.
 }
 ```
 
+Example — runtime policy decision (`redact` verdict):
+
+```json
+{
+  "action": "redact",
+  "reasoning": "email scrubbed",
+  "policy_decision": {
+    "verdict": "redact",
+    "rule_id": "redact-email",
+    "redactions": [
+      { "path": "messages[*].content", "value_redacted": "<EMAIL>" }
+    ],
+    "latency_ms": 7
+  }
+}
+```
+
 | Payload Field | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | yes | What the agent decided to do |
-| `reasoning` | string | yes | Agent's stated reasoning |
-| `confidence` | float | no | Optional 0.0–1.0 confidence score |
+| `action` | string | yes | What was decided. For runtime policy decisions, mirrors the matched rule's action (or `"pass"` for an out-of-scope event). |
+| `reasoning` | string | yes | Agent's stated reasoning, or the matched rule's `message` for runtime policy decisions. |
+| `confidence` | float | no | Optional 0.0–1.0 confidence score. Agent-internal use only. |
+| `alternatives` | string[] | no | Optional list of alternatives considered. Agent-internal use only. |
+| `policy_decision` | object | no | *(1.1.0+)* Present when the decision was produced by the runtime policy pipeline. See [Policy Decision Sub-shape](#policy-decision-sub-shape) below. |
+
+#### Policy Decision Sub-shape
+
+*(Schema 1.1.0+. Discriminated union by `verdict`.)*
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `verdict` | enum | yes | One of `pass` / `fail` / `redact` / `require-approval`. |
+| `rule_id` | string | no | ID of the matched rule. **Present** whenever a rule matched the event (any action — including `allow`, which still produces `verdict: "pass"`) and on the default-deny path (`"__default_deny__"`). **Absent** only when `verdict === "pass"` AND no rule matched — i.e. the event was out-of-scope or unmatched with no default-deny. Note: `verdict === "pass"` is ambiguous on its own; `rule_id` present means an explicit `allow` matched, `rule_id` absent means out-of-scope or unmatched-with-no-default. |
+| `redactions` | array | conditional | **Required + non-empty when `verdict === "redact"`. Forbidden on other verdicts.** Each item: `{ path: string, value_redacted: string }`. `value_redacted` is the **replacement** string written in place of the original (e.g. `"<EMAIL>"`, `""`) — storing the original here would defeat the redaction. |
+| `latency_ms` | number | yes | Policy-evaluation latency at the SDK boundary, in milliseconds. ≥0. |
+
+The "required + non-empty when verdict is redact, forbidden otherwise" invariant is enforced both at the TypeScript type level (discriminated union with `redactions?: never` on non-redact variants) and at the JSON-schema level (`if/then/else` block in `schema-validator.ts`). Non-TS producers (e.g. the Python SDK) must honor this contract on the wire.
 
 ### `observation`
 

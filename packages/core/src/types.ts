@@ -1,14 +1,29 @@
 /**
  * TraceEvent type definitions for Krynix ARTL.
  *
- * All types match the schema defined in `docs/10_architecture/trace_spec.md` (v1.0.0).
+ * All types match the schema defined in `docs/10_architecture/trace_spec.md` (v1.1.0).
  * Wire format types use string unions, not TypeScript enums.
  *
  * @module
  */
 
-/** Current schema version for all TraceEvents. */
-export const SCHEMA_VERSION = "1.0.0" as const;
+/**
+ * Current schema version for all TraceEvents.
+ *
+ * `1.1.0` is the runtime-pivot bump:
+ *
+ * - Adds the optional `policy_decision` sub-shape to `DecisionPayload`
+ *   for the new `@krynix/sdk` runtime path (verdicts, redactions,
+ *   matched rule, eval latency).
+ *
+ * Backward compatible at the wire level — every new field is optional,
+ * so events emitted by older producers parse unchanged here. Consumers
+ * doing exhaustive TypeScript switches on the verdict union (now four
+ * values: `pass` / `fail` / `redact` / `require-approval`) need a
+ * recompile; the soft-breaking call is documented in the root
+ * CHANGELOG.
+ */
+export const SCHEMA_VERSION = "1.1.0" as const;
 
 // ---------------------------------------------------------------------------
 // String unions for wire-format enum values
@@ -83,12 +98,141 @@ export interface LlmResponsePayload {
   is_streaming?: boolean;
 }
 
-/** Payload for `decision` events — records an agent's internal decision. */
+/**
+ * Verdict emitted by the runtime SDK or trace-evaluator for a policy
+ * decision. Mirrors `PolicyVerdict` in `@krynix/policy` — duplicated here
+ * as a string union to keep `@krynix/core` free of internal package
+ * dependencies (per `.claude/rules/architecture.md`).
+ *
+ * - `pass` — the call was forwarded unchanged.
+ * - `fail` — the call was denied (runtime) or a CI-failing violation was
+ *   recorded (trace-eval).
+ * - `redact` — the request body was modified before the call was
+ *   forwarded. Emitted only by the runtime SDK; the trace-evaluator
+ *   treats matching `redact` rules as advisory.
+ * - `require-approval` — the call was paused and submitted to a human
+ *   approval queue.
+ */
+export type PolicyDecisionVerdict = "pass" | "fail" | "redact" | "require-approval";
+
+/**
+ * One redaction applied to the request body when a policy rule's
+ * `action: "redact"` fired. Carried on a `policy_decision` so the
+ * governance dashboard can render exactly what was scrubbed before the
+ * upstream LLM / tool call.
+ *
+ * The string `value_redacted` is the **replacement** string that was
+ * written in place of the original — never the original value. The
+ * original is dropped at the SDK boundary; storing it here would
+ * defeat the redaction.
+ */
+export interface PolicyDecisionRedaction {
+  /** Dot-notation field path into the original request that was redacted. */
+  path: string;
+  /** Replacement string written in place of the match (e.g. `"<EMAIL>"`, `""`). */
+  value_redacted: string;
+}
+
+/**
+ * Fields shared by every `PolicyDecisionSubtype` variant.
+ *
+ * Extracted so the discriminated-union variants below don't repeat
+ * `latency_ms` and `rule_id`. Not exported on its own — consumers
+ * should use `PolicyDecisionSubtype` so the verdict-tagged shape is
+ * enforced by the type system.
+ */
+interface PolicyDecisionBase {
+  /**
+   * ID of the matched rule.
+   *
+   * **Present** whenever a rule matched the event (any action — including
+   * `allow`, which produces `verdict: "pass"`), and when the default-deny
+   * path fired (`rule_id === "__default_deny__"`).
+   *
+   * **Absent** only when `verdict === "pass"` AND no rule matched. Two
+   * sub-cases:
+   * - the event was out-of-scope per `policy.spec.scope`, or
+   * - no rule matched and `defaults.unmatched_action` was not `"deny"`.
+   *
+   * So `verdict === "pass"` is ambiguous on its own: `rule_id` set means
+   * an explicit `allow` matched; `rule_id` absent means out-of-scope or
+   * unmatched-with-no-default. SDKs that care about audit completeness
+   * should record both. See `SingleEventResult.ruleId` on `@krynix/policy`.
+   */
+  rule_id?: string;
+  /** Policy-evaluation latency in milliseconds, measured at the SDK boundary. */
+  latency_ms: number;
+}
+
+/**
+ * Sub-shape attached to a `decision` event when the decision was
+ * produced by the runtime SDK's policy pipeline (`@krynix/sdk`'s
+ * `matchSingleEvent` callsite) or by the trace-evaluator's
+ * `evaluate()`.
+ *
+ * **Discriminated union by `verdict`.** The compiler enforces that
+ * `redactions` is present iff `verdict === "redact"` — no runtime
+ * check needed. The JSON schema mirrors this via `if/then/else` so
+ * the wire format is enforced too. Constructed via an object literal
+ * with `verdict: "redact"` requires `redactions: [...]`; constructed
+ * with any other verdict forbids `redactions` (excess-property
+ * check).
+ *
+ * Optional on `DecisionPayload` for backward compatibility — agents
+ * emitting their own internal `decision` events (the original use of
+ * the `decision` type) do not set it. The governance dashboard
+ * filters on its presence to surface the runtime policy stream.
+ */
+export type PolicyDecisionSubtype =
+  | (PolicyDecisionBase & {
+      verdict: "pass" | "fail" | "require-approval";
+      /**
+       * Always `undefined` on non-redact variants. Marked as `never`
+       * so an object literal with `verdict: "pass"` and a
+       * `redactions` field fails to typecheck at construction.
+       */
+      redactions?: never;
+    })
+  | (PolicyDecisionBase & {
+      verdict: "redact";
+      /**
+       * Redactions applied to the request body. Required on this
+       * variant. Empty array is a producer bug — the JSON-schema
+       * variant requires `minItems: 1`.
+       */
+      redactions: PolicyDecisionRedaction[];
+    });
+
+/**
+ * Payload for `decision` events.
+ *
+ * Two distinct producers write to this type:
+ *
+ * 1. **Agent-internal decisions** — the agent records its own reasoning
+ *    step (`action` + `reasoning` + optional `confidence` / `alternatives`).
+ *    `policy_decision` is absent.
+ * 2. **Runtime policy decisions** — `@krynix/sdk` records the outcome of
+ *    a policy verdict produced by `matchSingleEvent`. `policy_decision`
+ *    carries the verdict, matched rule, redactions, and latency;
+ *    `action` mirrors the matched rule's action (or `"pass"` for an
+ *    out-of-scope event) and `reasoning` carries the matched rule's
+ *    message.
+ *
+ * The two producers share the same event type so the governance
+ * dashboard's "policy decisions" view is just a filter on
+ * `payload.policy_decision !== undefined`.
+ */
 export interface DecisionPayload {
   action: string;
   reasoning: string;
   confidence?: number;
   alternatives?: string[];
+  /**
+   * Present when this decision was produced by the runtime policy
+   * pipeline. Absent on agent-internal decisions. See
+   * `PolicyDecisionSubtype` above.
+   */
+  policy_decision?: PolicyDecisionSubtype;
 }
 
 /** Payload for `observation` events — records data observed from the environment. */
