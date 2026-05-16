@@ -590,3 +590,148 @@ spec:
     expect(() => parsePolicy(yaml)).toThrow("cannot be set when match.sequence is present");
   });
 });
+
+describe("parser — redact action + redactions[]", () => {
+  test("accepts a redact rule with redactions[]", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: redact-policy
+  version: "1.0.0"
+  description: Test redact
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["llm_request"]
+  rules:
+    - id: redact-email
+      description: Redact emails
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "scrubbed"
+      redactions:
+        - path: "messages[*].content"
+          pattern: "[^\\\\s]+@[^\\\\s]+"
+          replacement: "<EMAIL>"
+`;
+    const policy = parsePolicy(yaml);
+    const rule = policy.spec.rules[0];
+    expect(rule?.action).toBe("redact");
+    expect(rule?.redactions).toHaveLength(1);
+    const redaction = rule?.redactions?.[0];
+    expect(redaction?.path).toBe("messages[*].content");
+    expect(redaction?.replacement).toBe("<EMAIL>");
+  });
+
+  test("rejects a redact rule without redactions[]", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad-redact
+      description: missing redactions
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow(/must be a non-empty array/);
+  });
+
+  test("rejects a redact rule with an invalid regex pattern", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-regex
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad-pattern
+      description: invalid regex
+      match:
+        event_type: llm_request
+        payload: []
+      action: redact
+      severity: info
+      message: "x"
+      redactions:
+        - path: "messages[*].content"
+          pattern: "[unclosed"
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+    expect(() => parsePolicy(yaml)).toThrow(/invalid ECMAScript RegExp/);
+  });
+});
+
+describe("parser — on_timeout", () => {
+  test("accepts on_timeout: allow on a require-approval rule", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: approve
+  version: "1.0.0"
+  description: approve
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["tool_call"]
+  rules:
+    - id: approve-transfer
+      description: approve transfers
+      match:
+        event_type: tool_call
+        payload:
+          - field: tool_name
+            operator: eq
+            value: transfer_funds
+      action: require-approval
+      severity: warning
+      message: "needs approval"
+      on_timeout: allow
+`;
+    const policy = parsePolicy(yaml);
+    expect(policy.spec.rules[0]?.on_timeout).toBe("allow");
+  });
+
+  test("rejects an unknown on_timeout value", () => {
+    const yaml = `
+apiVersion: krynix.dev/v1
+metadata:
+  name: bad-timeout
+  version: "1.0.0"
+  description: bad
+spec:
+  scope:
+    agents: ["*"]
+    event_types: ["*"]
+  rules:
+    - id: bad
+      description: bad
+      match:
+        event_type: tool_call
+        payload: []
+      action: require-approval
+      severity: warning
+      message: "x"
+      on_timeout: queue-forever
+`;
+    expect(() => parsePolicy(yaml)).toThrow(PolicyValidationError);
+  });
+});

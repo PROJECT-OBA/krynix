@@ -76,8 +76,12 @@ export interface PolicyDiff {
 
 const ACTION_STRENGTH: Record<PolicyAction, number> = {
   allow: 0,
-  "require-approval": 1,
-  deny: 2,
+  // `redact` is stronger than `allow` (the request is modified before
+  // forwarding) but weaker than `require-approval` (no human in the loop)
+  // and weaker than `deny` (the call still proceeds).
+  redact: 1,
+  "require-approval": 2,
+  deny: 3,
 };
 
 // ---------------------------------------------------------------------------

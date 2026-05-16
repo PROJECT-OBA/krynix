@@ -10,12 +10,19 @@ import type {
   PolicyRule,
   PayloadCondition,
   PolicyAction,
+  Redaction,
   Severity,
   MatchOperator,
   SequenceMatch,
   SequenceStep,
 } from "./schema.js";
-import { POLICY_API_VERSION, VALID_ACTIONS, VALID_SEVERITIES, VALID_OPERATORS } from "./schema.js";
+import {
+  POLICY_API_VERSION,
+  VALID_ACTIONS,
+  VALID_ON_TIMEOUT,
+  VALID_SEVERITIES,
+  VALID_OPERATORS,
+} from "./schema.js";
 
 /**
  * Error thrown when a policy YAML document fails validation.
@@ -230,7 +237,57 @@ function validateRule(raw: unknown, path: string, seenIds: Set<string>): PolicyR
     }
   }
 
+  // redactions[] — required when action === "redact", optional otherwise.
+  // Each redaction has a required `path`; `pattern` + `replacement` are
+  // optional (default behaviour: replace the whole field value with
+  // "<REDACTED>"). Validated regardless of action so a future action change
+  // doesn't silently lose them.
+  if (raw["redactions"] !== undefined) {
+    assertArray(raw["redactions"], `${path}.redactions`);
+    rule.redactions = (raw["redactions"] as unknown[]).map((r, i) =>
+      validateRedaction(r, `${path}.redactions[${String(i)}]`),
+    );
+  }
+  if (rule.action === "redact" && (rule.redactions === undefined || rule.redactions.length === 0)) {
+    throw new PolicyValidationError(
+      `${path}.redactions`,
+      'must be a non-empty array when action is "redact"',
+    );
+  }
+
+  // on_timeout — only meaningful for require-approval rules. Validated
+  // regardless of action; semantically ignored by the trace-evaluator.
+  if (raw["on_timeout"] !== undefined) {
+    assertOneOf<"allow" | "deny">(raw["on_timeout"], VALID_ON_TIMEOUT, `${path}.on_timeout`);
+    rule.on_timeout = raw["on_timeout"] as "allow" | "deny";
+  }
+
   return rule;
+}
+
+function validateRedaction(raw: unknown, path: string): Redaction {
+  assertObject(raw, path);
+  assertString(raw["path"], `${path}.path`);
+  const result: Redaction = { path: raw["path"] as string };
+  if (raw["pattern"] !== undefined) {
+    assertString(raw["pattern"], `${path}.pattern`);
+    // Fail-fast: an invalid ECMAScript regex is the kind of mistake we want
+    // caught at policy-parse time, not at runtime under load.
+    try {
+      new RegExp(raw["pattern"] as string);
+    } catch (e) {
+      throw new PolicyValidationError(
+        `${path}.pattern`,
+        `invalid ECMAScript RegExp: ${(e as Error).message}`,
+      );
+    }
+    result.pattern = raw["pattern"] as string;
+  }
+  if (raw["replacement"] !== undefined) {
+    assertString(raw["replacement"], `${path}.replacement`);
+    result.replacement = raw["replacement"] as string;
+  }
+  return result;
 }
 
 /**

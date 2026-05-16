@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added (`@krynix/policy`)
+- New public API `matchSingleEvent(event, policy): SingleEventResult` for runtime decision evaluation against a single in-flight TraceEvent. Designed for `@krynix/sdk`'s decision pipeline; complements the existing trace-eval `evaluate(trace, policy)` which stays the CLI / compliance path.
+- New `"redact"` value in `PolicyAction` and `PolicyVerdict` unions. Matching `redact` rules carry a required `redactions[]` directive list applied by the runtime SDK before forwarding the upstream LLM / tool call. At trace-evaluation time `redact` is advisory (no violation produced).
+- New `Redaction` type (`{ path, pattern?, replacement? }`) for the directives. Pattern is validated as an ECMAScript RegExp at parse time per ADR-0002.
+- New optional `on_timeout: "allow" | "deny"` field on `PolicyRule` — fallback action when a `require-approval` rule's human queue times out at runtime. Ignored by the trace-evaluator.
+- New `VALID_ON_TIMEOUT` constant exported from `@krynix/policy`.
+
+### Changed (`@krynix/policy`)
+- `PolicyAction` union extended with `"redact"`. Soft-breaking for consumers doing exhaustive `switch` on action / verdict; wire format remains forward-compatible.
+- Parser now requires a non-empty `redactions[]` array when `action === "redact"`; rejects invalid regex patterns at parse time.
+
 ## [0.2.1] - 2026-04-26
 
 ### Fixed
