@@ -211,6 +211,33 @@ function makeLlmRequestEvent(
   };
 }
 
+/**
+ * Map a verdict to the matched rule's action.
+ *
+ * `DecisionPayload.action` mirrors the rule's action string (`allow` /
+ * `redact` / `deny` / `require-approval`), while
+ * `policy_decision.verdict` carries the outcome (`pass` / `redact` /
+ * `fail` / `require-approval`). The two are not the same field — a
+ * verdict of `pass` is produced by a rule with `action: "allow"`, and
+ * a verdict of `fail` is produced by a rule with `action: "deny"`.
+ * Adapter authors keying off `payload.action` need the rule string,
+ * not the verdict.
+ */
+function actionForVerdict(
+  verdict: "pass" | "fail" | "redact" | "require-approval",
+): "allow" | "deny" | "redact" | "require-approval" {
+  switch (verdict) {
+    case "pass":
+      return "allow";
+    case "fail":
+      return "deny";
+    case "redact":
+      return "redact";
+    case "require-approval":
+      return "require-approval";
+  }
+}
+
 function makeDecisionEvent(
   ctx: KrynixContext,
   source: { event_id: string },
@@ -230,7 +257,7 @@ function makeDecisionEvent(
     agent_id: ctx.agentId,
     event_type: "decision",
     payload: {
-      action: verdict,
+      action: actionForVerdict(verdict),
       reasoning: "stub adapter audit entry",
       policy_decision: policyDecision,
     },
