@@ -300,6 +300,13 @@ interface FakeIngest {
 async function startFakeIngest(): Promise<FakeIngest> {
   const requests: CapturedRequest[] = [];
   const approvals = new Map<string, ApprovalRow>();
+  // Resolutions called BEFORE the matching POST /approvals lands.
+  // The test driver fires a `setTimeout` to flip the row's status
+  // (approve/deny) shortly after calling chat.create(); without this
+  // queue the resolve could lose the race with the SDK's approval
+  // submit and throw `not seeded yet` on slow CI. When the submit
+  // lands, the queued resolution is applied immediately.
+  const pendingResolutions = new Map<string, Omit<ApprovalRow, "approval_id">>();
   let nextApprovalSubmitStatus: ApprovalRow["status"] = "pending";
 
   const server: Server = createServer((req, res) => {
@@ -335,7 +342,15 @@ async function startFakeIngest(): Promise<FakeIngest> {
     // POST /v1/sessions/:id/approvals
     if (req.method === "POST" && /^\/v1\/sessions\/[^/]+\/approvals$/.test(url)) {
       const approvalId = `appr-${String(approvals.size + 1)}`;
-      const row: ApprovalRow = { approval_id: approvalId, status: nextApprovalSubmitStatus };
+      let row: ApprovalRow = { approval_id: approvalId, status: nextApprovalSubmitStatus };
+      // If a resolution was queued for this id before the submit
+      // landed, apply it now so the very next GET poll sees the
+      // terminal status.
+      const queued = pendingResolutions.get(approvalId);
+      if (queued !== undefined) {
+        row = { ...row, ...queued };
+        pendingResolutions.delete(approvalId);
+      }
       approvals.set(approvalId, row);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
@@ -384,7 +399,12 @@ async function startFakeIngest(): Promise<FakeIngest> {
     },
     resolveApproval: (id, row) => {
       const existing = approvals.get(id);
-      if (existing === undefined) throw new Error(`approval ${id} not seeded yet`);
+      if (existing === undefined) {
+        // Submit hasn't landed yet — queue the resolution. The POST
+        // handler picks it up when the matching approval is created.
+        pendingResolutions.set(id, row);
+        return;
+      }
       approvals.set(id, { ...existing, ...row });
     },
   };

@@ -24,5 +24,5 @@ First release. Package skeleton for runtime policy enforcement against AI agents
 
 ### Depends on
 
-- `@krynix/core` ≥ 1.1.0 (schema 1.1.0 adds the `policy_decision` subtype + `redact` verdict).
-- `@krynix/policy` ≥ 0.2.2 (`matchSingleEvent` + `redact` verdict + `redactions` + `on_timeout` rule fields).
+- `@krynix/core` — the release that pairs with this SDK alpha carries trace schema 1.1.0 (adds the `policy_decision` subtype + `redact` verdict).
+- `@krynix/policy` — same release window; adds `matchSingleEvent` + `redact` verdict + `redactions` + `on_timeout` rule fields.

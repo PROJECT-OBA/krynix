@@ -62,7 +62,7 @@ The SDK speaks four verdicts (mirrored from `@krynix/policy`):
 
 ### Async governance trail
 
-Every wrapped call emits a `decision`-type `TraceEvent` with the `policy_decision` sub-shape (added in trace schema 1.1.0, shipped in `@krynix/core` >= 0.2.2). Events flow through an in-memory buffer that:
+Every wrapped call emits a `decision`-type `TraceEvent` with the `policy_decision` sub-shape (added in trace schema 1.1.0; the matching `@krynix/core` release ships alongside this SDK alpha — see `packages/core/src/types.ts` for the current `SCHEMA_VERSION` constant). Events flow through an in-memory buffer that:
 
 - Batches up to `maxBatchSize` (default 100) or flushes every `flushIntervalMs` (default 1000 ms).
 - Retries transport failures with exponential backoff (200 ms → 5 s, max 3 retries).

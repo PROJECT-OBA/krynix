@@ -88,6 +88,22 @@ export function runPipeline(
   policy: Policy,
   redactionMode: RedactionMode = "regex",
 ): PipelineOutcome {
+  // `Krynix`'s constructor rejects `"presidio"` up front (via
+  // `resolveRedactionMode`), so the SDK's own dispatch never lands
+  // here with that mode. But `runPipeline` is also exported as a
+  // public collaborator for third-party adapter authors. Guard
+  // defensively so a direct caller doesn't silently fall through to
+  // the regex path on `"presidio"` (which is what the previous
+  // `redactionMode === "off"` special-case allowed). Same wording as
+  // `resolveRedactionMode` so callers see a consistent error message
+  // regardless of which entry point they hit.
+  if (redactionMode === "presidio") {
+    throw new Error(
+      "Presidio-based redaction is not yet implemented in this @krynix/sdk release. " +
+        "Use `redaction: { mode: 'regex' }` or `'off'`. Presidio integration is planned for v0.2.",
+    );
+  }
+
   const result: SingleEventResult = matchSingleEvent(event, policy);
 
   switch (result.verdict) {
@@ -131,6 +147,22 @@ export function runPipeline(
         };
       }
       const redactions: Redaction[] = result.redactions ?? [];
+      // Short-circuit the no-directives case before allocating: a rule
+      // matched `action: redact` with no `redactions[]` directives
+      // (hand-built policies; the parser would reject this) means
+      // there's nothing to apply. Skip the deep-clone + traversal
+      // entirely. The other empty-applied case (regex ran but matched
+      // nothing) still goes through `applyRedactions` because we need
+      // its return value to know `applied.length === 0`.
+      if (redactions.length === 0) {
+        return {
+          action: "forward",
+          body,
+          appliedRedactions: [],
+          verdict: "pass",
+          ruleId: result.ruleId,
+        };
+      }
       const { body: redactedBody, applied } = applyRedactions(body, redactions);
       if (applied.length === 0) {
         return {
