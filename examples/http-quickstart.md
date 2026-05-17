@@ -1,6 +1,6 @@
 # HTTP Ingest Quickstart `[PLANNED]`
 
-> **Status: NOT YET IMPLEMENTED.** The HTTP Ingest Server (`krynix-ingest`) and
+> **Status: NOT YET IMPLEMENTED.** The HTTP ingest endpoints and
 > language-specific SDKs are under development. This document describes the planned
 > integration protocol for any programming language.
 

@@ -6,8 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (`@krynix/sdk` — new package, `0.1.0-alpha.1`)
+- Brand new package: runtime policy enforcement for AI agents. Ships under the `@alpha` npm tag.
+- `Krynix` class with adapter registry + `wrap(client)` dispatch + offline mode.
+- Verdict pipeline (`runPipeline`) — pure function evaluating one in-flight `TraceEvent` against a `Policy`, producing a discriminated `PipelineOutcome` (`forward` / `deny` / `require-approval`) that adapters act on.
+- Async event buffer (`EventBuffer`) with batched flush, exponential-backoff retry (default max 3 retries, 200 ms → 5 s), and best-effort drain on `beforeExit`. Never blocks the caller's response path.
+- Approval poller (`ApprovalPoller`) — soft-block (default 30 s) with `on_timeout` fallback, hard-block opt-in. Handles `approved` / `denied` / `expired` / synchronous resolution at submit.
+- Ingest HTTP client (`IngestClient`) — strips hash-chain fields before send (the server computes them), exposes `submitEvents`, `submitApproval`, `getApproval` (the SDK-side surface; the `resolve` endpoint is intentionally outside the SDK and is consumed by Krynix's approval-review tooling instead of agent code), per-request timeout, no deps beyond global `fetch`.
+- Rule-driven redaction (`applyRedactions`) — deep-clones the request body, supports `path`, `pattern` (ECMAScript regex with `u` flag), `replacement` (default `<REDACTED>`, empty string allowed), and `[*]` array spread. Records the **replacement** string in `value_redacted`, never the original.
+- Errors: `KrynixSdkError` (base), `PolicyDenied`, `ApprovalTimeout`, `ApprovalDenied` — all distinct from `@krynix/core`'s `KrynixError` so callers can catch policy vs infrastructure failures separately.
+- 45 unit tests covering all four verdicts, batch + retry behaviour, all three approval-poller outcomes (sync, async, soft-timeout), and the full path-traversal redaction grammar (nested fields, array spread, regex with `g` and `u` flags, audit-trail integrity).
+- Adapters NOT shipped here — OpenAI / Anthropic / LangChain adapters land in follow-up alphas.
+- Presidio-based PII detection deferred to v0.2; `redaction: { mode: "presidio" }` throws explicitly at construction time.
+
 ### Added (`@krynix/core`)
-- `SCHEMA_VERSION` bumped 1.0.0 → 1.1.0 for the runtime-pivot. Backward-compatible at the wire level (every addition is optional).
+- `SCHEMA_VERSION` bumped 1.0.0 → 1.1.0 to carry the new `policy_decision` sub-shape. Backward-compatible at the wire level (every addition is optional).
 - New optional `policy_decision` sub-shape on `DecisionPayload`. Carried on `decision` events emitted by `@krynix/sdk`'s runtime policy pipeline. Fields: `verdict` (`pass` / `fail` / `redact` / `require-approval`), optional `rule_id`, optional `redactions[]`, required `latency_ms`. Absent on agent-internal decision events.
 - New exported types: `PolicyDecisionSubtype`, `PolicyDecisionRedaction`, `PolicyDecisionVerdict`.
 - JSON schema (`packages/core/schemas/trace.schema.json`) regenerated to validate the new sub-shape (8 new schema-validator tests cover happy + reject paths).

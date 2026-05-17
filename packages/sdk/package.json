@@ -1,0 +1,54 @@
+{
+  "name": "@krynix/sdk",
+  "version": "0.1.0-alpha.1",
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "description": "Runtime policy enforcement SDK for AI agents — wraps OpenAI/Anthropic/LangChain to allow/deny/redact/require-approval before each call",
+  "author": "PROJECT-OBA",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PROJECT-OBA/krynix.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/PROJECT-OBA/krynix/tree/main/packages/sdk#readme",
+  "bugs": "https://github.com/PROJECT-OBA/krynix/issues",
+  "keywords": [
+    "krynix",
+    "ai-agent",
+    "runtime-policy",
+    "llm-guardrail",
+    "ai-governance",
+    "policy-enforcement"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@krynix/core": "workspace:*",
+    "@krynix/policy": "workspace:*"
+  }
+}

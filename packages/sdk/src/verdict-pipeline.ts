@@ -1,0 +1,170 @@
+/**
+ * The verdict pipeline — the SDK's core decision loop.
+ *
+ * Adapter-agnostic. Given a partial in-flight TraceEvent (built by an
+ * adapter from the caller's request) and a Policy, returns a
+ * structured `PipelineOutcome` describing what the adapter should do
+ * next: forward, redact-then-forward, throw, or submit-for-approval.
+ *
+ * The pipeline does NOT itself emit ingest events or poll for
+ * approvals — those side effects live in the adapter callsite so the
+ * pipeline stays pure and unit-testable.
+ *
+ * Flow:
+ *
+ *   buildEvent → matchSingleEvent(event, policy) → branch on verdict
+ *
+ *   pass               → outcome: forward(originalBody)
+ *   redact             → applyRedactions → outcome: forward(redactedBody) + applied[]
+ *   fail               → outcome: deny(ruleId)
+ *   require-approval   → outcome: requireApproval(ruleId, onTimeout)
+ *
+ * @module
+ */
+
+import type { TraceEvent } from "@krynix/core";
+import {
+  matchSingleEvent,
+  type Policy,
+  type Redaction,
+  type SingleEventResult,
+} from "@krynix/policy";
+import type { PolicyDecisionRedaction } from "@krynix/core";
+import { applyRedactions } from "./redact.js";
+import type { RedactionMode } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Outcome types
+// ---------------------------------------------------------------------------
+
+/**
+ * What the adapter should do after the pipeline runs.
+ *
+ * Discriminated union by `action` so the adapter switch is
+ * exhaustive at the type level.
+ */
+export type PipelineOutcome =
+  | {
+      action: "forward";
+      /** The request body to send upstream — same as the input on `pass`, redacted on `redact`. */
+      body: unknown;
+      /** Empty on `pass`; populated on `redact` (the audit-trail list to attach to the decision event). */
+      appliedRedactions: PolicyDecisionRedaction[];
+      verdict: "pass" | "redact";
+      ruleId?: string;
+    }
+  | {
+      action: "deny";
+      ruleId: string;
+      /** Human-readable reason from the matched rule. */
+      message: string;
+      verdict: "fail";
+    }
+  | {
+      action: "require-approval";
+      ruleId: string;
+      message: string;
+      verdict: "require-approval";
+      /** What to do if the approval queue times out (soft-block). SDK default `"deny"` when absent. */
+      onTimeout?: "allow" | "deny";
+    };
+
+/**
+ * Run the pipeline. Pure function.
+ *
+ * @param event - The in-flight TraceEvent built by the adapter.
+ * @param body - The original request body. Returned (or deep-cloned + redacted) on `forward`.
+ * @param policy - The policy to evaluate against.
+ * @param redactionMode - SDK redaction mode (from `ctx.redactionMode`). Defaults to `"regex"`
+ *                       to keep the previous call-site behaviour. When `"off"`, a matched
+ *                       `redact` rule is downgraded to a `pass` outcome — the original body
+ *                       is forwarded and no redactions are applied. The matched `ruleId` is
+ *                       still surfaced so adapters can record the rule fired but had no
+ *                       effect on the outgoing call.
+ */
+export function runPipeline(
+  event: TraceEvent,
+  body: unknown,
+  policy: Policy,
+  redactionMode: RedactionMode = "regex",
+): PipelineOutcome {
+  const result: SingleEventResult = matchSingleEvent(event, policy);
+
+  switch (result.verdict) {
+    case "pass":
+      return {
+        action: "forward",
+        body,
+        appliedRedactions: [],
+        verdict: "pass",
+        ruleId: result.ruleId,
+      };
+
+    case "redact": {
+      // Two downgrades to `pass` happen here, both important for
+      // emitting valid `policy_decision` events downstream:
+      //
+      // 1. `redactionMode === "off"` — caller asked us not to mutate
+      //    request bodies. Forward the original and record the rule
+      //    match. Adapters MUST treat this as `verdict: "pass"` so
+      //    the event passes the core schema (which requires
+      //    `redactions: minItems 1` when verdict is `redact`).
+      // 2. `applied.length === 0` — the rule directives didn't change
+      //    anything (regex had no matches, path missing, non-string
+      //    leaf). Forwarding a `verdict: "redact"` with an empty
+      //    `redactions[]` would violate the same schema constraint
+      //    and would be lying about what happened on the wire.
+      //
+      // `result.redactions` is normalised to `[]` by `matchSingleEvent`
+      // (see evaluator.ts: `redactions: rule.redactions ?? []`). The
+      // `?? []` here is a TypeScript narrowing aid only — the public
+      // `SingleEventResult.redactions` is declared optional because
+      // not every verdict branch carries it, and TS can't narrow
+      // through a function-call result.
+      if (redactionMode === "off") {
+        return {
+          action: "forward",
+          body,
+          appliedRedactions: [],
+          verdict: "pass",
+          ruleId: result.ruleId,
+        };
+      }
+      const redactions: Redaction[] = result.redactions ?? [];
+      const { body: redactedBody, applied } = applyRedactions(body, redactions);
+      if (applied.length === 0) {
+        return {
+          action: "forward",
+          body,
+          appliedRedactions: [],
+          verdict: "pass",
+          ruleId: result.ruleId,
+        };
+      }
+      return {
+        action: "forward",
+        body: redactedBody,
+        appliedRedactions: applied,
+        verdict: "redact",
+        ruleId: result.ruleId,
+      };
+    }
+
+    case "fail":
+      return {
+        action: "deny",
+        ruleId: result.ruleId ?? "__unknown__",
+        message: result.message ?? "policy denied",
+        verdict: "fail",
+      };
+
+    case "require-approval":
+      return {
+        action: "require-approval",
+        ruleId: result.ruleId ?? "__unknown__",
+        message: result.message ?? "approval required",
+        verdict: "require-approval",
+        onTimeout: result.onTimeout,
+      };
+  }
+}

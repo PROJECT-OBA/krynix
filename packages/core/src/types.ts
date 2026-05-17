@@ -10,11 +10,9 @@
 /**
  * Current schema version for all TraceEvents.
  *
- * `1.1.0` is the runtime-pivot bump:
- *
- * - Adds the optional `policy_decision` sub-shape to `DecisionPayload`
- *   for the new `@krynix/sdk` runtime path (verdicts, redactions,
- *   matched rule, eval latency).
+ * `1.1.0` adds the optional `policy_decision` sub-shape to
+ * `DecisionPayload` for the `@krynix/sdk` runtime policy path
+ * (verdicts, redactions, matched rule, eval latency).
  *
  * Backward compatible at the wire level — every new field is optional,
  * so events emitted by older producers parse unchanged here. Consumers
@@ -117,9 +115,9 @@ export type PolicyDecisionVerdict = "pass" | "fail" | "redact" | "require-approv
 
 /**
  * One redaction applied to the request body when a policy rule's
- * `action: "redact"` fired. Carried on a `policy_decision` so the
- * governance dashboard can render exactly what was scrubbed before the
- * upstream LLM / tool call.
+ * `action: "redact"` fired. Carried on a `policy_decision` so any
+ * downstream audit consumer can see exactly what was scrubbed before
+ * the upstream LLM / tool call.
  *
  * The string `value_redacted` is the **replacement** string that was
  * written in place of the original — never the original value. The
@@ -180,8 +178,8 @@ interface PolicyDecisionBase {
  *
  * Optional on `DecisionPayload` for backward compatibility — agents
  * emitting their own internal `decision` events (the original use of
- * the `decision` type) do not set it. The governance dashboard
- * filters on its presence to surface the runtime policy stream.
+ * the `decision` type) do not set it. Consumers that only want the
+ * runtime policy stream can filter on its presence.
  */
 export type PolicyDecisionSubtype =
   | (PolicyDecisionBase & {

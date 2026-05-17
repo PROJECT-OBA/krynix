@@ -98,6 +98,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/sdk:
+    dependencies:
+      '@krynix/core':
+        specifier: workspace:*
+        version: link:../core
+      '@krynix/policy':
+        specifier: workspace:*
+        version: link:../policy
+
 packages:
 
   /@cfworker/json-schema@4.1.1:
