@@ -116,9 +116,38 @@ export class ApprovalPoller {
     let interval = this.pollIntervalMs;
 
     while (true) {
-      // Sleep first — submitApproval just returned, no point hammering
+      // Clamp the sleep to whatever remains of the soft-block budget
+      // so a caller passing `timeoutMs: 100` with the default
+      // `pollIntervalMs: 500` actually times out near 100 ms, not at
+      // the end of the first 500 ms poll cycle. Without clamping, the
+      // public "poll for at most timeoutMs" guarantee was effectively
+      // "timeoutMs + up to one pollIntervalMs", which is wrong when
+      // timeoutMs < pollIntervalMs and surprising even when it
+      // doesn't. Hard-block mode (no timeout) sleeps the full
+      // interval. Sleep happens before the first status check —
+      // `submitApproval` just returned so there's no point hammering
       // ingest immediately.
-      await sleep(interval);
+      if (this.mode === "soft") {
+        const elapsed = Date.now() - start;
+        const remaining = this.timeoutMs - elapsed;
+        if (remaining <= 0) {
+          // Past the budget without even one poll — go straight to
+          // the timeout branch.
+          const onTimeout = ruleOnTimeout ?? "deny";
+          if (onTimeout === "deny") {
+            throw new ApprovalTimeout(
+              `approval ${approvalId} for rule '${ruleId}' timed out after ${String(this.timeoutMs)} ms (on_timeout: deny)`,
+              ruleId,
+              approvalId,
+              this.timeoutMs,
+            );
+          }
+          return { action: "timeout", approvalId, onTimeout };
+        }
+        await sleep(Math.min(interval, remaining));
+      } else {
+        await sleep(interval);
+      }
 
       const elapsed = Date.now() - start;
       if (this.mode === "soft" && elapsed >= this.timeoutMs) {

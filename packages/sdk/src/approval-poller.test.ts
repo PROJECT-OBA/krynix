@@ -216,4 +216,43 @@ describe("ApprovalPoller — soft-block client-side timeout", () => {
       expect(outcome.onTimeout).toBe("allow");
     }
   });
+
+  test("timeoutMs < pollIntervalMs — call returns near timeoutMs, not at the end of one poll", async () => {
+    // Regression for the soft-mode timeout precision: before the
+    // clamp, the loop slept the full `pollIntervalMs` before checking
+    // elapsed, so a caller passing `timeoutMs: 30` with the default
+    // `pollIntervalMs: 500` waited ~500 ms instead of the promised
+    // ~30 ms. Lock the wall-clock guarantee in here so the next
+    // regression fails fast.
+    const client = {
+      submitEvents: async () => undefined,
+      submitApproval: async (): Promise<ApprovalSubmitResult> => ({
+        approval_id: "appr-1",
+        status: "pending",
+        created_at: "x",
+        expires_at: "y",
+      }),
+      getApproval: async (): Promise<ApprovalStatusResult> => ({
+        approval_id: "appr-1",
+        status: "pending",
+      }),
+    };
+
+    const poller = new ApprovalPoller({
+      client: client as unknown as IngestClient,
+      sessionId: "s",
+      // pollIntervalMs is 10× the timeoutMs.
+      config: { mode: "soft", timeoutMs: 30, pollIntervalMs: 300, maxPollIntervalMs: 300 },
+    });
+
+    const start = Date.now();
+    await expect(poller.waitForApproval(makeDecisionEvent(), "r1", "deny")).rejects.toBeInstanceOf(
+      ApprovalTimeout,
+    );
+    const elapsed = Date.now() - start;
+    // The previous (broken) implementation would take ~300 ms here.
+    // Allow a generous 150 ms cap so CI timing jitter doesn't make
+    // this flake, but still well below the broken 300 ms.
+    expect(elapsed).toBeLessThan(150);
+  });
 });

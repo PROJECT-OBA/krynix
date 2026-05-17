@@ -62,11 +62,11 @@ The SDK speaks four verdicts (mirrored from `@krynix/policy`):
 
 ### Async governance trail
 
-Every wrapped call emits a `decision`-type `TraceEvent` with the `policy_decision` sub-shape (added in `@krynix/core` 1.1.0). Events flow through an in-memory buffer that:
+Every wrapped call emits a `decision`-type `TraceEvent` with the `policy_decision` sub-shape (added in trace schema 1.1.0, shipped in `@krynix/core` >= 0.2.2). Events flow through an in-memory buffer that:
 
 - Batches up to `maxBatchSize` (default 100) or flushes every `flushIntervalMs` (default 1000 ms).
 - Retries transport failures with exponential backoff (200 ms → 5 s, max 3 retries).
-- Drains on `process.exit` so short-lived agents don't drop decisions.
+- Best-effort drain on `beforeExit` for short-lived CLI runs. **Not guaranteed** — a hard `process.exit()` (or SIGKILL) doesn't fire `beforeExit`, so the drain doesn't run. For at-most-once-loss semantics, always `await krynix.close()` before letting the process die.
 - Never blocks the verdict pipeline — your call latency is unaffected by ingest health.
 
 Call `await krynix.close()` at the end of an agent run to force a final flush.

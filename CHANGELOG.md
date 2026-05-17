@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Ingest HTTP client (`IngestClient`) — strips hash-chain fields before send (the server computes them), exposes `submitEvents`, `submitApproval`, `getApproval` (the SDK-side surface; the `resolve` endpoint is intentionally outside the SDK and is consumed by Krynix's approval-review tooling instead of agent code), per-request timeout, no deps beyond global `fetch`.
 - Rule-driven redaction (`applyRedactions`) — deep-clones the request body, supports `path`, `pattern` (ECMAScript regex with `u` flag), `replacement` (default `<REDACTED>`, empty string allowed), and `[*]` array spread. Records the **replacement** string in `value_redacted`, never the original.
 - Errors: `KrynixSdkError` (base), `PolicyDenied`, `ApprovalTimeout`, `ApprovalDenied` — all distinct from `@krynix/core`'s `KrynixError` so callers can catch policy vs infrastructure failures separately.
-- 45 unit tests covering all four verdicts, batch + retry behaviour, all three approval-poller outcomes (sync, async, soft-timeout), and the full path-traversal redaction grammar (nested fields, array spread, regex with `g` and `u` flags, audit-trail integrity).
+- Comprehensive unit-test coverage: all four verdicts, batch + retry behaviour, all three approval-poller outcomes (sync, async, soft-timeout), and the full path-traversal redaction grammar (nested fields, array spread, regex with `g` and `u` flags, audit-trail integrity).
 - Adapters NOT shipped here — OpenAI / Anthropic / LangChain adapters land in follow-up alphas.
 - Presidio-based PII detection deferred to v0.2; `redaction: { mode: "presidio" }` throws explicitly at construction time.
 
