@@ -2,7 +2,7 @@
 
 **Schema Version:** `1.1.0`
 
-**Changelog:** `1.1.0` adds an optional `policy_decision` sub-shape to the `decision` event payload for the runtime-pivot policy pipeline. Backward-compatible — every addition is optional. See [the `decision` section](#decision) and [`packages/core/src/types.ts`](../../packages/core/src/types.ts) for the discriminated-union definition.
+**Changelog:** `1.1.0` adds an optional `policy_decision` sub-shape to the `decision` event payload for the runtime policy pipeline. Backward-compatible — every addition is optional. See [the `decision` section](#decision) and [`packages/core/src/types.ts`](../../packages/core/src/types.ts) for the discriminated-union definition.
 
 This document defines the canonical format for Krynix Traces and TraceEvents. All components that produce, consume, or validate traces must conform to this specification.
 

@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/policy" },
+    { "path": "packages/sdk" },
     { "path": "packages/replay" },
     { "path": "packages/cli" },
     { "path": "packages/adapter-openclaw" },

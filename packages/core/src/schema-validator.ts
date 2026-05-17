@@ -127,9 +127,10 @@ const TRACE_SCHEMA = {
         reasoning: { type: "string" },
         confidence: { type: "number" },
         alternatives: { type: "array", items: { type: "string" } },
-        // Optional sub-shape added in schema 1.1.0 for the runtime-pivot.
-        // Present when this decision was produced by `@krynix/sdk`'s
-        // policy pipeline; absent on agent-internal decisions. See
+        // Optional sub-shape added in schema 1.1.0 for the runtime
+        // policy pipeline. Present when this decision was produced by
+        // `@krynix/sdk`'s policy pipeline; absent on agent-internal
+        // decisions. See
         // `PolicyDecisionSubtype` in types.ts for the contract.
         //
         // The `if/then/else` block enforces the discriminated-union

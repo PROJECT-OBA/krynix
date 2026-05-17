@@ -26,8 +26,8 @@ const DEFAULT_BASE = {
   event_hash: "",
   metadata: null,
   // Pinned to the version `@krynix/core` actually exports today so the
-  // fixtures stay valid relative to the current schema. The K2 PR bumps
-  // this constant; updating here is automatic via the import.
+  // fixtures stay valid relative to the current schema; updating the
+  // core constant flows through here automatically via the import.
   schema_version: SCHEMA_VERSION,
 } as const;
 
