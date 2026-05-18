@@ -1,6 +1,6 @@
 # Changelog — `@krynix/sdk`
 
-## [0.1.0-alpha.1] - Unreleased
+## [0.1.0-alpha.1] - 2026-05-18
 
 First release. Package skeleton for runtime policy enforcement against AI agents. Published under the `@alpha` npm tag.
 
