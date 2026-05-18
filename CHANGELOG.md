@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-18
+
+Schema 1.1.0 + new runtime-policy primitives. Adds the `@krynix/sdk` package as `0.1.0-alpha.1` under the `@alpha` npm tag. The `@krynix/core`, `@krynix/policy`, `@krynix/replay`, `@krynix/cli`, `@krynix/adapter-langchain`, and `@krynix/adapter-openclaw` packages all bump to `0.2.2` to carry the schema additions + matching exports. Backward-compatible at the wire level; soft-breaking only for downstream TypeScript consumers doing exhaustive `switch` on the verdict / action unions.
+
 ### Added (`@krynix/sdk` — new package, `0.1.0-alpha.1`)
 - Brand new package: runtime policy enforcement for AI agents. Ships under the `@alpha` npm tag.
 - `Krynix` class with adapter registry + `wrap(client)` dispatch + offline mode.
