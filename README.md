@@ -15,9 +15,12 @@
 <p align="center">
   <a href="docs/00_overview/what-is-krynix.md">What Is Krynix?</a> &middot;
   <a href="#quickstart">Quickstart</a> &middot;
+  <a href="#runtime-policy-enforcement-alpha">Runtime SDK (alpha)</a> &middot;
   <a href="docs/00_overview/how-policies-work.md">How Policies Work</a> &middot;
   <a href="docs/10_architecture/platform_architecture_spec.md">Architecture</a>
 </p>
+
+> 📦 **New (alpha): [`@krynix/sdk`](packages/sdk/)** — wrap your LLM client + tool dispatcher and run policy *before* each call (allow / redact / deny / require-approval). `0.1.0-alpha.1` ships the verdict pipeline, async event buffer, approval poller, and offline mode. OpenAI / Anthropic / LangChain adapters land in follow-up alphas.
 
 ---
 
@@ -138,6 +141,36 @@ krynix diff --baseline traces/v1.trace.jsonl --candidate traces/v2.trace.jsonl
 # Detects behavioral changes between two traces — field-level diff at first divergence point
 ```
 
+### Runtime Policy Enforcement (alpha)
+
+> Available as `@krynix/sdk@0.1.0-alpha.1` under the `@alpha` npm tag. The 4-verdict pipeline (`pass` / `redact` / `deny` / `require-approval`) runs in-process *before* the LLM call executes — distinct from the CLI / post-run evaluation flow above.
+
+**Offline mode** is the recommended starting point: no server required, three verdicts work fully in-process.
+
+```ts
+import { Krynix } from "@krynix/sdk";
+import { parsePolicy } from "@krynix/policy";
+
+const policy = parsePolicy(/* your policy.yaml */);
+const krynix = new Krynix({
+  policy,
+  agentId: "my-agent",
+  sessionId: crypto.randomUUID(),
+  // No `ingest` block → offline mode.
+  // `pass` / `redact` / `deny` work in-process.
+  // `require-approval` will throw until you add either:
+  //   - an `approvalHandler` callback (coming in 0.1.0-alpha.2), or
+  //   - an `ingest.url` pointing at a Krynix ingest server.
+  redaction: { mode: "regex" },
+});
+
+const wrapped = krynix.wrap(client); // OpenAI / Anthropic / LangChain adapter required (alpha.2)
+```
+
+A managed ingest endpoint with a free tier is on the roadmap — it will enable team-scale `require-approval` queues + a governance dashboard — but it is **optional**, not required. The SDK is fully standalone.
+
+See [`packages/sdk/README.md`](packages/sdk/README.md) for the full API.
+
 ### Programmatic Usage (TypeScript)
 
 ```typescript
@@ -193,9 +226,9 @@ See [How Policies Work](docs/00_overview/how-policies-work.md) for details.
 | `CURRENT` | Framework-agnostic policies — write once, apply to any agent |
 | `CURRENT` | Behavioral drift comparison (`krynix diff` + `compareTraces` library) |
 | `PARTIAL` | Redaction — key-pattern based |
-| `PLANNED` | Deterministic execution replay |
-| `PLANNED` | Runtime blocking via sidecar proxy |
-| `PLANNED` | Centralized governance |
+| `PARTIAL` | Runtime policy enforcement via `@krynix/sdk` (alpha — verdict pipeline + offline mode shipped; framework adapters land in follow-up alphas) |
+| `PLANNED` | Managed ingest endpoint (free + paid tiers) |
+| `PLANNED` | Centralized governance dashboard |
 
 Current replay guarantee is **integrity verification** via CLI. Behavioral drift comparison is available via `krynix diff` and the `compareTraces` library function. Execution replay is planned.
 
@@ -208,7 +241,8 @@ packages/
   core/               @krynix/core               — trace types, hash chain, redaction
   policy/             @krynix/policy             — policy parsing, evaluation, inheritance
   replay/             @krynix/replay             — integrity verification, drift comparison (library)
-  adapter-langchain/  @krynix/adapter-langchain  — LangChain framework adapter
+  sdk/                @krynix/sdk                — runtime policy enforcement SDK (alpha)
+  adapter-langchain/  @krynix/adapter-langchain  — LangChain framework adapter (observation-mode)
   adapter-openclaw/   @krynix/adapter-openclaw   — OpenClaw framework adapter
   cli/                @krynix/cli                — krynix command-line tool
 ```

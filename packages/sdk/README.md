@@ -2,7 +2,11 @@
 
 **Status:** `0.1.0-alpha.1` — published under the `@alpha` npm tag. API may change before `0.2`.
 
-Runtime policy enforcement for AI agents. Wraps your LLM client + tool dispatcher so every call runs through a policy *before* it executes — allow, deny, redact, or pause for human approval. Emits a cryptographically verifiable governance trail to a Krynix API endpoint asynchronously.
+Runtime policy enforcement for AI agents. Wraps your LLM client + tool dispatcher so every call runs through a policy *before* it executes — allow, deny, redact, or pause for human approval.
+
+The SDK is **standalone**. Three of the four verdicts (`pass` / `redact` / `deny`) run fully in-process, no server required. `require-approval` needs either a local approval handler (coming in `0.1.0-alpha.2`) or a Krynix ingest server (optional; managed free tier coming soon).
+
+## Quickstart — offline mode (recommended)
 
 ```ts
 import { Krynix } from "@krynix/sdk";
@@ -14,16 +18,36 @@ const krynix = new Krynix({
   policy,
   agentId: "my-agent",
   sessionId: crypto.randomUUID(),
-  ingest: { url: "https://api.krynix.dev", apiKey: process.env.KRYNIX_API_KEY! },
   redaction: { mode: "regex" },        // structured PII detection lands in v0.2
-  approval: { mode: "soft", timeoutMs: 30_000 },
+  // No `ingest` block — SDK runs offline.
+  // `pass` / `redact` / `deny` work fully in-process.
 });
 
 const client = krynix.wrap(new OpenAI());
 // Every chat.completions.create / messages.create / tool call now runs through policy.
+```
 
+Offline mode is the right starting point for solo developers, CLI agents, and single-team servers. No registration, no API key, no network dependency. If your policy uses `require-approval` rules, those calls will throw `ApprovalUnavailable` until you wire either an approval handler (alpha.2) or an ingest URL (below).
+
+## Quickstart — with a Krynix ingest server (optional)
+
+If you have access to a Krynix ingest endpoint (managed free tier coming soon, or self-hosted in your own infrastructure), pass an `ingest` block to enable the full 4-verdict pipeline plus async governance trail:
+
+```ts
+const krynix = new Krynix({
+  policy,
+  agentId: "my-agent",
+  sessionId: crypto.randomUUID(),
+  ingest: { url: process.env.KRYNIX_INGEST_URL!, apiKey: process.env.KRYNIX_API_KEY! },
+  redaction: { mode: "regex" },
+  approval: { mode: "soft", timeoutMs: 30_000 },
+});
+
+const client = krynix.wrap(new OpenAI());
 await krynix.close(); // drain the buffer before the process exits
 ```
+
+The managed ingest at `api.krynix.dev` is on the roadmap with a free tier (registration + API key) for solo developers and small teams. Limits and timing will be published when the endpoint is live.
 
 ## What ships in `0.1.0-alpha.1` (skeleton)
 
@@ -73,7 +97,7 @@ Call `await krynix.close()` at the end of an agent run to force a final flush.
 
 ### Offline mode
 
-Omit `ingest.url` and the SDK runs without ingest entirely. Verdict pipeline still works (policy is evaluated in-process), but events go nowhere and `require-approval` rules will fail at the poll step. Useful for local dev / testing.
+Omit `ingest.url` and the SDK runs without ingest entirely. The verdict pipeline still works (policy is evaluated in-process), so `pass` / `redact` / `deny` all enforce correctly. Trace events go nowhere; `require-approval` rules throw `ApprovalUnavailable` until either an `approvalHandler` callback (planned for `0.1.0-alpha.2`) or an `ingest.url` is configured. Offline mode is the recommended path for solo developers, CLI agents, and single-team servers — no registration or API key required.
 
 ## Design
 
