@@ -241,11 +241,17 @@ export function webhookApprovalHandler(opts: {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      // Use the safe replacer so circular structures / BigInts in
-      // event.body don't crash the handler with a generic stringify
-      // error. Malformed bodies arrive at the webhook as serialised
-      // placeholders ("<function>", "<unserialisable>") so the
-      // reviewer can still triage.
+      // Two layers of safety so an awkwardly-shaped event.body doesn't
+      // crash the handler with a generic stringify error:
+      //   1. `jsonSafeReplacer` rewrites BigInt / function / symbol
+      //      values inline into safe placeholders. JSON.stringify would
+      //      otherwise throw on BigInt and silently drop functions/symbols.
+      //   2. The outer try/catch catches everything else the replacer
+      //      can't help with — circular references, getters that throw
+      //      on access, etc. — and falls back to a placeholder body so
+      //      the request still goes through.
+      // Either way the webhook receives a valid JSON request and the
+      // reviewer can triage from the placeholder.
       let requestBody: string;
       try {
         requestBody = JSON.stringify(

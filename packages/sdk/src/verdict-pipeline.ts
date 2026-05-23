@@ -176,7 +176,7 @@ export function runPipeline(
           body,
           appliedRedactions: [],
           verdict: "pass",
-          ruleId: result.ruleId,
+          ruleId,
           warnings: [
             {
               kind: "redaction_no_op",
@@ -203,7 +203,7 @@ export function runPipeline(
           body,
           appliedRedactions: [],
           verdict: "pass",
-          ruleId: result.ruleId,
+          ruleId,
           warnings: [
             {
               kind: "redaction_no_op",
@@ -223,7 +223,7 @@ export function runPipeline(
           body,
           appliedRedactions: [],
           verdict: "pass",
-          ruleId: result.ruleId,
+          ruleId,
           warnings: [
             {
               kind: "redaction_no_op",
@@ -241,7 +241,7 @@ export function runPipeline(
         body: redactedBody,
         appliedRedactions: applied,
         verdict: "redact",
-        ruleId: result.ruleId,
+        ruleId,
       };
     }
 
