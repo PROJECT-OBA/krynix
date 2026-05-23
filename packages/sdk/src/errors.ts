@@ -75,10 +75,16 @@ export class ApprovalTimeout extends KrynixSdkError {
 }
 
 /**
- * Thrown by the verdict pipeline when a rule returns `require-approval`
- * but the SDK has no way to resolve the approval — neither a hosted
- * `ApprovalPoller` (requires `ingest.url`) nor a local `approvalHandler`
- * callback is configured.
+ * Thrown by `resolveApproval()` (and by extension by adapter call sites
+ * that invoke it) when a rule returns `require-approval` but the SDK
+ * has no way to resolve the approval — neither a hosted `ApprovalPoller`
+ * (requires `ingest.url`) nor a local `approvalHandler` callback is
+ * configured.
+ *
+ * The verdict pipeline itself (`runPipeline`) does NOT throw this — it
+ * only surfaces the `require-approval` outcome. Routing into either
+ * transport (and the throw when neither exists) happens in
+ * `resolveApproval()` so adapter authors have a single entry point.
  *
  * Adapter authors get this error when the caller hits a `require-approval`
  * verdict in pure offline mode. The fix is one of:
