@@ -148,3 +148,83 @@ describe("applyRedactions — audit trail records replacement, not original", ()
     expect(applied[0]?.value_redacted).not.toContain("123");
   });
 });
+
+describe("applyRedactions — bracket-index path syntax (krynix#56)", () => {
+  test("`messages[0].content` resolves to the first array element's content", () => {
+    const body = {
+      messages: [
+        { role: "user", content: "email: a@b.com" },
+        { role: "assistant", content: "ack: a@b.com" },
+      ],
+    };
+    const { body: out, applied } = applyRedactions(body, [
+      { path: "messages[0].content", pattern: "[^\\s]+@[^\\s]+", replacement: "<EMAIL>" },
+    ]);
+    const messages = (out as { messages: { content: string }[] }).messages;
+    // Only the first message is redacted — the bracket index targets
+    // a specific element, unlike `[*]` which would hit both.
+    expect(messages[0]?.content).toBe("email: <EMAIL>");
+    expect(messages[1]?.content).toBe("ack: a@b.com");
+    expect(applied).toHaveLength(1);
+    expect(applied[0]?.path).toBe("messages[0].content");
+  });
+
+  test("`messages[1].content` targets the second element only", () => {
+    const body = {
+      messages: [
+        { content: "first a@b.com" },
+        { content: "second a@b.com" },
+        { content: "third a@b.com" },
+      ],
+    };
+    const { body: out, applied } = applyRedactions(body, [
+      { path: "messages[1].content", pattern: "[^\\s]+@[^\\s]+", replacement: "<EMAIL>" },
+    ]);
+    const messages = (out as { messages: { content: string }[] }).messages;
+    expect(messages[0]?.content).toBe("first a@b.com");
+    expect(messages[1]?.content).toBe("second <EMAIL>");
+    expect(messages[2]?.content).toBe("third a@b.com");
+    expect(applied).toHaveLength(1);
+  });
+
+  test("bracket-index out-of-bounds is silently skipped (no throw)", () => {
+    const body = { messages: [{ content: "only one" }] };
+    const { body: out, applied } = applyRedactions(body, [
+      { path: "messages[5].content", replacement: "<X>" },
+    ]);
+    expect(out).toEqual(body);
+    expect(applied).toEqual([]);
+  });
+
+  test("bracket-index on non-array is silently skipped (defensive)", () => {
+    const body = { messages: "not an array" };
+    const { body: out, applied } = applyRedactions(body, [
+      { path: "messages[0].content", replacement: "<X>" },
+    ]);
+    expect(out).toEqual(body);
+    expect(applied).toEqual([]);
+  });
+
+  test("dot-numeric form `messages.0.content` is equivalent to `messages[0].content`", () => {
+    const body = {
+      messages: [{ content: "a@b.com" }, { content: "c@d.com" }],
+    };
+    const dotForm = applyRedactions(body, [
+      { path: "messages.0.content", pattern: "[^\\s]+@[^\\s]+", replacement: "<EMAIL>" },
+    ]);
+    expect((dotForm.body as { messages: { content: string }[] }).messages[0]?.content).toBe(
+      "<EMAIL>",
+    );
+    expect((dotForm.body as { messages: { content: string }[] }).messages[1]?.content).toBe(
+      "c@d.com",
+    );
+  });
+
+  test("leaf bracket-index on array of strings: `tags[0]`", () => {
+    const body = { tags: ["secret-1", "secret-2", "secret-3"] };
+    const { body: out, applied } = applyRedactions(body, [{ path: "tags[0]", replacement: "<X>" }]);
+    expect((out as { tags: string[] }).tags).toEqual(["<X>", "secret-2", "secret-3"]);
+    expect(applied).toHaveLength(1);
+    expect(applied[0]?.path).toBe("tags[0]");
+  });
+});

@@ -20,7 +20,7 @@ export { ApprovalDenied, ApprovalTimeout, KrynixSdkError, PolicyDenied } from ".
 // for Cohere or Mistral). The shipped OpenAI / Anthropic / LangChain
 // adapters use these too.
 
-export { runPipeline, type PipelineOutcome } from "./verdict-pipeline.js";
+export { runPipeline, type PipelineOutcome, type PipelineWarning } from "./verdict-pipeline.js";
 
 export { applyRedactions, type AppliedRedactions } from "./redact.js";
 

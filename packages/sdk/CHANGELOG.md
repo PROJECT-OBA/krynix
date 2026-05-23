@@ -1,5 +1,24 @@
 # Changelog — `@krynix/sdk`
 
+## [0.1.0-alpha.2] - 2026-05-23
+
+Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (filed as [krynix#56](https://github.com/PROJECT-OBA/krynix/issues/56)). Continues to ship under the `@alpha` npm tag.
+
+### Fixed
+
+- **`applyRedactions` now accepts JSONPath bracket-index syntax** — `messages[0].content`, `messages[1].content`, `tags[0]` all resolve correctly. Previously only the wildcard form (`messages[*].content`) and the dot-numeric form (`messages.0.content`) worked; the bracket-index form silently no-op'd, and the verdict downgraded to `pass` with no warning. The bracket-index form is what the JSONPath spec uses and what users naturally reach for.
+- **`runPipeline` now surfaces `redaction_no_op` warnings on the `forward` outcome** when a `redact` rule matched but applied zero redactions. Three reasons are distinguished: `redaction_mode_off`, `no_directives`, and `path_or_pattern_no_match`. Adapters SHOULD log these — the pre-alpha.2 silent downgrade was caught only because an external validation script logged the outbound wire body. New `PipelineWarning` type exported from `@krynix/sdk`.
+
+### Added
+
+- New top-level export `PipelineWarning` (discriminated union, currently one variant: `redaction_no_op`).
+- New optional `warnings` field on the `forward` outcome variant of `PipelineOutcome`.
+
+### Backward compatibility
+
+- `warnings` is an additive optional field — adapters that ignore it continue to work as before.
+- Bracket-index path support is a strict superset of the alpha.1 grammar; no path that worked in alpha.1 stops working in alpha.2.
+
 ## [0.1.0-alpha.1] - 2026-05-18
 
 First release. Package skeleton for runtime policy enforcement against AI agents. Published under the `@alpha` npm tag.

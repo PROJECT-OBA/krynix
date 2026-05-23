@@ -302,3 +302,119 @@ describe("runPipeline — require-approval", () => {
     }
   });
 });
+
+describe("runPipeline — redaction-no-op warnings (krynix#56)", () => {
+  test("redactionMode='off' surfaces a 'redaction_mode_off' warning", () => {
+    const event = makeEvent("llm_request", { user_content: "anything" });
+    const redactions: Redaction[] = [{ path: "messages[0].content", replacement: "<X>" }];
+    const policy = makePolicy([
+      rule({
+        id: "r-redact",
+        action: "redact",
+        match: { payload: [{ field: "user_content", operator: "exists", value: true }] },
+        redactions,
+      }),
+    ]);
+
+    const outcome = runPipeline(event, { messages: [{ content: "hi" }] }, policy, "off");
+
+    expect(outcome.action).toBe("forward");
+    if (outcome.action === "forward") {
+      expect(outcome.verdict).toBe("pass");
+      expect(outcome.appliedRedactions).toEqual([]);
+      expect(outcome.warnings).toHaveLength(1);
+      expect(outcome.warnings?.[0]).toMatchObject({
+        kind: "redaction_no_op",
+        reason: "redaction_mode_off",
+        ruleId: "r-redact",
+        paths: ["messages[0].content"],
+      });
+    }
+  });
+
+  test("rule with no redactions[] directives surfaces a 'no_directives' warning", () => {
+    const event = makeEvent("llm_request", { user_content: "anything" });
+    const policy = makePolicy([
+      rule({
+        id: "r-empty",
+        action: "redact",
+        match: { payload: [{ field: "user_content", operator: "exists", value: true }] },
+        // No redactions[] field — policy parser would normally reject this,
+        // but adapters can call runPipeline with hand-built policies.
+      }),
+    ]);
+
+    const outcome = runPipeline(event, { foo: "bar" }, policy);
+
+    expect(outcome.action).toBe("forward");
+    if (outcome.action === "forward") {
+      expect(outcome.verdict).toBe("pass");
+      expect(outcome.warnings?.[0]?.kind).toBe("redaction_no_op");
+      expect(outcome.warnings?.[0]?.reason).toBe("no_directives");
+    }
+  });
+
+  test("redact rule whose directives apply zero changes surfaces 'path_or_pattern_no_match'", () => {
+    // The pre-alpha.2 silent-failure mode: rule fires, applyRedactions runs,
+    // but the path doesn't resolve OR the regex doesn't match. Verdict
+    // legitimately downgrades to pass (the body must not lie about being
+    // redacted when nothing changed) but now carries a warning the caller
+    // can surface.
+    const event = makeEvent("llm_request", { user_content: "anything" });
+    const redactions: Redaction[] = [
+      { path: "nonexistent.path", pattern: ".+", replacement: "<X>" },
+    ];
+    const policy = makePolicy([
+      rule({
+        id: "r-bad-path",
+        action: "redact",
+        match: { payload: [{ field: "user_content", operator: "exists", value: true }] },
+        redactions,
+      }),
+    ]);
+
+    const outcome = runPipeline(event, { messages: [{ content: "hi" }] }, policy);
+
+    expect(outcome.action).toBe("forward");
+    if (outcome.action === "forward") {
+      expect(outcome.verdict).toBe("pass");
+      expect(outcome.appliedRedactions).toEqual([]);
+      expect(outcome.warnings).toHaveLength(1);
+      expect(outcome.warnings?.[0]).toMatchObject({
+        kind: "redaction_no_op",
+        reason: "path_or_pattern_no_match",
+        ruleId: "r-bad-path",
+        paths: ["nonexistent.path"],
+      });
+    }
+  });
+
+  test("successful redaction does NOT emit a warning", () => {
+    // Pre-condition for the test: this is the case the alpha.2 bracket-
+    // index fix specifically enables. Same body, same path, same regex —
+    // alpha.1 silently no-op'd; alpha.2 applies the redaction successfully.
+    const event = makeEvent("llm_request", { user_content: "anything" });
+    const redactions: Redaction[] = [
+      { path: "messages[0].content", pattern: "[^\\s]+@[^\\s]+", replacement: "<EMAIL>" },
+    ];
+    const policy = makePolicy([
+      rule({
+        id: "r-redact-email",
+        action: "redact",
+        match: { payload: [{ field: "user_content", operator: "exists", value: true }] },
+        redactions,
+      }),
+    ]);
+
+    const outcome = runPipeline(event, { messages: [{ content: "email me at a@b.com" }] }, policy);
+
+    expect(outcome.action).toBe("forward");
+    if (outcome.action === "forward") {
+      expect(outcome.verdict).toBe("redact");
+      expect(outcome.appliedRedactions).toHaveLength(1);
+      expect(outcome.warnings).toBeUndefined();
+      const body = outcome.body as { messages: { content: string }[] };
+      expect(body.messages[0]?.content).toBe("email me at <EMAIL>");
+    }
+  });
+});

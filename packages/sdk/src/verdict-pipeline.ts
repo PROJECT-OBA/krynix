@@ -38,6 +38,30 @@ import type { RedactionMode } from "./types.js";
 // ---------------------------------------------------------------------------
 
 /**
+ * Structured warning emitted by the pipeline when a decision was technically
+ * forwardable but something suspicious happened along the way. Always
+ * non-fatal — the adapter still gets a usable `PipelineOutcome` — but
+ * adapter authors are expected to surface these to operators (log,
+ * counter, alert) rather than discard them.
+ *
+ * Added in `@krynix/sdk@0.1.0-alpha.2` to close the silent-failure mode
+ * surfaced in krynix#56: a `redact` rule that matched but applied no
+ * redactions (typo in the path, regex that didn't match, etc.) used to
+ * downgrade silently to `verdict: pass` with no signal to the caller.
+ */
+export type PipelineWarning = {
+  kind: "redaction_no_op";
+  ruleId: string;
+  paths: string[];
+  reason: "no_directives" | "redaction_mode_off" | "path_or_pattern_no_match";
+  /**
+   * Human-readable explanation. Stable enough to be useful in logs;
+   * not stable enough to switch on — switch on `reason` instead.
+   */
+  message: string;
+};
+
+/**
  * What the adapter should do after the pipeline runs.
  *
  * Discriminated union by `action` so the adapter switch is
@@ -52,6 +76,13 @@ export type PipelineOutcome =
       appliedRedactions: PolicyDecisionRedaction[];
       verdict: "pass" | "redact";
       ruleId?: string;
+      /**
+       * Non-fatal warnings — see `PipelineWarning`. Absent when there are
+       * none. Adapter authors SHOULD log these or surface them in their
+       * observability layer; ignoring them turns silent-failure modes
+       * like krynix#56 back on.
+       */
+      warnings?: PipelineWarning[];
     }
   | {
       action: "deny";
@@ -137,6 +168,8 @@ export function runPipeline(
       // `SingleEventResult.redactions` is declared optional because
       // not every verdict branch carries it, and TS can't narrow
       // through a function-call result.
+      const ruleId = result.ruleId ?? "__unknown__";
+
       if (redactionMode === "off") {
         return {
           action: "forward",
@@ -144,6 +177,16 @@ export function runPipeline(
           appliedRedactions: [],
           verdict: "pass",
           ruleId: result.ruleId,
+          warnings: [
+            {
+              kind: "redaction_no_op",
+              ruleId,
+              paths: (result.redactions ?? []).map((r) => r.path),
+              reason: "redaction_mode_off",
+              message:
+                "Rule matched action: redact but `redaction.mode` is `'off'`; forwarding the original body unmodified.",
+            },
+          ],
         };
       }
       const redactions: Redaction[] = result.redactions ?? [];
@@ -161,6 +204,16 @@ export function runPipeline(
           appliedRedactions: [],
           verdict: "pass",
           ruleId: result.ruleId,
+          warnings: [
+            {
+              kind: "redaction_no_op",
+              ruleId,
+              paths: [],
+              reason: "no_directives",
+              message:
+                "Rule matched action: redact but carries no `redactions[]` directives; nothing to apply. Forwarding the original body.",
+            },
+          ],
         };
       }
       const { body: redactedBody, applied } = applyRedactions(body, redactions);
@@ -171,6 +224,16 @@ export function runPipeline(
           appliedRedactions: [],
           verdict: "pass",
           ruleId: result.ruleId,
+          warnings: [
+            {
+              kind: "redaction_no_op",
+              ruleId,
+              paths: redactions.map((r) => r.path),
+              reason: "path_or_pattern_no_match",
+              message:
+                "Rule matched action: redact and supplied directives, but none applied (path did not resolve to a string, or regex did not match). Forwarding the ORIGINAL body unmodified — this likely indicates a policy bug.",
+            },
+          ],
         };
       }
       return {
