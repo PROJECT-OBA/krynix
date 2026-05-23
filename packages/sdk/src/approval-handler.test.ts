@@ -1,0 +1,308 @@
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import type { TraceEvent } from "@krynix/core";
+import type { Policy } from "@krynix/policy";
+import type { ApprovalOutcome, ApprovalPoller } from "./approval-poller.js";
+import { ApprovalDenied, ApprovalUnavailable } from "./errors.js";
+import {
+  denyAllApprovalHandler,
+  resolveApproval,
+  webhookApprovalHandler,
+  type ApprovalDecision,
+  type ApprovalHandler,
+  type ApprovalHandlerEvent,
+} from "./approval-handler.js";
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeHandlerEvent(overrides: Partial<ApprovalHandlerEvent> = {}): ApprovalHandlerEvent {
+  return {
+    sessionId: "sess-1",
+    agentId: "test-agent",
+    ruleId: "test-rule",
+    message: "approval required for tests",
+    onTimeout: "deny",
+    body: { foo: "bar" },
+    decisionEvent: {} as TraceEvent,
+    ...overrides,
+  };
+}
+
+const STUB_TRACE_EVENT = {} as TraceEvent;
+
+// ---------------------------------------------------------------------------
+// Built-in: denyAllApprovalHandler
+// ---------------------------------------------------------------------------
+
+describe("denyAllApprovalHandler", () => {
+  test("returns deny with a reason mentioning the ruleId", async () => {
+    const decision = await denyAllApprovalHandler(makeHandlerEvent({ ruleId: "block-payments" }));
+    expect(decision.action).toBe("deny");
+    if (decision.action === "deny") {
+      expect(decision.reason).toContain("block-payments");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Built-in: webhookApprovalHandler
+// ---------------------------------------------------------------------------
+
+describe("webhookApprovalHandler", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function mockFetch(impl: (input: string, init: RequestInit | undefined) => Promise<Response>) {
+    globalThis.fetch = vi.fn(impl as typeof fetch) as typeof fetch;
+  }
+
+  test("POSTs the expected shape and parses an `approve` response", async () => {
+    let received: { url: string; body: unknown } | null = null;
+    mockFetch(async (url, init) => {
+      received = {
+        url: url as string,
+        body: JSON.parse((init?.body as string) ?? "null"),
+      };
+      return new Response(JSON.stringify({ action: "approve" }), { status: 200 });
+    });
+
+    const handler = webhookApprovalHandler({
+      url: "https://example.test/hook",
+      headers: { "x-token": "abc" },
+    });
+    const decision = await handler(
+      makeHandlerEvent({
+        sessionId: "S1",
+        agentId: "A1",
+        ruleId: "R1",
+        message: "review me",
+        body: { hello: "world" },
+      }),
+    );
+
+    expect(decision).toEqual({ action: "approve" });
+    expect(received).not.toBeNull();
+    const r = received as unknown as { url: string; body: unknown };
+    expect(r.url).toBe("https://example.test/hook");
+    expect(r.body).toEqual({
+      session_id: "S1",
+      agent_id: "A1",
+      rule_id: "R1",
+      message: "review me",
+      on_timeout: "deny",
+      body: { hello: "world" },
+    });
+  });
+
+  test("parses an `approve_with_redactions` response", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: [{ path: "messages[0].content", replacement: "<X>" }],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    const decision = await handler(makeHandlerEvent());
+    expect(decision.action).toBe("approve_with_redactions");
+    if (decision.action === "approve_with_redactions") {
+      expect(decision.redactions).toHaveLength(1);
+    }
+  });
+
+  test("parses a `deny` response with reason", async () => {
+    mockFetch(
+      async () =>
+        new Response(JSON.stringify({ action: "deny", reason: "policy violation" }), {
+          status: 200,
+        }),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    const decision = await handler(makeHandlerEvent());
+    expect(decision).toEqual({ action: "deny", reason: "policy violation" });
+  });
+
+  test("throws on non-200 response", async () => {
+    mockFetch(async () => new Response("nope", { status: 500 }));
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/HTTP 500/);
+  });
+
+  test("throws on non-JSON response", async () => {
+    mockFetch(async () => new Response("not-json", { status: 200 }));
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/non-JSON/);
+  });
+
+  test("throws on unknown action", async () => {
+    mockFetch(async () => new Response(JSON.stringify({ action: "maybe" }), { status: 200 }));
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/unknown action/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveApproval — the unified router adapters call.
+// ---------------------------------------------------------------------------
+
+describe("resolveApproval — routing precedence", () => {
+  test("uses poller when configured (poller wins over handler)", async () => {
+    const pollerOutcome: ApprovalOutcome = { action: "approve", approvalId: "appr-1" };
+    const fakePoller = {
+      waitForApproval: vi.fn(async () => pollerOutcome),
+    } as unknown as ApprovalPoller;
+
+    const handler = vi.fn(async () => ({ action: "approve" as const }));
+
+    const result = await resolveApproval({
+      poller: fakePoller,
+      handler,
+      handlerEvent: makeHandlerEvent(),
+      policyDecisionEvent: STUB_TRACE_EVENT,
+      ruleId: "r1",
+      onTimeout: "deny",
+    });
+
+    expect(result.action).toBe("approve");
+    if (result.action === "approve" && result.source === "poller") {
+      expect(result.pollerOutcome).toBe(pollerOutcome);
+    } else {
+      throw new Error("expected poller path");
+    }
+    expect(fakePoller.waitForApproval).toHaveBeenCalledTimes(1);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  test("falls back to handler when poller is null", async () => {
+    const handler: ApprovalHandler = vi.fn(
+      async (): Promise<ApprovalDecision> => ({ action: "approve" }),
+    );
+    const result = await resolveApproval({
+      poller: null,
+      handler,
+      handlerEvent: makeHandlerEvent({ ruleId: "r-local" }),
+      policyDecisionEvent: STUB_TRACE_EVENT,
+      ruleId: "r-local",
+      onTimeout: undefined,
+    });
+    expect(result).toEqual({ action: "approve", source: "handler" });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  test("forwards approve_with_redactions from the handler", async () => {
+    const redactions = [{ path: "messages[0].content", replacement: "<X>" }];
+    const handler: ApprovalHandler = vi.fn(
+      async (): Promise<ApprovalDecision> => ({
+        action: "approve_with_redactions",
+        redactions,
+      }),
+    );
+    const result = await resolveApproval({
+      poller: null,
+      handler,
+      handlerEvent: makeHandlerEvent(),
+      policyDecisionEvent: STUB_TRACE_EVENT,
+      ruleId: "r",
+      onTimeout: undefined,
+    });
+    expect(result.action).toBe("approve_with_redactions");
+    if (result.action === "approve_with_redactions") {
+      expect(result.source).toBe("handler");
+      expect(result.redactions).toEqual(redactions);
+    }
+  });
+
+  test("handler deny throws ApprovalDenied carrying rule id + reason", async () => {
+    const handler: ApprovalHandler = vi.fn(
+      async (): Promise<ApprovalDecision> => ({
+        action: "deny",
+        reason: "operator declined",
+      }),
+    );
+    await expect(
+      resolveApproval({
+        poller: null,
+        handler,
+        handlerEvent: makeHandlerEvent({ ruleId: "r-deny" }),
+        policyDecisionEvent: STUB_TRACE_EVENT,
+        ruleId: "r-deny",
+        onTimeout: undefined,
+      }),
+    ).rejects.toMatchObject({
+      name: "ApprovalDenied",
+      ruleId: "r-deny",
+      notes: "operator declined",
+    });
+  });
+
+  test("neither poller nor handler → ApprovalUnavailable carries the rule id", async () => {
+    const promise = resolveApproval({
+      poller: null,
+      handler: null,
+      handlerEvent: makeHandlerEvent({ ruleId: "r-no-transport" }),
+      policyDecisionEvent: STUB_TRACE_EVENT,
+      ruleId: "r-no-transport",
+      onTimeout: undefined,
+    });
+    await expect(promise).rejects.toBeInstanceOf(ApprovalUnavailable);
+    await expect(promise).rejects.toMatchObject({ ruleId: "r-no-transport" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration with Krynix constructor — context wiring
+// ---------------------------------------------------------------------------
+
+describe("Krynix constructor wires approvalHandler into ctx", () => {
+  // Lazy-import Krynix to avoid pulling adapter side effects in unrelated tests.
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  test("ctx.approvalHandler is null when no handler is configured", async () => {
+    const { Krynix } = await import("./krynix.js");
+    const k = new Krynix({
+      policy: stubPolicy(),
+      agentId: "a",
+      sessionId: "s",
+    });
+    expect(k.ctx.approvalHandler).toBeNull();
+  });
+
+  test("ctx.approvalHandler is set when configured", async () => {
+    const { Krynix } = await import("./krynix.js");
+    const handler: ApprovalHandler = async () => ({ action: "approve" });
+    const k = new Krynix({
+      policy: stubPolicy(),
+      agentId: "a",
+      sessionId: "s",
+      approvalHandler: handler,
+    });
+    expect(k.ctx.approvalHandler).toBe(handler);
+  });
+});
+
+// Minimal stub Policy — Krynix's constructor doesn't validate the policy
+// structure (it just stashes the reference); a stub is enough.
+function stubPolicy(): Policy {
+  return {
+    apiVersion: "krynix.dev/v1",
+    kind: "Policy",
+    metadata: { name: "t", version: "1", description: "" },
+    spec: { scope: { agents: ["*"], event_types: ["*"] }, rules: [] },
+  } as unknown as Policy;
+}
+
+// `ApprovalDenied` is also exported; this asserts the symbol exists at
+// runtime so consumers who instanceof it don't get a stale build.
+test("ApprovalDenied symbol is exported", () => {
+  expect(typeof ApprovalDenied).toBe("function");
+});

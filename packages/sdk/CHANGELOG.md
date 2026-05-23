@@ -2,7 +2,7 @@
 
 ## [0.1.0-alpha.2] - 2026-05-23
 
-Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (filed as [krynix#56](https://github.com/PROJECT-OBA/krynix/issues/56)). Continues to ship under the `@alpha` npm tag.
+Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (filed as [krynix#56](https://github.com/PROJECT-OBA/krynix/issues/56)) **and** introduces the OSS approval-handler callback so `require-approval` verdicts have a usable resolution path without a hosted ingest server. Continues to ship under the `@alpha` npm tag.
 
 ### Fixed
 
@@ -13,11 +13,17 @@ Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (
 
 - New top-level export `PipelineWarning` (discriminated union, currently one variant: `redaction_no_op`).
 - New optional `warnings` field on the `forward` outcome variant of `PipelineOutcome`.
+- **OSS approval-handler callback (`approvalHandler` option on `KrynixOptions`).** Resolves `require-approval` verdicts in-process — no ingest server required. Three built-in handlers ship: `denyAllApprovalHandler`, `cliPromptApprovalHandler`, `webhookApprovalHandler`. Bring-your-own callbacks matching the `ApprovalHandler` type also work. Same wire shape as the hosted approval queue (`ApprovalDecision` = approve / approve_with_redactions / deny).
+- New `resolveApproval()` helper — single entry point adapters call to resolve a `require-approval` verdict. Routes between hosted `ApprovalPoller` and local `approvalHandler` with the right precedence (poller wins when both are configured) and throws `ApprovalUnavailable` when neither is configured.
+- New typed error `ApprovalUnavailable` — surfaced when a rule returns `require-approval` but the SDK has no transport configured. Lets adapter authors distinguish "infrastructure missing" from "human reviewer denied" (`ApprovalDenied`).
+- New public types: `ApprovalHandler`, `ApprovalHandlerEvent`, `ApprovalDecision`, `ResolvedApproval`.
+- `KrynixContext.approvalHandler: ApprovalHandler | null` — adapter authors can read this directly, but `resolveApproval()` is the recommended call site.
 
 ### Backward compatibility
 
 - `warnings` is an additive optional field — adapters that ignore it continue to work as before.
 - Bracket-index path support is a strict superset of the alpha.1 grammar; no path that worked in alpha.1 stops working in alpha.2.
+- `approvalHandler` is an additive optional `KrynixOptions` field; existing callers continue to work. The new `KrynixContext.approvalHandler` field is `null` when not configured — adapters that switch on `approvalPoller` alone keep working but lose the OSS-pathway story for `require-approval`.
 
 ## [0.1.0-alpha.1] - 2026-05-18
 

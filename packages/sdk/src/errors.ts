@@ -75,6 +75,33 @@ export class ApprovalTimeout extends KrynixSdkError {
 }
 
 /**
+ * Thrown by the verdict pipeline when a rule returns `require-approval`
+ * but the SDK has no way to resolve the approval — neither a hosted
+ * `ApprovalPoller` (requires `ingest.url`) nor a local `approvalHandler`
+ * callback is configured.
+ *
+ * Adapter authors get this error when the caller hits a `require-approval`
+ * verdict in pure offline mode. The fix is one of:
+ *
+ *   - Configure `ingest.url` + `ingest.apiKey` to use the hosted approval
+ *     queue (team pathway), or
+ *   - Configure `approvalHandler` to handle approvals in-process (OSS
+ *     pathway — useful for solo devs, CLI agents, single-team servers).
+ *
+ * Added in `@krynix/sdk@0.1.0-alpha.2`. Prior to alpha.2 the adapter
+ * had to throw its own opaque error message.
+ */
+export class ApprovalUnavailable extends KrynixSdkError {
+  readonly ruleId: string;
+
+  constructor(message: string, ruleId: string) {
+    super(message);
+    this.name = "ApprovalUnavailable";
+    this.ruleId = ruleId;
+  }
+}
+
+/**
  * Thrown when an approval request is explicitly denied by a human via
  * the Krynix approval-review UI.
  */

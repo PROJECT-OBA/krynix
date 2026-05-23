@@ -13,7 +13,24 @@ export type {
   RedactionMode,
 } from "./types.js";
 
-export { ApprovalDenied, ApprovalTimeout, KrynixSdkError, PolicyDenied } from "./errors.js";
+export {
+  ApprovalDenied,
+  ApprovalTimeout,
+  ApprovalUnavailable,
+  KrynixSdkError,
+  PolicyDenied,
+} from "./errors.js";
+
+export {
+  cliPromptApprovalHandler,
+  denyAllApprovalHandler,
+  resolveApproval,
+  webhookApprovalHandler,
+  type ApprovalDecision,
+  type ApprovalHandler,
+  type ApprovalHandlerEvent,
+  type ResolvedApproval,
+} from "./approval-handler.js";
 
 // Pipeline + collaborators are exported for advanced adapter authors
 // who want to compose them differently (e.g. a third-party adapter

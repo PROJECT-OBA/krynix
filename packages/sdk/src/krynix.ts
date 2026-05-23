@@ -32,6 +32,7 @@ import { EventBuffer } from "./event-buffer.js";
 import { ApprovalPoller } from "./approval-poller.js";
 import { resolveRedactionMode } from "./redact.js";
 import type { KrynixOptions, RedactionMode } from "./types.js";
+import type { ApprovalHandler } from "./approval-handler.js";
 
 /**
  * Shared context passed to every adapter. Adapters write into it
@@ -49,6 +50,17 @@ export interface KrynixContext {
   readonly buffer: EventBuffer;
   /** `null` in offline mode — adapters MUST handle this and not poll. */
   readonly approvalPoller: ApprovalPoller | null;
+  /**
+   * Local approval handler — OSS-pathway resolver for `require-approval`
+   * verdicts. `null` when no `approvalHandler` was configured.
+   *
+   * Adapter authors: prefer `resolveApproval()` from `@krynix/sdk` over
+   * branching directly on `approvalPoller` vs `approvalHandler` — it
+   * routes between them with the right precedence + throws
+   * `ApprovalUnavailable` when neither is configured. Added in
+   * 0.1.0-alpha.2.
+   */
+  readonly approvalHandler: ApprovalHandler | null;
 }
 
 /**
@@ -162,6 +174,7 @@ export class Krynix {
       redactionMode,
       buffer,
       approvalPoller,
+      approvalHandler: opts.approvalHandler ?? null,
     };
   }
 
