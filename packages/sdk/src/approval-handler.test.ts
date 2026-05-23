@@ -147,6 +147,133 @@ describe("webhookApprovalHandler", () => {
     const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
     await expect(handler(makeHandlerEvent())).rejects.toThrow(/unknown action/);
   });
+
+  test("rejects approve_with_redactions whose redactions[] is not an array", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ action: "approve_with_redactions", redactions: "not an array" }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/not an array/);
+  });
+
+  test("rejects redaction missing the required `path` field", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: [{ pattern: "x", replacement: "<X>" }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(
+      /redactions\[0\]\.path must be a non-empty string/,
+    );
+  });
+
+  test("rejects redaction with non-string `path`", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: [{ path: 42 }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(
+      /redactions\[0\]\.path must be a non-empty string/,
+    );
+  });
+
+  test("rejects redaction with non-string `pattern`", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: [{ path: "a.b", pattern: 99 }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(
+      /redactions\[0\]\.pattern must be a string/,
+    );
+  });
+
+  test("rejects redaction with non-string `replacement`", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: [{ path: "a.b", replacement: { x: 1 } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(
+      /redactions\[0\]\.replacement must be a string/,
+    );
+  });
+
+  test("rejects non-object redaction entry (e.g. a string in the array)", async () => {
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            action: "approve_with_redactions",
+            redactions: ["messages[0].content"],
+          }),
+          { status: 200 },
+        ),
+    );
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/redactions\[0\] is not an object/);
+  });
+
+  test("circular `body` doesn't crash the handler — serialises via safe replacer", async () => {
+    let received: string | null = null;
+    mockFetch(async (_url, init) => {
+      received = (init?.body as string) ?? null;
+      return new Response(JSON.stringify({ action: "approve" }), { status: 200 });
+    });
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+
+    type Circular = { name: string; self?: Circular };
+    const circular: Circular = { name: "loop" };
+    circular.self = circular;
+
+    await expect(handler(makeHandlerEvent({ body: circular }))).resolves.toEqual({
+      action: "approve",
+    });
+    expect(received).not.toBeNull();
+    expect(received).toContain("unserialisable body");
+  });
+
+  test("BigInt in `body` is serialised as a string instead of throwing", async () => {
+    let received: string | null = null;
+    mockFetch(async (_url, init) => {
+      received = (init?.body as string) ?? null;
+      return new Response(JSON.stringify({ action: "approve" }), { status: 200 });
+    });
+    const handler = webhookApprovalHandler({ url: "https://example.test/hook" });
+    await expect(handler(makeHandlerEvent({ body: { amount: BigInt(999) } }))).resolves.toEqual({
+      action: "approve",
+    });
+    expect(received).toContain('"amount":"999n"');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -129,8 +129,15 @@ export const denyAllApprovalHandler: ApprovalHandler = async (event) => {
 
 /**
  * Build an approval handler that prompts on stdin. The agent process
- * pauses; an operator types `y` (approve), `n` (deny), or `r` (deny
- * with reason).
+ * pauses; an operator types one of:
+ *
+ *   `y` / `yes`   — approve
+ *   `n` / `no`    — deny (generic reason)
+ *   `r`           — deny + supply a custom reason on a follow-up line
+ *
+ * Any other input (including empty) is treated as a generic deny — same
+ * as `n` — so an operator who walks away or hits Enter never accidentally
+ * approves.
  *
  * Suitable for CLI agents, local dev, single-operator scripts. Not
  * suitable for headless servers — there is no terminal to prompt on.
@@ -160,21 +167,36 @@ export function cliPromptApprovalHandler(): ApprovalHandler {
       `  session: ${event.sessionId}\n` +
       `  reason:  ${event.message}\n` +
       `  on_timeout: ${event.onTimeout ?? "deny"} (informational)\n` +
-      `  body:    ${truncate(JSON.stringify(event.body), 200)}\n`;
+      `  body:    ${safePreview(event.body, 200)}\n`;
 
     return new Promise<ApprovalDecision>((resolve) => {
       process.stdout.write(summary);
-      rl.question("Approve? [y/N] ", (answer: string) => {
+      rl.question("Approve? [y/N/r=deny-with-reason] ", (answer: string) => {
         const a = answer.trim().toLowerCase();
-        rl.close();
         if (a === "y" || a === "yes") {
+          rl.close();
           resolve({ action: "approve" });
-        } else {
-          resolve({
-            action: "deny",
-            reason: `Operator denied at CLI prompt (input=${JSON.stringify(answer)})`,
-          });
+          return;
         }
+        if (a === "r") {
+          // Two-step deny: collect the reason on a follow-up line, then
+          // resolve. Empty reason still produces a valid deny.
+          rl.question("Reason: ", (reasonLine: string) => {
+            rl.close();
+            const reason = reasonLine.trim();
+            resolve({
+              action: "deny",
+              reason:
+                reason.length > 0 ? reason : "Operator denied at CLI prompt (no reason supplied)",
+            });
+          });
+          return;
+        }
+        rl.close();
+        resolve({
+          action: "deny",
+          reason: `Operator denied at CLI prompt (input=${JSON.stringify(answer)})`,
+        });
       });
     });
   };
@@ -219,20 +241,44 @@ export function webhookApprovalHandler(opts: {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
+      // Use the safe replacer so circular structures / BigInts in
+      // event.body don't crash the handler with a generic stringify
+      // error. Malformed bodies arrive at the webhook as serialised
+      // placeholders ("<function>", "<unserialisable>") so the
+      // reviewer can still triage.
+      let requestBody: string;
+      try {
+        requestBody = JSON.stringify(
+          {
+            session_id: event.sessionId,
+            agent_id: event.agentId,
+            rule_id: event.ruleId,
+            message: event.message,
+            on_timeout: event.onTimeout ?? null,
+            body: event.body,
+          },
+          jsonSafeReplacer,
+        );
+      } catch (err) {
+        // Replacer didn't catch it (e.g. a getter that throws). Send
+        // a placeholder body rather than crash the request entirely.
+        const reason = err instanceof Error ? err.message : String(err);
+        requestBody = JSON.stringify({
+          session_id: event.sessionId,
+          agent_id: event.agentId,
+          rule_id: event.ruleId,
+          message: event.message,
+          on_timeout: event.onTimeout ?? null,
+          body: `<unserialisable body: ${reason}>`,
+        });
+      }
       const res = await fetch(opts.url, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           ...(opts.headers ?? {}),
         },
-        body: JSON.stringify({
-          session_id: event.sessionId,
-          agent_id: event.agentId,
-          rule_id: event.ruleId,
-          message: event.message,
-          on_timeout: event.onTimeout ?? null,
-          body: event.body,
-        }),
+        body: requestBody,
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -355,6 +401,49 @@ function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
+/**
+ * Render an arbitrary `unknown` body as a short, safe preview string for
+ * operator-facing output (CLI prompts, logs). Never throws — circular
+ * structures, BigInt, and other JSON.stringify hazards fall back to a
+ * placeholder so the calling prompt remains usable. `ApprovalHandlerEvent.body`
+ * is typed `unknown`, so the prompt can't make any assumption about the
+ * shape it receives.
+ */
+function safePreview(value: unknown, max: number): string {
+  try {
+    const s = JSON.stringify(value, jsonSafeReplacer);
+    if (typeof s !== "string") {
+      // JSON.stringify returns undefined for `undefined` / functions /
+      // symbols at the root. Render those visibly instead of empty.
+      return `<${typeof value}>`;
+    }
+    return truncate(s, max);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    return `<unserialisable body: ${truncate(reason, 80)}>`;
+  }
+}
+
+/**
+ * JSON.stringify replacer that handles a few common hazards without
+ * throwing. The remaining cases (custom non-enumerable getters that
+ * throw on access, etc.) are caught by the surrounding try/catch in
+ * `safePreview`.
+ */
+function jsonSafeReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === "bigint") return `${value.toString()}n`;
+  if (typeof value === "function") return `<function ${value.name || "anonymous"}>`;
+  if (typeof value === "symbol") return value.toString();
+  return value;
+}
+
+/**
+ * Validate a webhook response against the `ApprovalDecision` shape.
+ * Returns a strongly-typed `ApprovalDecision` or throws with a precise
+ * error message. Validates each redaction item — a malformed redaction
+ * (missing `path`, non-string fields) would otherwise crash the
+ * downstream `applyRedactions` pipeline or, worse, silently no-op.
+ */
 function validateDecision(parsed: unknown, url: string): ApprovalDecision {
   if (typeof parsed !== "object" || parsed === null) {
     throw new Error(`webhookApprovalHandler: ${url} returned non-object body`);
@@ -375,10 +464,48 @@ function validateDecision(parsed: unknown, url: string): ApprovalDecision {
     }
     return {
       action: "approve_with_redactions",
-      redactions: redactions as Redaction[],
+      redactions: redactions.map((r, i) => validateRedaction(r, i, url)),
     };
   }
   throw new Error(
     `webhookApprovalHandler: ${url} returned unknown action ${JSON.stringify(action)}`,
   );
+}
+
+/**
+ * Validate one redaction directive from a webhook response. Throws with
+ * the offending field path so the operator can identify which redaction
+ * failed validation.
+ */
+function validateRedaction(raw: unknown, index: number, url: string): Redaction {
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error(
+      `webhookApprovalHandler: ${url} redactions[${index}] is not an object (got ${typeof raw})`,
+    );
+  }
+  const obj = raw as Record<string, unknown>;
+  const path = obj["path"];
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error(
+      `webhookApprovalHandler: ${url} redactions[${index}].path must be a non-empty string`,
+    );
+  }
+  const out: Redaction = { path };
+  if (obj["pattern"] !== undefined) {
+    if (typeof obj["pattern"] !== "string") {
+      throw new Error(
+        `webhookApprovalHandler: ${url} redactions[${index}].pattern must be a string when present`,
+      );
+    }
+    out.pattern = obj["pattern"] as string;
+  }
+  if (obj["replacement"] !== undefined) {
+    if (typeof obj["replacement"] !== "string") {
+      throw new Error(
+        `webhookApprovalHandler: ${url} redactions[${index}].replacement must be a string when present`,
+      );
+    }
+    out.replacement = obj["replacement"] as string;
+  }
+  return out;
 }
