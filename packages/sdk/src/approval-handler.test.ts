@@ -241,7 +241,7 @@ describe("webhookApprovalHandler", () => {
     await expect(handler(makeHandlerEvent())).rejects.toThrow(/redactions\[0\] is not an object/);
   });
 
-  test("circular `body` doesn't crash the handler — serialises via safe replacer", async () => {
+  test("circular `body` doesn't crash the handler — falls back to a placeholder via the outer try/catch", async () => {
     let received: string | null = null;
     mockFetch(async (_url, init) => {
       received = (init?.body as string) ?? null;
