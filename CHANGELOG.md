@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-25
+
+SDK-only release. The six non-SDK packages (`@krynix/core`, `@krynix/policy`, `@krynix/replay`, `@krynix/cli`, `@krynix/adapter-langchain`, `@krynix/adapter-openclaw`) remain at `0.2.2` on npm — `pnpm -r publish` will skip them. Only `@krynix/sdk` bumps to `0.1.0-alpha.2` and publishes under the `@alpha` tag.
+
+### Changed (`@krynix/sdk` — `0.1.0-alpha.1` → `0.1.0-alpha.2`)
+
+Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (krynix#56) and introduces the OSS approval-handler callback so `require-approval` verdicts have a usable resolution path without a hosted ingest server. See `packages/sdk/CHANGELOG.md` for the per-package detail; headlines:
+
+- **Fixed:** `applyRedactions` now accepts JSONPath bracket-index syntax (`messages[0].content`, `tags[0]`). Pre-alpha.2 the bracket-index form silently no-op'd, downgrading the verdict to `pass` with no warning. `runPipeline` now also surfaces a structured `PipelineWarning` (`redaction_mode_off` / `no_directives` / `path_or_pattern_no_match`) on any redact-rule no-op, regardless of cause.
+- **Added:** `approvalHandler` option on `KrynixOptions` for OSS-pathway resolution of `require-approval` verdicts in offline mode. Three built-in handlers ship: `denyAllApprovalHandler`, `cliPromptApprovalHandler`, `webhookApprovalHandler`. New `resolveApproval()` helper routes between hosted `ApprovalPoller` and local handler with poller-wins precedence and throws `ApprovalUnavailable` when neither is configured. New typed errors / types: `ApprovalUnavailable`, `ApprovalHandler`, `ApprovalHandlerEvent`, `ApprovalDecision`, `ResolvedApproval`, `PipelineWarning`.
+
+### Changed (this repo, root tag)
+
+- Root `package.json` version bumped to `0.2.3` to track the release event. Does not correspond to a per-package version bump for the six pinned packages.
+
 ## [0.2.2] - 2026-05-18
 
 Schema 1.1.0 + new runtime-policy primitives. Adds the `@krynix/sdk` package as `0.1.0-alpha.1` under the `@alpha` npm tag. The `@krynix/core`, `@krynix/policy`, `@krynix/replay`, `@krynix/cli`, `@krynix/adapter-langchain`, and `@krynix/adapter-openclaw` packages all bump to `0.2.2` to carry the schema additions + matching exports. Backward-compatible at the wire level; soft-breaking only for downstream TypeScript consumers doing exhaustive `switch` on the verdict / action unions.
