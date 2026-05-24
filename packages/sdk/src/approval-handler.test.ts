@@ -29,8 +29,6 @@ function makeHandlerEvent(overrides: Partial<ApprovalHandlerEvent> = {}): Approv
   };
 }
 
-const STUB_TRACE_EVENT = {} as TraceEvent;
-
 // ---------------------------------------------------------------------------
 // Built-in: denyAllApprovalHandler
 // ---------------------------------------------------------------------------
@@ -316,15 +314,52 @@ describe("resolveApproval — routing precedence", () => {
     const result = await resolveApproval({
       poller: fakePoller,
       handler,
-      handlerEvent: makeHandlerEvent(),
-      policyDecisionEvent: STUB_TRACE_EVENT,
-      ruleId: "r1",
-      onTimeout: "deny",
+      handlerEvent: makeHandlerEvent({ ruleId: "r1", onTimeout: "deny" }),
     });
 
     expect(result).toEqual({ action: "approve", source: "poller", approvalId: "appr-1" });
     expect(fakePoller.waitForApproval).toHaveBeenCalledTimes(1);
+    // Confirm the poller saw the values from handlerEvent (the single source of truth).
+    expect(fakePoller.waitForApproval).toHaveBeenCalledWith(expect.anything(), "r1", "deny");
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  test("handlerEvent is the single source of truth — poller receives its decisionEvent", async () => {
+    // Pre-fix, resolveApproval took ruleId / onTimeout / policyDecisionEvent
+    // as parallel parameters alongside handlerEvent, which let adapters
+    // accidentally pass mismatched values. Post-fix, those three values
+    // are derived from handlerEvent exclusively. Lock that in.
+    const ownDecisionEvent = { _marker: "owned-by-handler-event" } as unknown as TraceEvent;
+    const pollerOutcome: ApprovalOutcome = { action: "approve", approvalId: "appr-derived" };
+    const seen: { event: unknown; ruleId: unknown; onTimeout: unknown } = {
+      event: null,
+      ruleId: null,
+      onTimeout: null,
+    };
+    const fakePoller = {
+      waitForApproval: vi.fn(
+        async (event: TraceEvent, ruleId: string, onTimeout: "allow" | "deny" | undefined) => {
+          seen.event = event;
+          seen.ruleId = ruleId;
+          seen.onTimeout = onTimeout;
+          return pollerOutcome;
+        },
+      ),
+    } as unknown as ApprovalPoller;
+
+    await resolveApproval({
+      poller: fakePoller,
+      handler: null,
+      handlerEvent: makeHandlerEvent({
+        ruleId: "rule-from-event",
+        onTimeout: "allow",
+        decisionEvent: ownDecisionEvent,
+      }),
+    });
+
+    expect(seen.event).toBe(ownDecisionEvent);
+    expect(seen.ruleId).toBe("rule-from-event");
+    expect(seen.onTimeout).toBe("allow");
   });
 
   test("poller soft-timeout (on_timeout=allow) returns approve_after_timeout, not approve", async () => {
@@ -345,10 +380,7 @@ describe("resolveApproval — routing precedence", () => {
     const result = await resolveApproval({
       poller: fakePoller,
       handler: null,
-      handlerEvent: makeHandlerEvent(),
-      policyDecisionEvent: STUB_TRACE_EVENT,
-      ruleId: "r-timeout",
-      onTimeout: "allow",
+      handlerEvent: makeHandlerEvent({ ruleId: "r-timeout", onTimeout: "allow" }),
     });
 
     expect(result).toEqual({
@@ -365,10 +397,7 @@ describe("resolveApproval — routing precedence", () => {
     const result = await resolveApproval({
       poller: null,
       handler,
-      handlerEvent: makeHandlerEvent({ ruleId: "r-local" }),
-      policyDecisionEvent: STUB_TRACE_EVENT,
-      ruleId: "r-local",
-      onTimeout: undefined,
+      handlerEvent: makeHandlerEvent({ ruleId: "r-local", onTimeout: undefined }),
     });
     expect(result).toEqual({ action: "approve", source: "handler" });
     expect(handler).toHaveBeenCalledTimes(1);
@@ -385,10 +414,7 @@ describe("resolveApproval — routing precedence", () => {
     const result = await resolveApproval({
       poller: null,
       handler,
-      handlerEvent: makeHandlerEvent(),
-      policyDecisionEvent: STUB_TRACE_EVENT,
-      ruleId: "r",
-      onTimeout: undefined,
+      handlerEvent: makeHandlerEvent({ ruleId: "r", onTimeout: undefined }),
     });
     expect(result.action).toBe("approve_with_redactions");
     if (result.action === "approve_with_redactions") {
@@ -408,10 +434,7 @@ describe("resolveApproval — routing precedence", () => {
       resolveApproval({
         poller: null,
         handler,
-        handlerEvent: makeHandlerEvent({ ruleId: "r-deny" }),
-        policyDecisionEvent: STUB_TRACE_EVENT,
-        ruleId: "r-deny",
-        onTimeout: undefined,
+        handlerEvent: makeHandlerEvent({ ruleId: "r-deny", onTimeout: undefined }),
       }),
     ).rejects.toMatchObject({
       name: "ApprovalDenied",
@@ -424,10 +447,7 @@ describe("resolveApproval — routing precedence", () => {
     const promise = resolveApproval({
       poller: null,
       handler: null,
-      handlerEvent: makeHandlerEvent({ ruleId: "r-no-transport" }),
-      policyDecisionEvent: STUB_TRACE_EVENT,
-      ruleId: "r-no-transport",
-      onTimeout: undefined,
+      handlerEvent: makeHandlerEvent({ ruleId: "r-no-transport", onTimeout: undefined }),
     });
     await expect(promise).rejects.toBeInstanceOf(ApprovalUnavailable);
     await expect(promise).rejects.toMatchObject({ ruleId: "r-no-transport" });

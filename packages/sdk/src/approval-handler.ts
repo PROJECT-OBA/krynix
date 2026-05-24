@@ -357,25 +357,25 @@ export function webhookApprovalHandler(opts: {
  *
  * @param params.poller - The hosted poller (or null in offline mode)
  * @param params.handler - The local handler (or null if not configured)
- * @param params.handlerEvent - Built by the adapter; passed to handler
- * @param params.policyDecisionEvent - The trace event; passed to poller
- * @param params.ruleId - Matched rule id
- * @param params.onTimeout - From the rule
+ * @param params.handlerEvent - Built by the adapter from the matched
+ *   rule + in-flight request. This is the **single source of truth** —
+ *   `ruleId`, `onTimeout`, and the underlying `policyDecisionEvent` are
+ *   all derived from it. Adapters build it once; both transports see
+ *   the same values. This shape was tightened in alpha.2 (post-#57
+ *   review) to remove a footgun where mismatched parallel parameters
+ *   could route the poller to one rule while the handler webhook
+ *   showed another.
  */
 export async function resolveApproval(params: {
   poller: ApprovalPoller | null;
   handler: ApprovalHandler | null;
   handlerEvent: ApprovalHandlerEvent;
-  policyDecisionEvent: TraceEvent;
-  ruleId: string;
-  onTimeout: "allow" | "deny" | undefined;
 }): Promise<ResolvedApproval> {
-  if (params.poller !== null) {
-    const outcome: ApprovalOutcome = await params.poller.waitForApproval(
-      params.policyDecisionEvent,
-      params.ruleId,
-      params.onTimeout,
-    );
+  const { poller, handler, handlerEvent } = params;
+  const { ruleId, onTimeout, decisionEvent } = handlerEvent;
+
+  if (poller !== null) {
+    const outcome: ApprovalOutcome = await poller.waitForApproval(decisionEvent, ruleId, onTimeout);
     if (outcome.action === "timeout") {
       return {
         action: "approve_after_timeout",
@@ -386,12 +386,12 @@ export async function resolveApproval(params: {
     return { action: "approve", source: "poller", approvalId: outcome.approvalId };
   }
 
-  if (params.handler !== null) {
-    const decision = await params.handler(params.handlerEvent);
+  if (handler !== null) {
+    const decision = await handler(handlerEvent);
     if (decision.action === "deny") {
       throw new ApprovalDenied(
         decision.reason ?? "approval denied by local handler",
-        params.ruleId,
+        ruleId,
         // approvalId is poller-specific; surface a synthetic id so the
         // ApprovalDenied error remains structurally usable.
         "<local-handler>",
@@ -410,9 +410,9 @@ export async function resolveApproval(params: {
   }
 
   throw new ApprovalUnavailable(
-    `Krynix: rule "${params.ruleId}" requires approval but no transport is configured. ` +
+    `Krynix: rule "${ruleId}" requires approval but no transport is configured. ` +
       `Set ingest.url + ingest.apiKey (hosted approval queue) or approvalHandler (local callback).`,
-    params.ruleId,
+    ruleId,
   );
 }
 
