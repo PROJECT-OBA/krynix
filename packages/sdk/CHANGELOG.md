@@ -22,7 +22,7 @@ Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (
 ### Backward compatibility
 
 - `warnings` is an additive optional field — adapters that ignore it continue to work as before.
-- Bracket-index path support is a strict superset of the alpha.1 grammar; no path that worked in alpha.1 stops working in alpha.2.
+- Path-grammar additions are a strict superset of the alpha.1 grammar; no path that worked in alpha.1 stops working in alpha.2. In particular, the bare-numeric dot segment (e.g. `foo.0.bar`) continues to resolve as a regular key lookup — for objects with numeric-string keys (`{ "0": ... }`) it descends into that property, and for arrays JavaScript's array-as-object semantics (`arr["0"] === arr[0]`) make it resolve to the array element. The new `[N]` bracket form is the canonical way to express "element N of an array."
 - `approvalHandler` is an additive optional `KrynixOptions` field; existing callers continue to work. The new `KrynixContext.approvalHandler` field is `null` when not configured — adapters that switch on `approvalPoller` alone keep working but lose the OSS-pathway story for `require-approval`.
 
 ## [0.1.0-alpha.1] - 2026-05-18

@@ -205,7 +205,7 @@ describe("applyRedactions — bracket-index path syntax (krynix#56)", () => {
     expect(applied).toEqual([]);
   });
 
-  test("dot-numeric form `messages.0.content` is equivalent to `messages[0].content`", () => {
+  test("dot-numeric form `messages.0.content` resolves array indices via JS array-as-object semantics", () => {
     const body = {
       messages: [{ content: "a@b.com" }, { content: "c@d.com" }],
     };
@@ -218,6 +218,22 @@ describe("applyRedactions — bracket-index path syntax (krynix#56)", () => {
     expect((dotForm.body as { messages: { content: string }[] }).messages[1]?.content).toBe(
       "c@d.com",
     );
+  });
+
+  test("dot-numeric form still works as a plain key for objects with numeric-string keys (alpha.1 compat)", () => {
+    // Pre-alpha.2 behavior: `.0.` was a regular key lookup. Some users
+    // had bodies like `{ foo: { "0": { bar: "secret" } } }` and the
+    // path `foo.0.bar` resolved into the "0" property. Alpha.2 must
+    // preserve this — bare-numeric segments are emitted as plain keys
+    // and `container["0"]` lookup works for both arrays and objects
+    // with stringified-number keys.
+    const body = { foo: { "0": { bar: "alice@example.com" } } };
+    const { body: out, applied } = applyRedactions(body, [
+      { path: "foo.0.bar", pattern: "[^\\s]+@[^\\s]+", replacement: "<EMAIL>" },
+    ]);
+    expect((out as { foo: { "0": { bar: string } } }).foo["0"].bar).toBe("<EMAIL>");
+    expect(applied).toHaveLength(1);
+    expect(applied[0]?.path).toBe("foo.0.bar");
   });
 
   test("leaf bracket-index on array of strings: `tags[0]`", () => {

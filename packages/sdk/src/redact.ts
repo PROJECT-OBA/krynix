@@ -108,15 +108,21 @@ export function applyRedactions(body: unknown, redactions: Redaction[]): Applied
  *   `foo[*].bar`       → bar on every element of obj.foo
  *   `foo[N]`           → element N of obj.foo (standard JSONPath bracket form)
  *   `foo[N].bar`       → bar on element N of obj.foo
- *   `foo.N.bar`        → element N of obj.foo, .bar (dot-with-numeric form;
- *                        useful when array indices alternate with object keys)
+ *   `foo.N.bar`        → property "N" of obj.foo, .bar — looked up as a
+ *                        regular key. For arrays this resolves to element
+ *                        N via JavaScript's array-as-object semantics
+ *                        (`arr["0"] === arr[0]`); for objects with
+ *                        numeric-string keys it resolves to that key.
  *
  * The `[N]` form was added in 0.1.0-alpha.2 (see krynix#56). Prior to
  * that, only the `[*]` wildcard worked in bracket form; `messages[0]`
  * was silently treated as a literal key `"messages[0]"` and the
- * traversal returned without applying any redaction. The `[N]` and
- * `.N.` forms are interchangeable; pick whichever matches the JSONPath
- * convention you copied your path from.
+ * traversal returned without applying any redaction.
+ *
+ * `[N]` is the canonical way to express "element N of an array."
+ * `.N.` works the same way against arrays AND continues to work as a
+ * regular key lookup for objects that happen to have numeric-string
+ * keys (alpha.1 behavior preserved).
  *
  * Each leaf write logs an entry into `applied[]`.
  */
@@ -139,26 +145,19 @@ type PathSegment =
 function parsePath(path: string): PathSegment[] {
   // Splits e.g. `foo[*].bar`, `messages[0].content`, `messages.0.content`
   // into a sequence of typed segments. Single-element paths like `foo`
-  // split into [{kind:key,key:foo}]. The `[N]` bracket form (added in
-  // alpha.2 for krynix#56) and the `.N.` dot-numeric form are equivalent.
+  // split into [{kind:key,key:foo}].
+  //
+  // Bare-numeric segments from the dot-form (e.g. the `0` in
+  // `messages.0.content`) are emitted as plain `kind: "key"` rather
+  // than `kind: "index"`. JavaScript's array-as-object semantics make
+  // `arr["0"] === arr[0]`, so this resolves to the array element when
+  // the current node is an array — AND continues to resolve to the
+  // string-keyed property when the current node is an object with a
+  // numeric-string key (alpha.1 behavior preserved). Treating the bare
+  // numeric as an index unconditionally would silently break the
+  // object-with-numeric-string-keys case (caught in PR #57 review).
   const out: PathSegment[] = [];
   for (const raw of path.split(".")) {
-    // Pure numeric segment from the dot-form `messages.0.content` → array
-    // index. Must come before the bracket regex below because the bracket
-    // regex requires a non-empty key prefix.
-    if (/^\d+$/.test(raw)) {
-      // A bare-number segment can't reference an object key on its own;
-      // it's an array index applied to whatever the previous segment
-      // resolved to. Encode as an index segment with an empty key — the
-      // visitor treats this as "descend into the current node at index N"
-      // by piggybacking on the previous segment's resolved value. We
-      // model this by emitting it as a special key-less index; visit()
-      // checks for key === "" and applies the index to the array it's
-      // currently pointed at.
-      out.push({ kind: "index", key: "", index: Number.parseInt(raw, 10) });
-      continue;
-    }
-
     // Key with optional bracket suffix: `foo`, `foo[*]`, or `foo[N]`.
     const m = /^([^[\]]+)(?:\[(?:(\*)|(\d+))\])?$/.exec(raw);
     if (!m) {
@@ -219,19 +218,17 @@ function visit(
     return;
   }
 
-  // Index (`foo[N]` with key, or bare-numeric `.N.` with empty key) —
-  // resolve to the specific array element. For interior segments, recurse
-  // into that element; for leaf segments, redact-and-write-back at that
-  // exact array slot.
+  // Index (`foo[N]`) — resolve to the specific array element. For
+  // interior segments, recurse into that element; for leaf segments,
+  // redact-and-write-back at that exact array slot. Bare-numeric
+  // segments from the dot-form (`messages.0.content`) take the
+  // plain-key path below instead and rely on `arr["0"] === arr[0]`
+  // — that's what keeps alpha.1 compat for objects with numeric-
+  // string keys.
   if (seg.kind === "index") {
-    const arr: unknown[] | null = (() => {
-      if (seg.key === "") {
-        return Array.isArray(node) ? (node as unknown[]) : null;
-      }
-      const container = node as Record<string, unknown>;
-      const v = container[seg.key];
-      return Array.isArray(v) ? (v as unknown[]) : null;
-    })();
+    const container = node as Record<string, unknown>;
+    const v = container[seg.key];
+    const arr: unknown[] | null = Array.isArray(v) ? (v as unknown[]) : null;
     if (arr === null) return;
     if (seg.index < 0 || seg.index >= arr.length) return;
 
