@@ -278,6 +278,24 @@ export function webhookApprovalHandler(opts: {
           body: `<unserialisable body: ${reason}>`,
         });
       }
+      // Helper: if the AbortController fired (or any thrown error is an
+      // abort), translate to a clear timeout error. Otherwise rethrow.
+      // The same logic covers both `fetch()` AND `res.text()` — the
+      // abort signal stays armed throughout the request lifecycle, and
+      // a timeout that fires while streaming the response body would
+      // otherwise leak through as a bare AbortError / DOMException.
+      const rethrowOrTimeout = (err: unknown): never => {
+        if (
+          controller.signal.aborted ||
+          (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError"))
+        ) {
+          throw new Error(
+            `webhookApprovalHandler: request to ${opts.url} timed out after ${timeoutMs}ms`,
+          );
+        }
+        throw err;
+      };
+
       let res: Response;
       try {
         res = await fetch(opts.url, {
@@ -290,18 +308,9 @@ export function webhookApprovalHandler(opts: {
           signal: controller.signal,
         });
       } catch (err) {
-        // Distinguish the abort-on-timeout case from a generic network
-        // failure so callers can react differently (retry vs. surface
-        // to the operator). Without this rethrow, the abort surfaces
-        // as a bare AbortError / DOMException with no timeout context.
-        if (
-          controller.signal.aborted ||
-          (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError"))
-        ) {
-          throw new Error(
-            `webhookApprovalHandler: request to ${opts.url} timed out after ${timeoutMs}ms`,
-          );
-        }
+        rethrowOrTimeout(err);
+        // rethrowOrTimeout always throws; the throw above is unreachable
+        // but TS doesn't know that. Make the control flow explicit.
         throw err;
       }
       if (!res.ok) {
@@ -309,7 +318,13 @@ export function webhookApprovalHandler(opts: {
           `webhookApprovalHandler: ${opts.url} returned HTTP ${res.status} ${res.statusText}`,
         );
       }
-      const text = await res.text();
+      let text: string;
+      try {
+        text = await res.text();
+      } catch (err) {
+        rethrowOrTimeout(err);
+        throw err;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(text);

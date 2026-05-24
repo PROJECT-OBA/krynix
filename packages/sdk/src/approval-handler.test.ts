@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import type { TraceEvent } from "@krynix/core";
 import type { Policy } from "@krynix/policy";
 import type { ApprovalOutcome, ApprovalPoller } from "./approval-poller.js";
-import { ApprovalDenied, ApprovalUnavailable } from "./errors.js";
+import { ApprovalUnavailable } from "./errors.js";
 import {
   denyAllApprovalHandler,
   resolveApproval,
@@ -498,8 +498,25 @@ function stubPolicy(): Policy {
   } as unknown as Policy;
 }
 
-// `ApprovalDenied` is also exported; this asserts the symbol exists at
-// runtime so consumers who instanceof it don't get a stale build.
-test("ApprovalDenied symbol is exported", () => {
-  expect(typeof ApprovalDenied).toBe("function");
+// The trio of approval-related typed errors is re-exported from the
+// package entrypoint (`index.ts`) — consumers use `instanceof
+// ApprovalDenied` etc. and rely on the public surface, not the
+// internal module path. Import from `./index.js` here so the test
+// fails if any of these symbols stop being re-exported. Using `as`
+// aliases to keep the rest of the file using the internal imports
+// for non-public test scaffolding.
+test("approval-related typed errors are exported from the package entrypoint", async () => {
+  const pkg = await import("./index.js");
+  // Each symbol must be a class function at the public surface so
+  // consumers can `instanceof` it. The identity vs the internal
+  // module is intentionally NOT asserted — vitest can load the same
+  // module via different specifier resolution paths in dev, which
+  // would produce distinct-but-equivalent class objects. The shape
+  // checks below are what consumers actually rely on.
+  expect(typeof pkg.ApprovalDenied).toBe("function");
+  expect(pkg.ApprovalDenied.name).toBe("ApprovalDenied");
+  expect(typeof pkg.ApprovalUnavailable).toBe("function");
+  expect(pkg.ApprovalUnavailable.name).toBe("ApprovalUnavailable");
+  expect(typeof pkg.ApprovalTimeout).toBe("function");
+  expect(pkg.ApprovalTimeout.name).toBe("ApprovalTimeout");
 });
