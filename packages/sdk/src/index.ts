@@ -13,14 +13,31 @@ export type {
   RedactionMode,
 } from "./types.js";
 
-export { ApprovalDenied, ApprovalTimeout, KrynixSdkError, PolicyDenied } from "./errors.js";
+export {
+  ApprovalDenied,
+  ApprovalTimeout,
+  ApprovalUnavailable,
+  KrynixSdkError,
+  PolicyDenied,
+} from "./errors.js";
+
+export {
+  cliPromptApprovalHandler,
+  denyAllApprovalHandler,
+  resolveApproval,
+  webhookApprovalHandler,
+  type ApprovalDecision,
+  type ApprovalHandler,
+  type ApprovalHandlerEvent,
+  type ResolvedApproval,
+} from "./approval-handler.js";
 
 // Pipeline + collaborators are exported for advanced adapter authors
 // who want to compose them differently (e.g. a third-party adapter
 // for Cohere or Mistral). The shipped OpenAI / Anthropic / LangChain
 // adapters use these too.
 
-export { runPipeline, type PipelineOutcome } from "./verdict-pipeline.js";
+export { runPipeline, type PipelineOutcome, type PipelineWarning } from "./verdict-pipeline.js";
 
 export { applyRedactions, type AppliedRedactions } from "./redact.js";
 

@@ -1,5 +1,30 @@
 # Changelog — `@krynix/sdk`
 
+## [0.1.0-alpha.2] - 2026-05-23
+
+Closes a customer-trust-blocking silent-failure mode in the redaction pipeline (filed as [krynix#56](https://github.com/PROJECT-OBA/krynix/issues/56)) **and** introduces the OSS approval-handler callback so `require-approval` verdicts have a usable resolution path without a hosted ingest server. Continues to ship under the `@alpha` npm tag.
+
+### Fixed
+
+- **`applyRedactions` now accepts JSONPath bracket-index syntax** — `messages[0].content`, `messages[1].content`, `tags[0]` all resolve correctly. Previously only the wildcard form (`messages[*].content`) and the dot-numeric form (`messages.0.content`) worked; the bracket-index form silently no-op'd, and the verdict downgraded to `pass` with no warning. The bracket-index form is what the JSONPath spec uses and what users naturally reach for.
+- **`runPipeline` now surfaces `redaction_no_op` warnings on the `forward` outcome** when a `redact` rule matched but applied zero redactions. Three reasons are distinguished: `redaction_mode_off`, `no_directives`, and `path_or_pattern_no_match`. Adapters SHOULD log these — the pre-alpha.2 silent downgrade was caught only because an external validation script logged the outbound wire body. New `PipelineWarning` type exported from `@krynix/sdk`.
+
+### Added
+
+- New top-level export `PipelineWarning` (discriminated union, currently one variant: `redaction_no_op`).
+- New optional `warnings` field on the `forward` outcome variant of `PipelineOutcome`.
+- **OSS approval-handler callback (`approvalHandler` option on `KrynixOptions`).** Resolves `require-approval` verdicts in-process — no ingest server required. Three built-in handlers ship: `denyAllApprovalHandler`, `cliPromptApprovalHandler`, `webhookApprovalHandler`. Bring-your-own callbacks matching the `ApprovalHandler` type also work. Same wire shape as the hosted approval queue (`ApprovalDecision` = approve / approve_with_redactions / deny).
+- New `resolveApproval()` helper — single entry point adapters call to resolve a `require-approval` verdict. Routes between hosted `ApprovalPoller` and local `approvalHandler` with the right precedence (poller wins when both are configured) and throws `ApprovalUnavailable` when neither is configured. **`handlerEvent` is the single source of truth** for `ruleId`, `onTimeout`, and the underlying `policyDecisionEvent` — the helper derives all three from it rather than accepting parallel parameters, so adapters can't accidentally pass mismatched values that route the poller to one rule while the handler webhook shows another. Soft-block timeouts that resolve to `allow` are surfaced as a top-level `action: "approve_after_timeout"` variant so adapters never accidentally treat a timeout as a human approval. `webhookApprovalHandler` translates its internal abort-on-timeout into a clear `"...timed out after Nms"` error instead of leaking a bare `AbortError`.
+- New typed error `ApprovalUnavailable` — surfaced when a rule returns `require-approval` but the SDK has no transport configured. Lets adapter authors distinguish "infrastructure missing" from "human reviewer denied" (`ApprovalDenied`).
+- New public types: `ApprovalHandler`, `ApprovalHandlerEvent`, `ApprovalDecision`, `ResolvedApproval`.
+- `KrynixContext.approvalHandler: ApprovalHandler | null` — adapter authors can read this directly, but `resolveApproval()` is the recommended call site.
+
+### Backward compatibility
+
+- `warnings` is an additive optional field — adapters that ignore it continue to work as before.
+- Path-grammar additions are a strict superset of the alpha.1 grammar; no path that worked in alpha.1 stops working in alpha.2. In particular, the bare-numeric dot segment (e.g. `foo.0.bar`) continues to resolve as a regular key lookup — for objects with numeric-string keys (`{ "0": ... }`) it descends into that property, and for arrays JavaScript's array-as-object semantics (`arr["0"] === arr[0]`) make it resolve to the array element. The new `[N]` bracket form is the canonical way to express "element N of an array."
+- `approvalHandler` is an additive optional `KrynixOptions` field; existing callers continue to work. The new `KrynixContext.approvalHandler` field is `null` when not configured — adapters that switch on `approvalPoller` alone keep working but lose the OSS-pathway story for `require-approval`.
+
 ## [0.1.0-alpha.1] - 2026-05-18
 
 First release. Package skeleton for runtime policy enforcement against AI agents. Published under the `@alpha` npm tag.

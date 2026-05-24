@@ -11,6 +11,7 @@
  */
 
 import type { Policy } from "@krynix/policy";
+import type { ApprovalHandler } from "./approval-handler.js";
 
 /**
  * Mode for the require-approval polling path.
@@ -107,4 +108,17 @@ export interface KrynixOptions {
   redaction?: RedactionConfig;
   /** Approval-queue config. Default soft-block, 30 s timeout. */
   approval?: ApprovalConfig;
+  /**
+   * Local approval handler — the OSS counterpart to the hosted approval
+   * queue. Invoked when a `require-approval` verdict fires AND the SDK
+   * is in offline mode (no `ingest.url`). When both `ingest.url` and
+   * `approvalHandler` are configured, the hosted poller takes precedence
+   * (audit trail + multi-human review).
+   *
+   * Three built-in handlers ship with the package:
+   *   `denyAllApprovalHandler` / `cliPromptApprovalHandler` /
+   *   `webhookApprovalHandler`. Custom handlers matching the
+   *   `ApprovalHandler` type also work. Added in 0.1.0-alpha.2.
+   */
+  approvalHandler?: ApprovalHandler;
 }
