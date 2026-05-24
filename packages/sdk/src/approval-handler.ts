@@ -278,15 +278,32 @@ export function webhookApprovalHandler(opts: {
           body: `<unserialisable body: ${reason}>`,
         });
       }
-      const res = await fetch(opts.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(opts.headers ?? {}),
-        },
-        body: requestBody,
-        signal: controller.signal,
-      });
+      let res: Response;
+      try {
+        res = await fetch(opts.url, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(opts.headers ?? {}),
+          },
+          body: requestBody,
+          signal: controller.signal,
+        });
+      } catch (err) {
+        // Distinguish the abort-on-timeout case from a generic network
+        // failure so callers can react differently (retry vs. surface
+        // to the operator). Without this rethrow, the abort surfaces
+        // as a bare AbortError / DOMException with no timeout context.
+        if (
+          controller.signal.aborted ||
+          (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError"))
+        ) {
+          throw new Error(
+            `webhookApprovalHandler: request to ${opts.url} timed out after ${timeoutMs}ms`,
+          );
+        }
+        throw err;
+      }
       if (!res.ok) {
         throw new Error(
           `webhookApprovalHandler: ${opts.url} returned HTTP ${res.status} ${res.statusText}`,
@@ -322,7 +339,9 @@ export function webhookApprovalHandler(opts: {
  * review queue, which the local path doesn't.
  *
  * Return semantics (in all branches):
- * - resolves with `{ action: "approve" }` or
+ * - resolves with `{ action: "approve" }` (human or local handler
+ *   explicitly approved) or `{ action: "approve_after_timeout" }` (soft-
+ *   block timed out and the rule's `on_timeout` was `"allow"`) or
  *   `{ action: "approve_with_redactions", redactions }` → adapter
  *   forwards the call (applying redactions when present)
  * - throws `ApprovalDenied` → adapter propagates to the caller
@@ -330,6 +349,11 @@ export function webhookApprovalHandler(opts: {
  *   that resolved to deny
  * - throws `ApprovalUnavailable` → neither transport is configured;
  *   caller must configure one
+ *
+ * The `approve` vs `approve_after_timeout` split lets adapters tell the
+ * audit story honestly: a human approved the call vs the agent acted
+ * because of an `on_timeout: "allow"` policy default — both forward,
+ * but the trace record is different.
  *
  * @param params.poller - The hosted poller (or null in offline mode)
  * @param params.handler - The local handler (or null if not configured)
@@ -352,7 +376,14 @@ export async function resolveApproval(params: {
       params.ruleId,
       params.onTimeout,
     );
-    return { action: "approve", source: "poller", pollerOutcome: outcome };
+    if (outcome.action === "timeout") {
+      return {
+        action: "approve_after_timeout",
+        source: "poller",
+        approvalId: outcome.approvalId,
+      };
+    }
+    return { action: "approve", source: "poller", approvalId: outcome.approvalId };
   }
 
   if (params.handler !== null) {
@@ -387,15 +418,28 @@ export async function resolveApproval(params: {
 
 /**
  * Discriminated result from `resolveApproval`. Adapter authors switch on
- * `action`. The `source` tag tells the adapter which transport produced
- * the result (useful for logging and for the audit-trail event).
+ * `action`; the `source` tag tells the adapter which transport produced
+ * the result (useful for logging and the audit-trail event).
+ *
+ * Four variants:
+ *
+ * - `approve` from `poller` — a human approved the call via the lens UI.
+ *   The poller's `approvalId` is surfaced so adapters can correlate
+ *   their audit trail.
+ * - `approve_after_timeout` from `poller` — the soft-block timed out
+ *   and the rule's `on_timeout` was `"allow"`, so the call forwards but
+ *   no human acted. Adapters MUST treat this as distinct from `approve`
+ *   in their audit record — the human-review story changes.
+ *   (Deny-on-timeout is thrown as `ApprovalTimeout`, not returned here.)
+ * - `approve` from `handler` — the local `approvalHandler` returned
+ *   `{ action: "approve" }`. No `approvalId` since there is no ingest row.
+ * - `approve_with_redactions` from `handler` — the local
+ *   `approvalHandler` returned redaction overrides. Adapter applies them
+ *   to the request body before forwarding.
  */
 export type ResolvedApproval =
-  | {
-      action: "approve";
-      source: "poller";
-      pollerOutcome: ApprovalOutcome;
-    }
+  | { action: "approve"; source: "poller"; approvalId: string }
+  | { action: "approve_after_timeout"; source: "poller"; approvalId: string }
   | { action: "approve"; source: "handler" }
   | { action: "approve_with_redactions"; source: "handler"; redactions: Redaction[] };
 

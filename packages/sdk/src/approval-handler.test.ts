@@ -262,6 +262,30 @@ describe("webhookApprovalHandler", () => {
     expect(received).toContain("unserialisable body");
   });
 
+  test("timeout surfaces as a clear error mentioning timeoutMs (not a bare AbortError)", async () => {
+    // Simulate a fetch that never resolves so the AbortController fires.
+    // The handler MUST surface this as a clear timeout error rather than
+    // leaking the underlying AbortError / DOMException.
+    mockFetch((_url, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = (init as { signal?: AbortSignal } | undefined)?.signal;
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            const err = new Error("The operation was aborted.");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+      });
+    });
+
+    const handler = webhookApprovalHandler({
+      url: "https://example.test/hook",
+      timeoutMs: 25,
+    });
+    await expect(handler(makeHandlerEvent())).rejects.toThrow(/timed out after 25ms/);
+  });
+
   test("BigInt in `body` is serialised as a string instead of throwing", async () => {
     let received: string | null = null;
     mockFetch(async (_url, init) => {
@@ -298,14 +322,40 @@ describe("resolveApproval — routing precedence", () => {
       onTimeout: "deny",
     });
 
-    expect(result.action).toBe("approve");
-    if (result.action === "approve" && result.source === "poller") {
-      expect(result.pollerOutcome).toBe(pollerOutcome);
-    } else {
-      throw new Error("expected poller path");
-    }
+    expect(result).toEqual({ action: "approve", source: "poller", approvalId: "appr-1" });
     expect(fakePoller.waitForApproval).toHaveBeenCalledTimes(1);
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  test("poller soft-timeout (on_timeout=allow) returns approve_after_timeout, not approve", async () => {
+    // Critical distinction: a human did NOT approve. The agent forwards
+    // because the rule's on_timeout was "allow", but adapters need to
+    // record that no human acted. Pre-alpha.2 this collapsed silently to
+    // `action: "approve"` via the pollerOutcome inspection requirement —
+    // easy to miss.
+    const timeoutOutcome: ApprovalOutcome = {
+      action: "timeout",
+      approvalId: "appr-2",
+      onTimeout: "allow",
+    };
+    const fakePoller = {
+      waitForApproval: vi.fn(async () => timeoutOutcome),
+    } as unknown as ApprovalPoller;
+
+    const result = await resolveApproval({
+      poller: fakePoller,
+      handler: null,
+      handlerEvent: makeHandlerEvent(),
+      policyDecisionEvent: STUB_TRACE_EVENT,
+      ruleId: "r-timeout",
+      onTimeout: "allow",
+    });
+
+    expect(result).toEqual({
+      action: "approve_after_timeout",
+      source: "poller",
+      approvalId: "appr-2",
+    });
   });
 
   test("falls back to handler when poller is null", async () => {
