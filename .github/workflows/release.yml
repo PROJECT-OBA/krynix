@@ -62,14 +62,25 @@ jobs:
             LICENSE \
             NOTICE
 
-      - name: Publish packages to npm
-        # Trusted Publishing: no NPM_TOKEN required. The npm CLI fetches an
-        # OIDC token from GitHub Actions and exchanges it with npm for a
-        # short-lived publish credential. pnpm publish rewrites `workspace:*`
-        # references to the actual published version range — required for
-        # consumers to install packages like @krynix/cli that depend on
-        # other workspace packages.
-        run: pnpm -r publish --access public --no-git-checks --provenance
+      # Trusted Publishing: no NPM_TOKEN required. The npm CLI fetches an
+      # OIDC token from GitHub Actions and exchanges it with npm for a
+      # short-lived publish credential. pnpm publish rewrites `workspace:*`
+      # references to the actual published version range — required for
+      # consumers to install packages like @krynix/cli that depend on
+      # other workspace packages.
+      #
+      # Publishing is split into two steps so that @krynix/sdk lands on the
+      # @alpha dist-tag while the stable packages land on @latest. The
+      # recursive `pnpm -r publish` invocation does not honour the SDK's
+      # `publishConfig.tag = "alpha"` directive when paired with the npm
+      # Trusted-Publishing flow (observed on v0.2.3), so the tag is pinned
+      # explicitly on the SDK step. Both steps are no-ops when the version
+      # is already published, so re-running a release tag is safe.
+      - name: Publish stable packages to npm (@latest)
+        run: pnpm --filter '!@krynix/sdk' -r publish --access public --no-git-checks --provenance
+
+      - name: Publish @krynix/sdk to npm (@alpha)
+        run: pnpm --filter @krynix/sdk publish --tag alpha --access public --no-git-checks --provenance
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
